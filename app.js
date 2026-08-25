@@ -1,3 +1,14 @@
-// Full application restored in ordered parts to avoid truncation.
-// Load part 1 first; it loads parts 2 and 3 synchronously in sequence.
-document.write('<script src="app-part1.js"><\/script><script src="app-part2.js"><\/script><script src="app-part3.js"><\/script>');
+// Restored application loader. Full original logic is split only to avoid accidental truncation.
+(function(){
+  const files=['app-part1.js','app-part2.js','app-part3.js'];
+  let i=0;
+  function next(){
+    if(i>=files.length)return;
+    const s=document.createElement('script');
+    s.src=files[i++]+'?restore=20260825b';
+    s.onload=next;
+    s.onerror=function(){console.error('Failed loading restored store code:',s.src)};
+    document.head.appendChild(s);
+  }
+  next();
+})();
