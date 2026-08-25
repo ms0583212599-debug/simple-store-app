@@ -1,11 +1,11 @@
 // Restored application loader. Full original logic is split only to avoid accidental truncation.
 (function(){
-  const files=['app-part1.js','app-part2.js','app-part3.js'];
+  const files=['app-part1.js','app-part2.js','app-part3.js','sales-report.js'];
   let i=0;
   function next(){
     if(i>=files.length)return;
     const s=document.createElement('script');
-    s.src=files[i++]+'?restore=20260825b';
+    s.src=files[i++]+'?restore=20260825c';
     s.onload=next;
     s.onerror=function(){console.error('Failed loading restored store code:',s.src)};
     document.head.appendChild(s);
