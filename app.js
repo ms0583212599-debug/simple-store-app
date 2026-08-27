@@ -1,6 +1,6 @@
 // Fast application loader: core first, customer UI immediately, admin tools on demand.
 (function(){
-  const V='20260826-fast1';
+  const V='20260827-feedback1';
   const loaded=new Set();
   function script(file){
     if(loaded.has(file))return Promise.resolve();
@@ -14,27 +14,21 @@
     });
   }
   async function boot(){
-    // Core files have dependencies, so keep only these sequential.
     await script('app-part1.js');
     await script('app-part2.js');
     await script('app-part3.js');
     await script('performance.js');
-    // Customer-facing extras are independent and load together.
-    await Promise.all([script('announcements.js'),script('storefront-modern.js')]);
-    // If load already fired while dynamic scripts were arriving, initialize explicitly.
+    await Promise.all([script('announcements.js'),script('storefront-modern.js'),script('customer-feedback.js')]);
     if(document.readyState==='complete'){
       try{ensureAnnouncementAdmin?.();loadAnnouncements?.()}catch(e){}
       try{ensureStorefrontModernUI?.()}catch(e){}
+      try{ensureCustomerFeedback?.()}catch(e){}
     }
   }
   let adminExtrasPromise=null;
   window.loadAdminExtras=function(){
     if(adminExtrasPromise)return adminExtrasPromise;
-    adminExtrasPromise=Promise.all([
-      script('sales-report.js'),
-      script('purchase-import.js'),
-      script('purchase-edit-enhancements.js')
-    ]).then(()=>{
+    adminExtrasPromise=Promise.all([script('sales-report.js'),script('purchase-import.js'),script('purchase-edit-enhancements.js')]).then(()=>{
       if(document.readyState==='complete'){
         try{ensurePurchaseImportUI?.()}catch(e){}
         try{enhancePurchaseEditModal?.()}catch(e){}
