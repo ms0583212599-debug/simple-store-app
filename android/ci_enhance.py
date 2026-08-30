@@ -4,8 +4,8 @@ path = Path('android/app/src/main/java/com/simplestore/tablet/MainActivity.java'
 text = path.read_text(encoding='utf-8')
 
 marker = '        Button logout=button("יציאה מניהול",red,Color.WHITE);'
-button = '        Button update=button("בדוק עדכון אפליקציה",green,Color.WHITE);update.setOnClickListener(v->AppUpdater.checkForUpdate(this));LinearLayout.LayoutParams up=new LinearLayout.LayoutParams(-1,dp(60));up.setMargins(0,0,0,dp(12));content.addView(update,up);\n'
-if 'בדוק עדכון אפליקציה' not in text:
+button = '        Button update=button("בדוק עדכון אפליקציה •",green,Color.WHITE);update.setOnClickListener(v->AppUpdater.checkForUpdate(this));LinearLayout.LayoutParams up=new LinearLayout.LayoutParams(-1,dp(60));up.setMargins(0,0,0,dp(12));content.addView(update,up);\n'
+if 'בדוק עדכון אפליקציה •' not in text:
     if marker not in text: raise SystemExit('Admin update button marker not found')
     text = text.replace(marker, button + marker, 1)
 
@@ -52,7 +52,6 @@ if 'private void openImagePicker(String kind,String id)' not in text:
 '''
     text = text.replace(helper_marker, image_methods + helper_marker, 1)
 
-# Excel export through the existing server-side export function.
 if 'ייצוא Excel' not in text:
     reports_marker = '        String[] labels={"מוצרים וקטגוריות","מלאי","ספקים","רכישה חדשה","היסטוריית רכישות","דוחות"};'
     if reports_marker not in text: raise SystemExit('Admin labels marker not found')
@@ -64,7 +63,6 @@ if 'private void exportExcel()' not in text:
 '''
     text = text.replace(helper_marker, export_methods + helper_marker, 1)
 
-# Admin dashboard summary: product/category counts plus one-tap low-stock view.
 admin_shell = '        buildShell("ניהול",this::showHome,false);'
 if 'מוצרים במלאי נמוך' not in text:
     dashboard = '''        int lowCount=0,outCount=0;for(Product p:products){if(p.stock<=p.lowStock)lowCount++;if(p.stock<=0)outCount++;}
