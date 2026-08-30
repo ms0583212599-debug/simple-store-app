@@ -10,7 +10,7 @@ android {
         applicationId 'com.simplestore.tablet'
         minSdk 23
         targetSdk 35
-        versionCode (project.findProperty('versionCode') ?: '1') as Integer
-        versionName (project.findProperty('versionName') ?: '1.0')
+        versionCode = Integer.parseInt((project.findProperty('versionCode') ?: '1').toString())
+        versionName = (project.findProperty('versionName') ?: '1.0').toString()
     }
 }
