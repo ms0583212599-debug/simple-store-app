@@ -7,6 +7,9 @@ on:
       - '.github/workflows/build-android-apk.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -52,6 +55,21 @@ jobs:
             -validity 10000 \
             -dname "CN=Simple Store Tablet,O=Simple Store,C=IL"
 
+      - name: Add in-app update button
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('android/app/src/main/java/com/simplestore/tablet/MainActivity.java')
+          text = path.read_text(encoding='utf-8')
+          marker = '        Button logout=button("יציאה מניהול",red,Color.WHITE);'
+          button = '        Button update=button("בדוק עדכון אפליקציה",green,Color.WHITE);update.setOnClickListener(v->AppUpdater.checkForUpdate(this));LinearLayout.LayoutParams up=new LinearLayout.LayoutParams(-1,dp(60));up.setMargins(0,0,0,dp(12));content.addView(update,up);\n'
+          if 'בדוק עדכון אפליקציה' not in text:
+              if marker not in text:
+                  raise SystemExit('Admin update button marker not found')
+              text = text.replace(marker, button + marker, 1)
+              path.write_text(text, encoding='utf-8')
+          PY
+
       - name: Build debug APK
         working-directory: android
         run: gradle assembleDebug -PversionCode=${{ github.run_number }} -PversionName=1.0.${{ github.run_number }}
@@ -62,3 +80,28 @@ jobs:
           name: simple-store-tablet-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      - name: Publish in-app update
+        run: |
+          mkdir -p updates
+          cp android/app/build/outputs/apk/debug/app-debug.apk updates/simple-store-tablet.apk
+          python3 - <<'PY'
+          import json, os
+          data = {
+              'versionCode': int(os.environ['GITHUB_RUN_NUMBER']),
+              'versionName': '1.0.' + os.environ['GITHUB_RUN_NUMBER'],
+              'apkUrl': 'https://raw.githubusercontent.com/ms0583212599-debug/simple-store-app/main/updates/simple-store-tablet.apk'
+          }
+          with open('updates/version.json', 'w', encoding='utf-8') as f:
+              json.dump(data, f, ensure_ascii=False, separators=(',', ':'))
+              f.write('\n')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add updates/simple-store-tablet.apk updates/version.json
+          if git diff --cached --quiet; then
+            echo "No update files changed"
+            exit 0
+          fi
+          git commit -m "Publish Android update ${GITHUB_RUN_NUMBER}"
+          git push
