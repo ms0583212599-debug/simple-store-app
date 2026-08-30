@@ -11,10 +11,12 @@ if 'בדוק עדכון אפליקציה' not in text:
 
 old_cat = '        for(Category c:categories){LinearLayout row=card();row.setOrientation(LinearLayout.HORIZONTAL);row.setGravity(Gravity.CENTER_VERTICAL);TextView t=text(c.name+"   "+("custom".equals(c.imageMode)?"תמונה מותאמת":"תמונות אוטומטיות"),18,true);row.addView(t,new LinearLayout.LayoutParams(0,dp(64),1));Button e=button("עריכה",blue,Color.WHITE);e.setOnClickListener(v->categoryDialog(c));row.addView(e,new LinearLayout.LayoutParams(dp(110),dp(52)));content.addView(row);}'
 new_cat = '        for(Category c:categories){LinearLayout row=card();row.setOrientation(LinearLayout.HORIZONTAL);row.setGravity(Gravity.CENTER_VERTICAL);int pc=0;for(Product p:products)if(p.categoryId.equals(c.id))pc++;TextView t=text(c.name+"   ("+pc+" מוצרים)",18,true);row.addView(t,new LinearLayout.LayoutParams(0,dp(64),1));Button upc=button("↑",Color.rgb(237,241,247),blue);upc.setOnClickListener(v->moveCategory(c,-1));row.addView(upc,new LinearLayout.LayoutParams(dp(58),dp(52)));Button dnc=button("↓",Color.rgb(237,241,247),blue);dnc.setOnClickListener(v->moveCategory(c,1));row.addView(dnc,new LinearLayout.LayoutParams(dp(58),dp(52)));Button e=button("עריכה",blue,Color.WHITE);e.setOnClickListener(v->categoryDialog(c));row.addView(e,new LinearLayout.LayoutParams(dp(110),dp(52)));content.addView(row);}'
-if old_cat in text: text = text.replace(old_cat, new_cat, 1)
+if old_cat in text:
+    text = text.replace(old_cat, new_cat, 1)
 old_prod = '                Button e=button("עריכה",blue,Color.WHITE);e.setOnClickListener(v->productDialog(p));row.addView(e,new LinearLayout.LayoutParams(dp(110),dp(52)));content.addView(row);'
 new_prod = '                Button upp=button("↑",Color.rgb(237,241,247),blue);upp.setOnClickListener(v->moveProduct(p,-1));row.addView(upp,new LinearLayout.LayoutParams(dp(56),dp(52)));Button dnp=button("↓",Color.rgb(237,241,247),blue);dnp.setOnClickListener(v->moveProduct(p,1));row.addView(dnp,new LinearLayout.LayoutParams(dp(56),dp(52)));Button e=button("עריכה",blue,Color.WHITE);e.setOnClickListener(v->productDialog(p));row.addView(e,new LinearLayout.LayoutParams(dp(110),dp(52)));content.addView(row);'
-if old_prod in text: text = text.replace(old_prod, new_prod, 1)
+if old_prod in text:
+    text = text.replace(old_prod, new_prod, 1)
 
 helper_marker = '    private void showStockAdmin(){'
 helpers = '''    private void moveCategory(Category c,int d){int i=categories.indexOf(c),j=i+d;if(i<0||j<0||j>=categories.size())return;Category o=categories.get(j);int a=c.sortOrder,b=o.sortOrder;if(a==b){a=i+1;b=j+1;}final int ca=b,ob=a;io.execute(()->{try{JSONObject x=new JSONObject();x.put("sort_order",ca);requestRaw("PATCH","/rest/v1/categories?id=eq."+url(c.id),x,true);JSONObject y=new JSONObject();y.put("sort_order",ob);requestRaw("PATCH","/rest/v1/categories?id=eq."+url(o.id),y,true);loadData(this::showCategoriesAdmin);}catch(Exception e){main.post(()->Toast.makeText(this,"שינוי סדר קטגוריות נכשל",Toast.LENGTH_LONG).show());}});}
@@ -61,5 +63,22 @@ if 'private void exportExcel()' not in text:
 
 '''
     text = text.replace(helper_marker, export_methods + helper_marker, 1)
+
+# Admin dashboard summary: product/category counts plus one-tap low-stock view.
+admin_shell = '        buildShell("ניהול",this::showHome,false);'
+if 'מוצרים במלאי נמוך' not in text:
+    dashboard = '''        int lowCount=0,outCount=0;for(Product p:products){if(p.stock<=p.lowStock)lowCount++;if(p.stock<=0)outCount++;}
+        LinearLayout summary=card();summary.setPadding(dp(16),dp(14),dp(16),dp(14));
+        TextView summaryText=text("מוצרים: "+products.size()+"   |   קטגוריות: "+categories.size()+"   |   מלאי נמוך: "+lowCount+"   |   אזל: "+outCount,18,true);summaryText.setGravity(Gravity.CENTER);summary.addView(summaryText,new LinearLayout.LayoutParams(-1,dp(48)));content.addView(summary);
+        if(lowCount>0){Button low=button("מוצרים במלאי נמוך ("+lowCount+")",Color.WHITE,red);low.setOnClickListener(v->showLowStockAdmin());LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(58));lp.setMargins(0,0,0,dp(12));content.addView(low,lp);}
+'''
+    if admin_shell not in text: raise SystemExit('Admin shell marker not found')
+    text = text.replace(admin_shell, admin_shell + '\n' + dashboard, 1)
+
+if 'private void showLowStockAdmin()' not in text:
+    low_methods = '''    private void showLowStockAdmin(){buildShell("מלאי נמוך",this::showAdminHome,false);int count=0;for(Product p:products){if(p.stock>p.lowStock)continue;count++;LinearLayout row=card();row.setOrientation(LinearLayout.HORIZONTAL);row.setGravity(Gravity.CENTER_VERTICAL);TextView t=text(p.name+"   מלאי: "+p.stock+"   סף: "+p.lowStock,18,true);if(p.stock<=0)t.setTextColor(red);row.addView(t,new LinearLayout.LayoutParams(0,dp(64),1));Button adjust=button("עדכון",blue,Color.WHITE);adjust.setOnClickListener(v->stockDialog(p));row.addView(adjust,new LinearLayout.LayoutParams(dp(110),dp(52)));content.addView(row);}if(count==0){TextView ok=text("אין מוצרים במלאי נמוך",22,true);ok.setGravity(Gravity.CENTER);ok.setPadding(0,dp(50),0,0);content.addView(ok);}}
+
+'''
+    text = text.replace(helper_marker, low_methods + helper_marker, 1)
 
 path.write_text(text, encoding='utf-8')
