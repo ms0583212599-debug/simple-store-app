@@ -3,6 +3,7 @@ package com.simplestore.tablet;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -14,9 +15,11 @@ import androidx.core.content.FileProvider;
 import org.json.JSONObject;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -34,11 +37,12 @@ public final class AppUpdater {
         IO.execute(() -> {
             try {
                 JSONObject info = new JSONObject(readText(VERSION_URL));
-                int remoteCode = info.optInt("versionCode", 0);
+                long remoteCode = info.optLong("versionCode", 0);
+                long localCode = currentVersionCode(activity);
                 String remoteName = info.optString("versionName", "");
                 String apkUrl = info.optString("apkUrl", "");
                 activity.runOnUiThread(() -> {
-                    if (remoteCode <= BuildConfig.VERSION_CODE) {
+                    if (remoteCode <= localCode) {
                         Toast.makeText(activity, "האפליקציה מעודכנת לגרסה האחרונה", Toast.LENGTH_LONG).show();
                         return;
                     }
@@ -53,6 +57,12 @@ public final class AppUpdater {
                 activity.runOnUiThread(() -> Toast.makeText(activity, "לא ניתן לבדוק עדכון כרגע", Toast.LENGTH_LONG).show());
             }
         });
+    }
+
+    private static long currentVersionCode(Activity activity) throws Exception {
+        PackageInfo info = activity.getPackageManager().getPackageInfo(activity.getPackageName(), 0);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return info.getLongVersionCode();
+        return info.versionCode;
     }
 
     private static void downloadAndInstall(Activity activity, String apkUrl) {
@@ -96,9 +106,11 @@ public final class AppUpdater {
         c.setUseCaches(false);
         int code = c.getResponseCode();
         if (code < 200 || code >= 300) throw new Exception("HTTP " + code);
-        try (InputStream in = c.getInputStream()) {
-            byte[] bytes = in.readAllBytes();
-            return new String(bytes, StandardCharsets.UTF_8);
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(c.getInputStream(), StandardCharsets.UTF_8))) {
+            StringBuilder text = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) text.append(line);
+            return text.toString();
         } finally {
             c.disconnect();
         }
