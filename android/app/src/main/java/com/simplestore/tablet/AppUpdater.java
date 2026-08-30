@@ -29,9 +29,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class AppUpdater {
+    private static final String UPDATE_PROXY = "https://ksddrcalmszxxcuxoznd.supabase.co/functions/v1/android-update-proxy";
     private static final String[] VERSION_URLS = new String[] {
-            "https://simple-store-app-ms0583212599-1490s-projects.vercel.app/updates/version.json",
-            "https://raw.githubusercontent.com/ms0583212599-debug/simple-store-app/main/updates/version.json"
+            UPDATE_PROXY + "?file=version",
+            "https://raw.githubusercontent.com/ms0583212599-debug/simple-store-app/main/updates/version.json",
+            "https://simple-store-app-ms0583212599-1490s-projects.vercel.app/updates/version.json"
     };
     private static final ExecutorService IO = Executors.newSingleThreadExecutor();
 
@@ -46,7 +48,7 @@ public final class AppUpdater {
                 long localCode = currentVersionCode(activity);
                 String remoteName = info.optString("versionName", "");
                 String apkUrl = info.optString("apkUrl", "");
-                String apkUrlFallback = info.optString("apkUrlFallback", "");
+                String apkUrlFallback = info.optString("apkUrlFallback", UPDATE_PROXY + "?file=apk");
                 activity.runOnUiThread(() -> {
                     if (remoteCode <= localCode) {
                         Toast.makeText(activity, "האפליקציה מעודכנת. מותקן: " + localCode + " | זמין: " + remoteCode, Toast.LENGTH_LONG).show();
@@ -70,7 +72,11 @@ public final class AppUpdater {
         for (String baseUrl : VERSION_URLS) {
             try {
                 String sep = baseUrl.contains("?") ? "&" : "?";
-                return new JSONObject(readText(baseUrl + sep + "t=" + System.currentTimeMillis()));
+                JSONObject info = new JSONObject(readText(baseUrl + sep + "t=" + System.currentTimeMillis()));
+                if (baseUrl.contains("raw.githubusercontent.com") || baseUrl.contains("vercel.app")) {
+                    info.put("apkUrlFallback", UPDATE_PROXY + "?file=apk&v=" + info.optLong("versionCode", 0));
+                }
+                return info;
             } catch (Exception e) {
                 last = e;
             }
@@ -85,7 +91,7 @@ public final class AppUpdater {
     }
 
     private static void downloadAndInstall(Activity activity, String apkUrl, String apkUrlFallback) {
-        if (apkUrl == null || apkUrl.isEmpty()) {
+        if ((apkUrl == null || apkUrl.isEmpty()) && (apkUrlFallback == null || apkUrlFallback.isEmpty())) {
             Toast.makeText(activity, "כתובת העדכון אינה תקינה", Toast.LENGTH_LONG).show();
             return;
         }
@@ -102,10 +108,12 @@ public final class AppUpdater {
                 if (dir == null) throw new Exception("no download dir");
                 if (!dir.exists() && !dir.mkdirs()) throw new Exception("cannot create dir");
                 File apk = new File(dir, "simple-store-update.apk");
-                try {
-                    download(apkUrl, apk);
-                } catch (Exception first) {
-                    if (apkUrlFallback == null || apkUrlFallback.isEmpty()) throw first;
+                Exception firstError = null;
+                if (apkUrl != null && !apkUrl.isEmpty()) {
+                    try { download(apkUrl, apk); } catch (Exception first) { firstError = first; }
+                }
+                if (apk.length() < 20000) {
+                    if (apkUrlFallback == null || apkUrlFallback.isEmpty()) throw firstError != null ? firstError : new Exception("no working update url");
                     download(apkUrlFallback, apk);
                 }
                 installWithPackageInstaller(activity, apk);
@@ -119,65 +127,26 @@ public final class AppUpdater {
         PackageInstaller installer = activity.getPackageManager().getPackageInstaller();
         PackageInstaller.SessionParams params = new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
         params.setAppPackageName(activity.getPackageName());
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED);
-        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED);
         int sessionId = installer.createSession(params);
         PackageInstaller.Session session = installer.openSession(sessionId);
-        try (InputStream in = new FileInputStream(apk);
-             OutputStream out = session.openWrite("base.apk", 0, apk.length())) {
-            byte[] buffer = new byte[16384];
-            int n;
-            while ((n = in.read(buffer)) != -1) out.write(buffer, 0, n);
-            session.fsync(out);
+        try (InputStream in = new FileInputStream(apk); OutputStream out = session.openWrite("base.apk", 0, apk.length())) {
+            byte[] buffer = new byte[16384]; int n; while ((n = in.read(buffer)) != -1) out.write(buffer, 0, n); session.fsync(out);
         }
-        Intent resultIntent = new Intent(activity, AppInstallReceiver.class);
-        resultIntent.setAction("com.simplestore.tablet.INSTALL_STATUS");
-        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) flags |= PendingIntent.FLAG_MUTABLE;
-        PendingIntent pending = PendingIntent.getBroadcast(activity, sessionId, resultIntent, flags);
-        session.commit(pending.getIntentSender());
-        session.close();
+        Intent resultIntent = new Intent(activity, AppInstallReceiver.class); resultIntent.setAction("com.simplestore.tablet.INSTALL_STATUS");
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT; if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) flags |= PendingIntent.FLAG_MUTABLE;
+        PendingIntent pending = PendingIntent.getBroadcast(activity, sessionId, resultIntent, flags); session.commit(pending.getIntentSender()); session.close();
     }
 
     private static String readText(String url) throws Exception {
-        HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
-        c.setConnectTimeout(15000);
-        c.setReadTimeout(15000);
-        c.setUseCaches(false);
-        c.setRequestProperty("Cache-Control", "no-cache, no-store, max-age=0");
-        c.setRequestProperty("Pragma", "no-cache");
-        int code = c.getResponseCode();
-        if (code < 200 || code >= 300) throw new Exception("HTTP " + code);
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(c.getInputStream(), StandardCharsets.UTF_8))) {
-            StringBuilder text = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) text.append(line);
-            return text.toString();
-        } finally {
-            c.disconnect();
-        }
+        HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection(); c.setConnectTimeout(15000); c.setReadTimeout(15000); c.setUseCaches(false); c.setRequestProperty("Cache-Control", "no-cache, no-store, max-age=0"); c.setRequestProperty("Pragma", "no-cache");
+        int code = c.getResponseCode(); if (code < 200 || code >= 300) throw new Exception("HTTP " + code);
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(c.getInputStream(), StandardCharsets.UTF_8))) { StringBuilder text = new StringBuilder(); String line; while ((line = reader.readLine()) != null) text.append(line); return text.toString(); } finally { c.disconnect(); }
     }
 
     private static void download(String url, File out) throws Exception {
-        HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
-        c.setConnectTimeout(20000);
-        c.setReadTimeout(60000);
-        c.setUseCaches(false);
-        c.setInstanceFollowRedirects(true);
-        int code = c.getResponseCode();
-        if (code < 200 || code >= 300) throw new Exception("HTTP " + code);
-        String type = c.getContentType();
-        if (type != null && type.toLowerCase().contains("text/html")) throw new Exception("received html instead of apk");
-        try (BufferedInputStream in = new BufferedInputStream(c.getInputStream());
-             FileOutputStream fos = new FileOutputStream(out, false)) {
-            byte[] buffer = new byte[16384];
-            int n;
-            while ((n = in.read(buffer)) != -1) fos.write(buffer, 0, n);
-            fos.flush();
-        } finally {
-            c.disconnect();
-        }
+        HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection(); c.setConnectTimeout(20000); c.setReadTimeout(60000); c.setUseCaches(false); c.setInstanceFollowRedirects(true); int code = c.getResponseCode(); if (code < 200 || code >= 300) throw new Exception("HTTP " + code); String type = c.getContentType(); if (type != null && type.toLowerCase().contains("text/html")) throw new Exception("received html instead of apk");
+        try (BufferedInputStream in = new BufferedInputStream(c.getInputStream()); FileOutputStream fos = new FileOutputStream(out, false)) { byte[] buffer = new byte[16384]; int n; while ((n = in.read(buffer)) != -1) fos.write(buffer, 0, n); fos.flush(); } finally { c.disconnect(); }
         if (out.length() < 20000) throw new Exception("download too small");
     }
 }
