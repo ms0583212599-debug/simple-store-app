@@ -31,6 +31,27 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
+      - name: Restore stable Android signing key
+        id: signing-key-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: simple-store-android-signing-key-v1
+
+      - name: Create signing key once
+        if: steps.signing-key-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/.android
+          keytool -genkeypair -v \
+            -keystore ~/.android/debug.keystore \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Simple Store Tablet,O=Simple Store,C=IL"
+
       - name: Build debug APK
         working-directory: android
         run: gradle assembleDebug
