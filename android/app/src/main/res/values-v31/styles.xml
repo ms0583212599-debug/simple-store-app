@@ -3,6 +3,5 @@
         <item name="android:windowSplashScreenBackground">#F6F8FC</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/app_icon</item>
         <item name="android:windowSplashScreenIconBackgroundColor">#FFFFFF</item>
-        <item name="postSplashScreenTheme">@style/AppThemeBase</item>
     </style>
 </resources>
