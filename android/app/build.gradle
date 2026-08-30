@@ -6,12 +6,27 @@ android {
     namespace 'com.simplestore.tablet'
     compileSdk 35
 
+    signingConfigs {
+        debug {
+            storeFile = new File(System.getProperty('user.home'), '.android/debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+
     defaultConfig {
         applicationId 'com.simplestore.tablet'
         minSdk 23
         targetSdk 35
         versionCode = Integer.parseInt((project.findProperty('versionCode') ?: '1').toString())
         versionName = (project.findProperty('versionName') ?: '1.0').toString()
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
     }
 }
 
