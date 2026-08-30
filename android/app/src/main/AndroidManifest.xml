@@ -4,6 +4,8 @@
     <application
         android:allowBackup="false"
         android:label="מערכת מכירה"
+        android:icon="@drawable/app_icon"
+        android:roundIcon="@drawable/app_icon"
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="false"
         android:networkSecurityConfig="@xml/network_security_config">
