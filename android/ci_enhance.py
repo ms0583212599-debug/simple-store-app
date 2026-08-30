@@ -4,8 +4,8 @@ path = Path('android/app/src/main/java/com/simplestore/tablet/MainActivity.java'
 text = path.read_text(encoding='utf-8')
 
 marker = '        Button logout=button("יציאה מניהול",red,Color.WHITE);'
-button = '        Button update=button("בדוק עדכון אפליקציה •",green,Color.WHITE);update.setOnClickListener(v->AppUpdater.checkForUpdate(this));LinearLayout.LayoutParams up=new LinearLayout.LayoutParams(-1,dp(60));up.setMargins(0,0,0,dp(12));content.addView(update,up);\n'
-if 'בדוק עדכון אפליקציה •' not in text:
+button = '        Button update=button("בדוק עדכון אפליקציה ••",green,Color.WHITE);update.setOnClickListener(v->AppUpdater.checkForUpdate(this));LinearLayout.LayoutParams up=new LinearLayout.LayoutParams(-1,dp(60));up.setMargins(0,0,0,dp(12));content.addView(update,up);\n'
+if 'בדוק עדכון אפליקציה ••' not in text:
     if marker not in text: raise SystemExit('Admin update button marker not found')
     text = text.replace(marker, button + marker, 1)
 
