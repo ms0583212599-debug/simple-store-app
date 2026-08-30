@@ -75,7 +75,7 @@ jobs:
           cp android/app/build/outputs/apk/debug/app-debug.apk updates/simple-store-tablet.apk
           python3 - <<'PY'
           import json, os
-          data = {'versionCode': int(os.environ['GITHUB_RUN_NUMBER']), 'versionName': '1.0.' + os.environ['GITHUB_RUN_NUMBER'], 'apkUrl': 'https://raw.githubusercontent.com/ms0583212599-debug/simple-store-app/main/updates/simple-store-tablet.apk'}
+          data = {'versionCode': int(os.environ['GITHUB_RUN_NUMBER']), 'versionName': '1.0.' + os.environ['GITHUB_RUN_NUMBER'], 'apkUrl': 'https://simple-store-app-ms0583212599-1490s-projects.vercel.app/updates/simple-store-tablet.apk'}
           with open('updates/version.json', 'w', encoding='utf-8') as f:
               json.dump(data, f, ensure_ascii=False, separators=(',', ':'))
               f.write('\n')
