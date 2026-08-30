@@ -29,7 +29,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class AppUpdater {
-    private static final String VERSION_URL = "https://raw.githubusercontent.com/ms0583212599-debug/simple-store-app/main/updates/version.json";
+    private static final String VERSION_URL = "https://simple-store-app-ms0583212599-1490s-projects.vercel.app/updates/version.json";
     private static final ExecutorService IO = Executors.newSingleThreadExecutor();
 
     private AppUpdater() {}
@@ -97,6 +97,9 @@ public final class AppUpdater {
         PackageInstaller installer = activity.getPackageManager().getPackageInstaller();
         PackageInstaller.SessionParams params = new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
         params.setAppPackageName(activity.getPackageName());
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED);
+        }
         int sessionId = installer.createSession(params);
         PackageInstaller.Session session = installer.openSession(sessionId);
         try (InputStream in = new FileInputStream(apk);
@@ -140,6 +143,8 @@ public final class AppUpdater {
         c.setInstanceFollowRedirects(true);
         int code = c.getResponseCode();
         if (code < 200 || code >= 300) throw new Exception("HTTP " + code);
+        String type = c.getContentType();
+        if (type != null && type.toLowerCase().contains("text/html")) throw new Exception("received html instead of apk");
         try (BufferedInputStream in = new BufferedInputStream(c.getInputStream());
              FileOutputStream fos = new FileOutputStream(out, false)) {
             byte[] buffer = new byte[16384];
@@ -149,5 +154,6 @@ public final class AppUpdater {
         } finally {
             c.disconnect();
         }
+        if (out.length() < 20000) throw new Exception("download too small");
     }
 }
