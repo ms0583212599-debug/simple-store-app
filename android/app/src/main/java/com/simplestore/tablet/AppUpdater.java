@@ -2,24 +2,26 @@ package com.simplestore.tablet;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
+import android.content.pm.PackageInstaller;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.provider.Settings;
 import android.widget.Toast;
 
-import androidx.core.content.FileProvider;
-
 import org.json.JSONObject;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -70,6 +72,12 @@ public final class AppUpdater {
             Toast.makeText(activity, "כתובת העדכון אינה תקינה", Toast.LENGTH_LONG).show();
             return;
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.getPackageManager().canRequestPackageInstalls()) {
+            Toast.makeText(activity, "יש לאשר פעם אחת התקנת אפליקציות ממקור זה, ואז לחזור וללחוץ שוב על עדכון", Toast.LENGTH_LONG).show();
+            Intent settings = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + activity.getPackageName()));
+            activity.startActivity(settings);
+            return;
+        }
         Toast.makeText(activity, "מוריד את העדכון...", Toast.LENGTH_LONG).show();
         IO.execute(() -> {
             try {
@@ -78,25 +86,33 @@ public final class AppUpdater {
                 if (!dir.exists() && !dir.mkdirs()) throw new Exception("cannot create dir");
                 File apk = new File(dir, "simple-store-update.apk");
                 download(apkUrl, apk);
-                activity.runOnUiThread(() -> install(activity, apk));
+                installWithPackageInstaller(activity, apk);
             } catch (Exception e) {
-                activity.runOnUiThread(() -> Toast.makeText(activity, "הורדת העדכון נכשלה", Toast.LENGTH_LONG).show());
+                activity.runOnUiThread(() -> Toast.makeText(activity, "הורדת או התקנת העדכון נכשלה", Toast.LENGTH_LONG).show());
             }
         });
     }
 
-    private static void install(Activity activity, File apk) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.getPackageManager().canRequestPackageInstalls()) {
-            Toast.makeText(activity, "יש לאשר פעם אחת התקנת אפליקציות ממקור זה, ואז לחזור וללחוץ שוב על עדכון", Toast.LENGTH_LONG).show();
-            Intent settings = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + activity.getPackageName()));
-            activity.startActivity(settings);
-            return;
+    private static void installWithPackageInstaller(Activity activity, File apk) throws Exception {
+        PackageInstaller installer = activity.getPackageManager().getPackageInstaller();
+        PackageInstaller.SessionParams params = new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
+        params.setAppPackageName(activity.getPackageName());
+        int sessionId = installer.createSession(params);
+        PackageInstaller.Session session = installer.openSession(sessionId);
+        try (InputStream in = new FileInputStream(apk);
+             OutputStream out = session.openWrite("base.apk", 0, apk.length())) {
+            byte[] buffer = new byte[16384];
+            int n;
+            while ((n = in.read(buffer)) != -1) out.write(buffer, 0, n);
+            session.fsync(out);
         }
-        Uri uri = FileProvider.getUriForFile(activity, activity.getPackageName() + ".fileprovider", apk);
-        Intent install = new Intent(Intent.ACTION_VIEW);
-        install.setDataAndType(uri, "application/vnd.android.package-archive");
-        install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
-        activity.startActivity(install);
+        Intent resultIntent = new Intent(activity, AppInstallReceiver.class);
+        resultIntent.setAction("com.simplestore.tablet.INSTALL_STATUS");
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) flags |= PendingIntent.FLAG_MUTABLE;
+        PendingIntent pending = PendingIntent.getBroadcast(activity, sessionId, resultIntent, flags);
+        session.commit(pending.getIntentSender());
+        session.close();
     }
 
     private static String readText(String url) throws Exception {
