@@ -1,3 +1,5 @@
 plugins {
     id 'com.android.application' version '8.7.3' apply false
 }
+
+// Build trigger: tablet APK wrapper loads the live store URL, so website updates appear automatically.
