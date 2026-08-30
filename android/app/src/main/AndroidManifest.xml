@@ -27,7 +27,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:screenOrientation="unspecified"
+            android:screenOrientation="sensor"
             android:keepScreenOn="true"
             android:windowSoftInputMode="adjustResize"
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize|smallestScreenSize">
