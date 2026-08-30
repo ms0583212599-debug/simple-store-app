@@ -29,7 +29,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class AppUpdater {
-    private static final String VERSION_URL = "https://simple-store-app-ms0583212599-1490s-projects.vercel.app/updates/version.json";
+    private static final String[] VERSION_URLS = new String[] {
+            "https://simple-store-app-ms0583212599-1490s-projects.vercel.app/updates/version.json",
+            "https://raw.githubusercontent.com/ms0583212599-debug/simple-store-app/main/updates/version.json"
+    };
     private static final ExecutorService IO = Executors.newSingleThreadExecutor();
 
     private AppUpdater() {}
@@ -38,21 +41,22 @@ public final class AppUpdater {
         Toast.makeText(activity, "בודק אם יש עדכון...", Toast.LENGTH_SHORT).show();
         IO.execute(() -> {
             try {
-                JSONObject info = new JSONObject(readText(VERSION_URL));
+                JSONObject info = readVersionInfo();
                 long remoteCode = info.optLong("versionCode", 0);
                 long localCode = currentVersionCode(activity);
                 String remoteName = info.optString("versionName", "");
                 String apkUrl = info.optString("apkUrl", "");
+                String apkUrlFallback = info.optString("apkUrlFallback", "");
                 activity.runOnUiThread(() -> {
                     if (remoteCode <= localCode) {
-                        Toast.makeText(activity, "האפליקציה מעודכנת לגרסה האחרונה", Toast.LENGTH_LONG).show();
+                        Toast.makeText(activity, "האפליקציה מעודכנת. מותקן: " + localCode + " | זמין: " + remoteCode, Toast.LENGTH_LONG).show();
                         return;
                     }
                     new AlertDialog.Builder(activity)
                             .setTitle("קיים עדכון חדש")
                             .setMessage("גרסה חדשה " + remoteName + " זמינה. להוריד ולהתקין עכשיו?")
                             .setNegativeButton("לא עכשיו", null)
-                            .setPositiveButton("עדכן", (d, w) -> downloadAndInstall(activity, apkUrl))
+                            .setPositiveButton("עדכן", (d, w) -> downloadAndInstall(activity, apkUrl, apkUrlFallback))
                             .show();
                 });
             } catch (Exception e) {
@@ -61,13 +65,26 @@ public final class AppUpdater {
         });
     }
 
+    private static JSONObject readVersionInfo() throws Exception {
+        Exception last = null;
+        for (String baseUrl : VERSION_URLS) {
+            try {
+                String sep = baseUrl.contains("?") ? "&" : "?";
+                return new JSONObject(readText(baseUrl + sep + "t=" + System.currentTimeMillis()));
+            } catch (Exception e) {
+                last = e;
+            }
+        }
+        throw last != null ? last : new Exception("no version source");
+    }
+
     private static long currentVersionCode(Activity activity) throws Exception {
         PackageInfo info = activity.getPackageManager().getPackageInfo(activity.getPackageName(), 0);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return info.getLongVersionCode();
         return info.versionCode;
     }
 
-    private static void downloadAndInstall(Activity activity, String apkUrl) {
+    private static void downloadAndInstall(Activity activity, String apkUrl, String apkUrlFallback) {
         if (apkUrl == null || apkUrl.isEmpty()) {
             Toast.makeText(activity, "כתובת העדכון אינה תקינה", Toast.LENGTH_LONG).show();
             return;
@@ -85,7 +102,12 @@ public final class AppUpdater {
                 if (dir == null) throw new Exception("no download dir");
                 if (!dir.exists() && !dir.mkdirs()) throw new Exception("cannot create dir");
                 File apk = new File(dir, "simple-store-update.apk");
-                download(apkUrl, apk);
+                try {
+                    download(apkUrl, apk);
+                } catch (Exception first) {
+                    if (apkUrlFallback == null || apkUrlFallback.isEmpty()) throw first;
+                    download(apkUrlFallback, apk);
+                }
                 installWithPackageInstaller(activity, apk);
             } catch (Exception e) {
                 activity.runOnUiThread(() -> Toast.makeText(activity, "הורדת או התקנת העדכון נכשלה", Toast.LENGTH_LONG).show());
@@ -123,6 +145,8 @@ public final class AppUpdater {
         c.setConnectTimeout(15000);
         c.setReadTimeout(15000);
         c.setUseCaches(false);
+        c.setRequestProperty("Cache-Control", "no-cache, no-store, max-age=0");
+        c.setRequestProperty("Pragma", "no-cache");
         int code = c.getResponseCode();
         if (code < 200 || code >= 300) throw new Exception("HTTP " + code);
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(c.getInputStream(), StandardCharsets.UTF_8))) {
