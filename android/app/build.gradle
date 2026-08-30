@@ -14,3 +14,7 @@ android {
         versionName = (project.findProperty('versionName') ?: '1.0').toString()
     }
 }
+
+dependencies {
+    implementation 'androidx.core:core:1.15.0'
+}
