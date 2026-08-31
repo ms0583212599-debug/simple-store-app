@@ -61,6 +61,9 @@ jobs:
       - name: Add native website parity features
         run: python3 android/ci_parity.py
 
+      - name: Add filtered-network updater fallback
+        run: python3 android/ci_updater_text_fallback.py
+
       - name: Build debug APK
         working-directory: android
         run: gradle assembleDebug -PversionCode=${{ github.run_number }} -PversionName=1.0.${{ github.run_number }}
