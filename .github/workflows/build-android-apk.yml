@@ -16,82 +16,60 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
-
       - name: Install Android SDK 35
         run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-
       - name: Restore stable Android signing key
         id: signing-key-cache
         uses: actions/cache@v4
         with:
           path: ~/.android/debug.keystore
           key: simple-store-android-signing-key-v1
-
       - name: Create signing key once
         if: steps.signing-key-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p ~/.android
-          keytool -genkeypair -v \
-            -keystore ~/.android/debug.keystore \
-            -storepass android \
-            -alias androiddebugkey \
-            -keypass android \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Simple Store Tablet,O=Simple Store,C=IL"
-
+          keytool -genkeypair -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Simple Store Tablet,O=Simple Store,C=IL"
       - name: Add native admin enhancements
         run: python3 android/ci_enhance.py
-
       - name: Add native website parity features
         run: python3 android/ci_parity.py
-
+      - name: Add app-only keyboard
+        run: python3 android/ci_app_keyboard.py
       - name: Add filtered-network updater fallback
         run: python3 android/ci_updater_text_fallback.py
-
       - name: Build debug APK
         working-directory: android
         run: gradle assembleDebug -PversionCode=${{ github.run_number }} -PversionName=1.0.${{ github.run_number }}
-
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: simple-store-tablet-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-
       - name: Publish in-app update
         run: |
           mkdir -p updates
           cp android/app/build/outputs/apk/debug/app-debug.apk updates/simple-store-tablet.apk
           python3 - <<'PY'
           import json, os
-          data = {'versionCode': int(os.environ['GITHUB_RUN_NUMBER']), 'versionName': '1.0.' + os.environ['GITHUB_RUN_NUMBER'], 'apkUrl': 'https://simple-store-app-ms0583212599-1490s-projects.vercel.app/updates/simple-store-tablet.apk'}
-          with open('updates/version.json', 'w', encoding='utf-8') as f:
-              json.dump(data, f, ensure_ascii=False, separators=(',', ':'))
-              f.write('\n')
+          data={'versionCode':int(os.environ['GITHUB_RUN_NUMBER']),'versionName':'1.0.'+os.environ['GITHUB_RUN_NUMBER'],'apkUrl':'https://simple-store-app-ms0583212599-1490s-projects.vercel.app/updates/simple-store-tablet.apk'}
+          with open('updates/version.json','w',encoding='utf-8') as f:
+              json.dump(data,f,ensure_ascii=False,separators=(',',':'));f.write('\n')
           PY
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add updates/simple-store-tablet.apk updates/version.json
-          if git diff --cached --quiet; then
-            echo "No update files changed"
-            exit 0
-          fi
+          if git diff --cached --quiet; then exit 0; fi
           git commit -m "Publish Android update ${GITHUB_RUN_NUMBER}"
           git push
