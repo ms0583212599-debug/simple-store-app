@@ -44,6 +44,8 @@ jobs:
         run: python3 android/ci_enhance.py
       - name: Add native website parity features
         run: python3 android/ci_parity.py
+      - name: Compact storefront cards and improve images
+        run: python3 android/ci_compact_storefront.py
       - name: Add app-only keyboard
         run: python3 android/ci_app_keyboard.py
       - name: Add filtered-network updater fallback
