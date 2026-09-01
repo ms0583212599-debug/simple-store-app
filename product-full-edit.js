@@ -1,0 +1,9 @@
+(function(){
+ function ensure(){let m=document.getElementById('editModal');if(!m)return;let name=document.getElementById('editName');if(!name||document.getElementById('editPrice'))return;
+   let price=document.createElement('div');price.innerHTML='<label>מחיר מכירה</label><input id="editPrice" type="number" step="0.01" min="0"><label>מלאי נוכחי</label><input id="editStock" type="number" step="1"><div class="msg">שינוי המלאי כאן מעדכן את הכמות הנוכחית של המוצר.</div>';
+   name.parentNode.insertBefore(price,name.nextSibling);
+ }
+ let oldOpen=window.openEdit;window.openEdit=function(id){ensure();let r=oldOpen.apply(this,arguments),p=(prods||[]).find(x=>String(x.id)===String(id));if(p){document.getElementById('editPrice').value=Number(p.price||0);document.getElementById('editStock').value=Number(p.stock_quantity||0)}return r};
+ let oldSave=window.saveEdit;window.saveEdit=async function(){ensure();let id=document.getElementById('editId').value,p=(prods||[]).find(x=>String(x.id)===String(id)),oldStock=Number(p?.stock_quantity||0),newStock=Number(document.getElementById('editStock').value||0),price=Number(document.getElementById('editPrice').value||0);if(newStock<0&&!confirm('המלאי יהיה שלילי. להמשיך?'))return;await oldSave.apply(this,arguments);try{await req('/rest/v1/products?id=eq.'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify({price:price,stock_quantity:newStock})});if(p){p.price=price;p.stock_quantity=newStock}if(newStock!==oldStock){try{await req('/rest/v1/inventory_movements',{method:'POST',body:JSON.stringify({product_id:id,change_qty:newStock-oldStock,reason:'עריכת מוצר',note:'שינוי מלאי מתוך עריכת מוצר'})})}catch(e){console.warn('inventory history',e)}}await load();}catch(e){alert('עדכון מחיר/מלאי נכשל: '+e.message)}};
+ ensure();
+})();
