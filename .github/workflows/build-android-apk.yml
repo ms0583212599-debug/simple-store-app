@@ -52,6 +52,8 @@ jobs:
         run: python3 android/ci_purchase_product_name.py
       - name: Add purchase customer visibility
         run: python3 android/ci_purchase_visibility.py
+      - name: Add latest admin parity release
+        run: python3 android/ci_latest_admin_parity.py
       - name: Add app-only keyboard
         run: python3 android/ci_app_keyboard.py
       - name: Add filtered-network updater fallback
