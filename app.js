@@ -1,6 +1,6 @@
 // Fast application loader: core first, customer UI immediately, admin tools on demand.
 (function(){
-  const V='20260901-admin-password1';
+  const V='20260901-inventory-edit1';
   const loaded=new Set();
   function script(file){
     if(loaded.has(file))return Promise.resolve();
@@ -25,7 +25,7 @@
   let adminExtrasPromise=null;
   window.loadAdminExtras=function(){
     if(adminExtrasPromise)return adminExtrasPromise;
-    adminExtrasPromise=Promise.all([script('sales-report.js'),script('purchase-import.js'),script('purchase-edit-enhancements.js'),script('contextual-excel.js'),script('finance-management.js'),script('admin-password.js')]).then(async()=>{
+    adminExtrasPromise=Promise.all([script('sales-report.js'),script('purchase-import.js'),script('purchase-edit-enhancements.js'),script('contextual-excel.js'),script('finance-management.js'),script('admin-password.js'),script('inventory-edit.js')]).then(async()=>{
       await script('purchase-visibility.js');
       if(document.readyState==='complete'){
         try{ensurePurchaseImportUI?.()}catch(e){}
