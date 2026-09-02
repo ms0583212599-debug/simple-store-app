@@ -34,37 +34,38 @@ if 'private void showNedarimSettingsProtected()' not in s:
     methods=r'''    private void showNedarimSettingsProtected(){
         final EditText password=input("קוד כניסה לניהול");
         password.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        new AlertDialog.Builder(this)
+        final AlertDialog dialog=new AlertDialog.Builder(this)
                 .setTitle("אימות כניסה")
                 .setMessage("כדי לפתוח את פרטי חשבון נדרים פלוס, יש להזין שוב את קוד הכניסה לניהול.")
                 .setView(password)
                 .setNegativeButton("ביטול",null)
                 .setPositiveButton("פתח",null)
-                .setOnShowListener(d->{
-                    AlertDialog dialog=(AlertDialog)d;
-                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
-                        String pass=password.getText().toString();
-                        if(pass.isEmpty()){password.setError("הזן קוד כניסה");return;}
-                        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
-                        io.execute(()->{
-                            try{
-                                JSONObject body=new JSONObject();body.put("email",ADMIN_EMAIL);body.put("password",pass);
-                                HttpURLConnection c=(HttpURLConnection)new URL(BASE+"/auth/v1/token?grant_type=password").openConnection();
-                                c.setRequestMethod("POST");c.setConnectTimeout(15000);c.setReadTimeout(15000);c.setDoOutput(true);
-                                c.setRequestProperty("apikey",KEY);c.setRequestProperty("Content-Type","application/json");
-                                try(OutputStream out=c.getOutputStream()){out.write(body.toString().getBytes(StandardCharsets.UTF_8));}
-                                int code=c.getResponseCode();InputStream in=code>=200&&code<300?c.getInputStream():c.getErrorStream();
-                                BufferedReader r=new BufferedReader(new InputStreamReader(in,StandardCharsets.UTF_8));StringBuilder b=new StringBuilder();String line;while((line=r.readLine())!=null)b.append(line);r.close();c.disconnect();
-                                if(code<200||code>=300)throw new Exception("wrong password");
-                                JSONObject auth=new JSONObject(b.toString());String fresh=auth.optString("access_token","");
-                                if(fresh.isEmpty())throw new Exception("missing token");
-                                adminToken=fresh;
-                                getSharedPreferences("simple_store_auth",MODE_PRIVATE).edit().putString("token",fresh).apply();
-                                main.post(()->{dialog.dismiss();showNedarimSettings();});
-                            }catch(Exception e){main.post(()->{dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);password.setError("קוד הכניסה שגוי");password.selectAll();});}
-                        });
-                    });
-                }).show();
+                .create();
+        dialog.setOnShowListener(d->{
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
+                String pass=password.getText().toString();
+                if(pass.isEmpty()){password.setError("הזן קוד כניסה");return;}
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
+                io.execute(()->{
+                    try{
+                        JSONObject body=new JSONObject();body.put("email",ADMIN_EMAIL);body.put("password",pass);
+                        HttpURLConnection c=(HttpURLConnection)new URL(BASE+"/auth/v1/token?grant_type=password").openConnection();
+                        c.setRequestMethod("POST");c.setConnectTimeout(15000);c.setReadTimeout(15000);c.setDoOutput(true);
+                        c.setRequestProperty("apikey",KEY);c.setRequestProperty("Content-Type","application/json");
+                        try(OutputStream out=c.getOutputStream()){out.write(body.toString().getBytes(StandardCharsets.UTF_8));}
+                        int code=c.getResponseCode();InputStream in=code>=200&&code<300?c.getInputStream():c.getErrorStream();
+                        BufferedReader r=new BufferedReader(new InputStreamReader(in,StandardCharsets.UTF_8));StringBuilder b=new StringBuilder();String line;while((line=r.readLine())!=null)b.append(line);r.close();c.disconnect();
+                        if(code<200||code>=300)throw new Exception("wrong password");
+                        JSONObject auth=new JSONObject(b.toString());String fresh=auth.optString("access_token","");
+                        if(fresh.isEmpty())throw new Exception("missing token");
+                        adminToken=fresh;
+                        getSharedPreferences("simple_store_auth",MODE_PRIVATE).edit().putString("token",fresh).apply();
+                        main.post(()->{dialog.dismiss();showNedarimSettings();});
+                    }catch(Exception e){main.post(()->{dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);password.setError("קוד הכניסה שגוי");password.selectAll();});}
+                });
+            });
+        });
+        dialog.show();
     }
 
     private void showNedarimSettings(){
