@@ -1,6 +1,6 @@
 // Fast application loader: core first, customer UI immediately, admin tools on demand.
 (function(){
-  const V='20260903-home-withdrawals';
+  const V='20260903-home-withdrawals-search';
   const loaded=new Set();
   function script(file){if(loaded.has(file))return Promise.resolve();loaded.add(file);return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=file+'?v='+V;s.onload=resolve;s.onerror=()=>reject(new Error('Failed loading '+file));document.head.appendChild(s)})}
   async function boot(){await script('app-part1.js');await script('app-part2.js');await script('app-part3.js');await script('nedarim-settings.js');await script('saved-card-payment.js');await script('offline.js');await script('inventory-count.js');await script('performance.js');if(document.readyState==='complete'){try{await authState();await load();totals()}catch(e){console.error('core init failed',e)}}await Promise.all([script('announcements.js'),script('storefront-modern.js'),script('customer-feedback.js')]);if(document.readyState==='complete'){try{ensureAnnouncementAdmin?.();loadAnnouncements?.()}catch(e){}try{ensureStorefrontModernUI?.()}catch(e){}try{ensureCustomerFeedback?.()}catch(e){}}}
