@@ -5,7 +5,7 @@ function renderInventoryCount(){
   const host=$('inventoryCountRows');if(!host)return;
   const category=$('countNewCategory');
   if(category)category.innerHTML=cats.map(c=>'<option value="'+c.id+'">'+esc(c.name)+'</option>').join('');
-  const rows=activeProducts().slice().sort((a,b)=>{
+  const rows=prods.filter(p=>p.is_active!==false||Object.prototype.hasOwnProperty.call(inventoryCountDraft,p.id)).slice().sort((a,b)=>{
     const ac=cats.findIndex(c=>c.id===a.category_id),bc=cats.findIndex(c=>c.id===b.category_id);
     return ac-bc||(a.sort_order||0)-(b.sort_order||0);
   });
@@ -49,7 +49,8 @@ async function finishInventoryCount(){
   const zeroMissing=confirm('האם לאפס ל־0 את כל המוצרים שלא הוזנה עבורם כמות?\n\nאישור = כן, איפוס מלא של מלאי הלקוחות.\nביטול = לעדכן רק מוצרים שנספרו.');
   if(!confirm('לסיים את הספירה ולעדכן עכשיו את מלאי הלקוחות?'))return;
   try{
-    const targets=zeroMissing?activeProducts():activeProducts().filter(p=>counted.includes(p.id));
+    const countable=prods.filter(p=>p.is_active!==false||counted.includes(p.id));
+    const targets=zeroMissing?countable:countable.filter(p=>counted.includes(p.id));
     for(const p of targets){
       const quantity=counted.includes(p.id)?Math.max(0,Math.floor(Number(inventoryCountDraft[p.id])||0)):0;
       await req('/rest/v1/products?id=eq.'+encodeURIComponent(p.id),{method:'PATCH',body:JSON.stringify({stock_quantity:quantity})});
