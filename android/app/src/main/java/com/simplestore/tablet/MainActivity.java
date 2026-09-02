@@ -73,6 +73,8 @@ public class MainActivity extends Activity {
     private volatile boolean polling = false;
     private String adminToken = "";
     private String adminUserId = "";
+    private OfflineStore offline;
+    private volatile boolean syncPromptVisible = false;
     private final int blue = Color.rgb(34,91,203);
     private final int green = Color.rgb(22,163,74);
     private final int red = Color.rgb(220,38,38);
@@ -81,6 +83,11 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         getWindow().setStatusBarColor(Color.WHITE);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+        offline = new OfflineStore(this);
+        android.content.SharedPreferences auth=getSharedPreferences("simple_store_auth",MODE_PRIVATE);
+        adminToken=auth.getString("token","");
+        adminUserId=auth.getString("user_id","");
+        offline.watchConnection(()->main.post(this::offerPendingSync));
         showLoading();
         loadData(this::showHome);
     }
@@ -103,21 +110,70 @@ public class MainActivity extends Activity {
     }
 
     private void loadData(Runnable done){
-        io.execute(()->{try{
-            JSONArray cs=requestArray("GET","/rest/v1/categories?select=*&order=sort_order.asc",null,false);
-            JSONArray ps=requestArray("GET","/rest/v1/products?select=*&order=category_id.asc,sort_order.asc,created_at.asc",null,false);
-            categories.clear();products.clear();
-            for(int i=0;i<cs.length();i++){
-                JSONObject o=cs.getJSONObject(i);
-                categories.add(new Category(o.optString("id"),o.optString("name"),o.optString("image_url"),o.optString("image_mode"),o.optInt("sort_order",0)));
+        io.execute(()->{
+            JSONArray cs=null,ps=null;boolean cached=false;
+            try{
+                if(!offline.isOnline())throw new Exception("offline");
+                cs=requestArray("GET","/rest/v1/categories?select=*&order=sort_order.asc",null,false);
+                ps=requestArray("GET","/rest/v1/products?select=*&order=category_id.asc,sort_order.asc,created_at.asc",null,false);
+                offline.saveCatalog(cs,ps);
+            }catch(Exception networkError){
+                cs=offline.categories();ps=offline.products();cached=true;
             }
-            for(int i=0;i<ps.length();i++){
-                JSONObject o=ps.getJSONObject(i);
-                if(!o.optBoolean("is_active",true))continue;
-                products.add(new Product(o.optString("id"),o.optString("category_id"),o.optString("name"),o.optDouble("price",0),o.optInt("stock_quantity",0),o.optString("image_url"),o.optInt("low_stock_threshold",3),o.optInt("sort_order",0)));
+            try{
+                if(cs.length()==0&&ps.length()==0)throw new Exception("אין עדיין נתונים שמורים במכשיר");
+                parseCatalog(cs,ps);
+                boolean usedCache=cached;
+                main.post(()->{if(usedCache)Toast.makeText(this,"עובד ללא אינטרנט · השינויים יישמרו במכשיר",Toast.LENGTH_LONG).show();done.run();});
+            }catch(Exception e){main.post(()->Toast.makeText(this,"שגיאה בטעינת החנות: "+safeMsg(e),Toast.LENGTH_LONG).show());}
+        });
+    }
+
+    private void parseCatalog(JSONArray cs,JSONArray ps)throws Exception{
+        categories.clear();products.clear();
+        for(int i=0;i<cs.length();i++){JSONObject o=cs.getJSONObject(i);categories.add(new Category(o.optString("id"),o.optString("name"),o.optString("image_url"),o.optString("image_mode"),o.optInt("sort_order",0)));}
+        for(int i=0;i<ps.length();i++){JSONObject o=ps.getJSONObject(i);if(!o.optBoolean("is_active",true))continue;products.add(new Product(o.optString("id"),o.optString("category_id"),o.optString("name"),o.optDouble("price",0),o.optInt("stock_quantity",0),o.optString("image_url"),o.optInt("low_stock_threshold",3),o.optInt("sort_order",0)));}
+    }
+
+    private String requestOrQueue(String method,String path,JSONObject body,boolean useAdmin)throws Exception{
+        if(!"GET".equals(method)&&!offline.isOnline()){
+            JSONObject saved=offline.enqueue(method,path,body,useAdmin);
+            main.post(()->Toast.makeText(this,"נשמר במכשיר · ממתין לסנכרון",Toast.LENGTH_LONG).show());
+            return saved.toString();
+        }
+        return requestRaw(method,path,body,useAdmin);
+    }
+
+    private void offerPendingSync(){
+        if(offline==null||!offline.isOnline()||offline.pendingCount()==0||syncPromptVisible)return;
+        syncPromptVisible=true;
+        int count=offline.pendingCount();
+        new AlertDialog.Builder(this).setTitle("האינטרנט חזר")
+                .setMessage("נמצאו "+count+" שינויים שנשמרו במכשיר. להעלות אותם לענן עכשיו?")
+                .setNegativeButton("לא עכשיו",(d,w)->syncPromptVisible=false)
+                .setPositiveButton("סנכרן עכשיו",(d,w)->{syncPromptVisible=false;syncPendingOperations();}).show();
+    }
+
+    private void syncPendingOperations(){
+        io.execute(()->{
+            JSONArray queue=offline.pending(),remaining=new JSONArray();int completed=0;
+            for(int i=0;i<queue.length();i++){
+                JSONObject op=queue.optJSONObject(i);if(op==null)continue;
+                try{
+                    requestRaw(op.optString("method"),op.optString("path"),op.optJSONObject("body"),op.optBoolean("admin",true));
+                    completed++;
+                }catch(Exception e){
+                    for(int j=i;j<queue.length();j++)remaining.put(queue.opt(j));
+                    break;
+                }
             }
-            main.post(done);
-        }catch(Exception e){main.post(()->Toast.makeText(this,"שגיאה בטעינת החנות: "+safeMsg(e),Toast.LENGTH_LONG).show());}});
+            offline.replacePending(remaining);
+            int synced=completed,left=remaining.length();
+            main.post(()->loadData(()->{
+                Toast.makeText(this,left==0?"הסנכרון הושלם: "+synced+" שינויים הועלו":"הועלו "+synced+" שינויים, "+left+" עדיין ממתינים",Toast.LENGTH_LONG).show();
+                showAdminHome();
+            }));
+        });
     }
 
     private String requestRaw(String method,String path,JSONObject body,boolean useAdmin)throws Exception{
@@ -149,6 +205,12 @@ public class MainActivity extends Activity {
 
     private void buildShell(String title,Runnable back,boolean adminButton){
         LinearLayout root=baseRoot();
+        int pending=offline==null?0:offline.pendingCount();
+        if((offline!=null&&!offline.isOnline())||pending>0){
+            String status=!offline.isOnline()?"אין אינטרנט":"מחובר";
+            if(pending>0)status+=" · "+pending+" שינויים ממתינים לסנכרון";
+            TextView offlineStatus=text(status,14,true);offlineStatus.setTextColor(pending>0?red:blue);offlineStatus.setPadding(dp(16),dp(7),dp(16),dp(7));root.addView(offlineStatus);
+        }
         LinearLayout top=new LinearLayout(this);
         top.setGravity(Gravity.CENTER_VERTICAL);
         top.setPadding(dp(22),dp(14),dp(22),dp(10));
@@ -305,7 +367,7 @@ public class MainActivity extends Activity {
         }catch(Exception ignored){}}});
     }
 
-    private void openAdmin(){if(adminToken.isEmpty())showLogin();else verifyAdmin(this::showAdminHome);}
+    private void openAdmin(){if(adminToken.isEmpty())showLogin();else if(!offline.isOnline())showAdminHome();else verifyAdmin(this::showAdminHome);}
 
     private void showLogin(){
         final EditText pass=input("סיסמה");pass.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_PASSWORD);
@@ -318,7 +380,7 @@ public class MainActivity extends Activity {
             JSONObject r=new JSONObject(requestRaw("POST","/auth/v1/token?grant_type=password",body,false));
             String token=r.optString("access_token");JSONObject user=r.optJSONObject("user");String uid=user==null?"":user.optString("id");
             if(token.isEmpty()||uid.isEmpty())throw new Exception("login failed");
-            adminToken=token;adminUserId=uid;
+            adminToken=token;adminUserId=uid;getSharedPreferences("simple_store_auth",MODE_PRIVATE).edit().putString("token",token).putString("user_id",uid).apply();
             verifyAdmin(this::showAdminHome);
         }catch(Exception e){adminToken="";adminUserId="";main.post(()->Toast.makeText(this,"סיסמה שגויה",Toast.LENGTH_LONG).show());}});
     }
@@ -339,7 +401,7 @@ public class MainActivity extends Activity {
         String[] labels={"מוצרים וקטגוריות","מלאי","ספקים","רכישה חדשה","היסטוריית רכישות","דוחות"};
         Runnable[] actions={this::showProductsAdmin,this::showStockAdmin,this::showSuppliersAdmin,this::showNewPurchase,this::showPurchaseHistory,this::showReports};
         for(int i=0;i<labels.length;i++){final int idx=i;Button b=button(labels[idx],Color.WHITE,blue);b.setOnClickListener(v->actions[idx].run());LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,dp(64));p.setMargins(0,0,0,dp(12));content.addView(b,p);}
-        Button logout=button("יציאה מניהול",red,Color.WHITE);logout.setOnClickListener(v->{adminToken="";adminUserId="";showHome();});content.addView(logout,new LinearLayout.LayoutParams(-1,dp(60)));
+        Button logout=button("יציאה מניהול",red,Color.WHITE);logout.setOnClickListener(v->{adminToken="";adminUserId="";getSharedPreferences("simple_store_auth",MODE_PRIVATE).edit().clear().apply();showHome();});content.addView(logout,new LinearLayout.LayoutParams(-1,dp(60)));
     }
 
     private void showProductsAdmin(){
@@ -370,13 +432,13 @@ public class MainActivity extends Activity {
                 if(name.getText().toString().trim().isEmpty()||categories.isEmpty()){Toast.makeText(this,"חסר שם מוצר או קטגוריה",Toast.LENGTH_LONG).show();return;}
                 io.execute(()->{try{
                     JSONObject body=new JSONObject();body.put("name",name.getText().toString().trim());body.put("price",num(price,0));body.put("stock_quantity",intNum(stock,0));body.put("low_stock_threshold",intNum(low,3));body.put("category_id",categories.get(cat.getSelectedItemPosition()).id);body.put("is_active",true);
-                    if(p==null){int next=1;for(Product x2:products)if(x2.categoryId.equals(categories.get(cat.getSelectedItemPosition()).id))next=Math.max(next,x2.sortOrder+1);body.put("sort_order",next);body.put("image_url","");body.put("image_path","");requestRaw("POST","/rest/v1/products",body,true);}else requestRaw("PATCH","/rest/v1/products?id=eq."+url(p.id),body,true);
+                    if(p==null){int next=1;for(Product x2:products)if(x2.categoryId.equals(categories.get(cat.getSelectedItemPosition()).id))next=Math.max(next,x2.sortOrder+1);body.put("sort_order",next);body.put("image_url","");body.put("image_path","");requestOrQueue("POST","/rest/v1/products",body,true);}else requestOrQueue("PATCH","/rest/v1/products?id=eq."+url(p.id),body,true);
                     loadData(()->{dlg.dismiss();showProductsAdmin();});
                 }catch(Exception e){main.post(()->Toast.makeText(this,"שמירה נכשלה: "+safeMsg(e),Toast.LENGTH_LONG).show());}});
             });
             if(p!=null){
                 Button archive=button("הסר מוצר",red,Color.WHITE);box.addView(archive,new LinearLayout.LayoutParams(-1,dp(54)));
-                archive.setOnClickListener(v->new AlertDialog.Builder(this).setMessage("להסיר את המוצר "+p.name+"?").setNegativeButton("לא",null).setPositiveButton("כן",(d,w)->io.execute(()->{try{JSONObject b=new JSONObject();b.put("p_product_id",p.id);requestRaw("POST","/rest/v1/rpc/archive_product",b,true);cart.remove(p.id);loadData(()->{dlg.dismiss();showProductsAdmin();});}catch(Exception e){main.post(()->Toast.makeText(this,"הסרת המוצר נכשלה",Toast.LENGTH_LONG).show());}})).show());
+                archive.setOnClickListener(v->new AlertDialog.Builder(this).setMessage("להסיר את המוצר "+p.name+"?").setNegativeButton("לא",null).setPositiveButton("כן",(d,w)->io.execute(()->{try{JSONObject b=new JSONObject();b.put("p_product_id",p.id);requestOrQueue("POST","/rest/v1/rpc/archive_product",b,true);cart.remove(p.id);loadData(()->{dlg.dismiss();showProductsAdmin();});}catch(Exception e){main.post(()->Toast.makeText(this,"הסרת המוצר נכשלה",Toast.LENGTH_LONG).show());}})).show());
             }
         });
         dlg.show();
@@ -391,7 +453,7 @@ public class MainActivity extends Activity {
     private void categoryDialog(Category c){
         LinearLayout box=baseRoot();EditText name=input("שם קטגוריה");Spinner mode=new Spinner(this);String[] modes={"תמונות אוטומטיות","תמונה מותאמת קיימת"};mode.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,modes));box.addView(name);box.addView(mode);
         if(c!=null){name.setText(c.name);mode.setSelection("custom".equals(c.imageMode)?1:0);}
-        new AlertDialog.Builder(this).setTitle(c==null?"קטגוריה חדשה":"עריכת קטגוריה").setView(box).setNegativeButton("ביטול",null).setPositiveButton("שמור",(d,w)->io.execute(()->{try{JSONObject b=new JSONObject();b.put("name",name.getText().toString().trim());b.put("image_mode",mode.getSelectedItemPosition()==1?"custom":"auto");if(mode.getSelectedItemPosition()==0){b.put("image_url",JSONObject.NULL);b.put("image_path",JSONObject.NULL);}if(c==null){int next=1;for(Category x:categories)next=Math.max(next,x.sortOrder+1);b.put("sort_order",next);requestRaw("POST","/rest/v1/categories",b,true);}else requestRaw("PATCH","/rest/v1/categories?id=eq."+url(c.id),b,true);loadData(this::showCategoriesAdmin);}catch(Exception e){main.post(()->Toast.makeText(this,"שמירת קטגוריה נכשלה",Toast.LENGTH_LONG).show());}})).show();
+        new AlertDialog.Builder(this).setTitle(c==null?"קטגוריה חדשה":"עריכת קטגוריה").setView(box).setNegativeButton("ביטול",null).setPositiveButton("שמור",(d,w)->io.execute(()->{try{JSONObject b=new JSONObject();b.put("name",name.getText().toString().trim());b.put("image_mode",mode.getSelectedItemPosition()==1?"custom":"auto");if(mode.getSelectedItemPosition()==0){b.put("image_url",JSONObject.NULL);b.put("image_path",JSONObject.NULL);}if(c==null){int next=1;for(Category x:categories)next=Math.max(next,x.sortOrder+1);b.put("sort_order",next);requestOrQueue("POST","/rest/v1/categories",b,true);}else requestOrQueue("PATCH","/rest/v1/categories?id=eq."+url(c.id),b,true);loadData(this::showCategoriesAdmin);}catch(Exception e){main.post(()->Toast.makeText(this,"שמירת קטגוריה נכשלה",Toast.LENGTH_LONG).show());}})).show();
     }
 
     private void showStockAdmin(){
@@ -402,11 +464,11 @@ public class MainActivity extends Activity {
 
     private void stockDialog(Product p){
         LinearLayout box=baseRoot();Spinner direction=new Spinner(this);direction.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"הוספה","הפחתה"}));EditText qty=input("כמות");qty.setInputType(InputType.TYPE_CLASS_NUMBER);Spinner reason=new Spinner(this);reason.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"manual","count","damage","other"}));EditText note=input("הערה");box.addView(direction);box.addView(qty);box.addView(reason);box.addView(note);
-        new AlertDialog.Builder(this).setTitle(p.name+" · מלאי "+p.stock).setView(box).setNegativeButton("ביטול",null).setPositiveButton("שמור",(d,w)->io.execute(()->{try{int amount=Integer.parseInt(qty.getText().toString());int change=direction.getSelectedItemPosition()==0?amount:-amount;if(change<0&&amount>p.stock)throw new Exception("אין מספיק מלאי להפחתה");JSONObject b=new JSONObject();b.put("p_product_id",p.id);b.put("p_change_qty",change);b.put("p_reason",String.valueOf(reason.getSelectedItem()));b.put("p_note",note.getText().toString().trim().isEmpty()?JSONObject.NULL:note.getText().toString().trim());requestRaw("POST","/rest/v1/rpc/adjust_stock",b,true);loadData(this::showStockAdmin);}catch(Exception e){main.post(()->Toast.makeText(this,"עדכון מלאי נכשל: "+safeMsg(e),Toast.LENGTH_LONG).show());}})).show();
+        new AlertDialog.Builder(this).setTitle(p.name+" · מלאי "+p.stock).setView(box).setNegativeButton("ביטול",null).setPositiveButton("שמור",(d,w)->io.execute(()->{try{int amount=Integer.parseInt(qty.getText().toString());int change=direction.getSelectedItemPosition()==0?amount:-amount;if(change<0&&amount>p.stock)throw new Exception("אין מספיק מלאי להפחתה");JSONObject b=new JSONObject();b.put("p_product_id",p.id);b.put("p_change_qty",change);b.put("p_reason",String.valueOf(reason.getSelectedItem()));b.put("p_note",note.getText().toString().trim().isEmpty()?JSONObject.NULL:note.getText().toString().trim());requestOrQueue("POST","/rest/v1/rpc/adjust_stock",b,true);loadData(this::showStockAdmin);}catch(Exception e){main.post(()->Toast.makeText(this,"עדכון מלאי נכשל: "+safeMsg(e),Toast.LENGTH_LONG).show());}})).show();
     }
 
     private void loadSuppliers(Runnable done){
-        io.execute(()->{try{JSONArray a=requestArray("GET","/rest/v1/suppliers?select=*&order=name.asc",null,true);suppliers.clear();for(int i=0;i<a.length();i++){JSONObject o=a.getJSONObject(i);suppliers.add(new Supplier(o.optString("id"),o.optString("name"),o.optString("phone"),o.optString("email"),o.optString("payment_terms"),o.optString("notes")));}main.post(done);}catch(Exception e){main.post(()->Toast.makeText(this,"טעינת ספקים נכשלה",Toast.LENGTH_LONG).show());}});
+        io.execute(()->{try{JSONArray a;if(offline.isOnline()){try{a=requestArray("GET","/rest/v1/suppliers?select=*&order=name.asc",null,true);offline.saveSuppliers(a);}catch(Exception e){a=offline.suppliers();}}else a=offline.suppliers();suppliers.clear();for(int i=0;i<a.length();i++){JSONObject o=a.getJSONObject(i);suppliers.add(new Supplier(o.optString("id"),o.optString("name"),o.optString("phone"),o.optString("email"),o.optString("payment_terms"),o.optString("notes")));}main.post(done);}catch(Exception e){main.post(()->Toast.makeText(this,"טעינת ספקים נכשלה",Toast.LENGTH_LONG).show());}});
     }
 
     private void showSuppliersAdmin(){
@@ -416,7 +478,7 @@ public class MainActivity extends Activity {
     private void supplierDialog(Supplier s){
         ScrollView sc=new ScrollView(this);LinearLayout box=baseRoot();sc.addView(box);EditText name=input("שם ספק");EditText phone=input("טלפון");EditText email=input("מייל");EditText terms=input("תנאי תשלום");EditText notes=input("הערות");box.addView(name);box.addView(phone);box.addView(email);box.addView(terms);box.addView(notes);if(s!=null){name.setText(s.name);phone.setText(s.phone);email.setText(s.email);terms.setText(s.terms);notes.setText(s.notes);}
         AlertDialog dlg=new AlertDialog.Builder(this).setTitle(s==null?"ספק חדש":"עריכת ספק").setView(sc).setNegativeButton("ביטול",null).setPositiveButton("שמור",null).create();
-        dlg.setOnShowListener(x->{dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{if(name.getText().toString().trim().isEmpty()){Toast.makeText(this,"הזן שם ספק",Toast.LENGTH_LONG).show();return;}io.execute(()->{try{JSONObject b=new JSONObject();b.put("name",name.getText().toString().trim());putNullable(b,"phone",phone.getText().toString().trim());putNullable(b,"email",email.getText().toString().trim());putNullable(b,"payment_terms",terms.getText().toString().trim());putNullable(b,"notes",notes.getText().toString().trim());if(s==null)requestRaw("POST","/rest/v1/suppliers",b,true);else requestRaw("PATCH","/rest/v1/suppliers?id=eq."+url(s.id),b,true);main.post(()->{dlg.dismiss();showSuppliersAdmin();});}catch(Exception e){main.post(()->Toast.makeText(this,"שמירת ספק נכשלה",Toast.LENGTH_LONG).show());}});});if(s!=null){Button del=button("מחיקת ספק",red,Color.WHITE);box.addView(del,new LinearLayout.LayoutParams(-1,dp(54)));del.setOnClickListener(v->new AlertDialog.Builder(this).setMessage("למחוק ספק?").setNegativeButton("לא",null).setPositiveButton("כן",(d,w)->io.execute(()->{try{requestRaw("DELETE","/rest/v1/suppliers?id=eq."+url(s.id),null,true);main.post(()->{dlg.dismiss();showSuppliersAdmin();});}catch(Exception e){main.post(()->Toast.makeText(this,"מחיקת ספק נכשלה",Toast.LENGTH_LONG).show());}})).show());}});
+        dlg.setOnShowListener(x->{dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{if(name.getText().toString().trim().isEmpty()){Toast.makeText(this,"הזן שם ספק",Toast.LENGTH_LONG).show();return;}io.execute(()->{try{JSONObject b=new JSONObject();b.put("name",name.getText().toString().trim());putNullable(b,"phone",phone.getText().toString().trim());putNullable(b,"email",email.getText().toString().trim());putNullable(b,"payment_terms",terms.getText().toString().trim());putNullable(b,"notes",notes.getText().toString().trim());if(s==null)requestOrQueue("POST","/rest/v1/suppliers",b,true);else requestOrQueue("PATCH","/rest/v1/suppliers?id=eq."+url(s.id),b,true);main.post(()->{dlg.dismiss();showSuppliersAdmin();});}catch(Exception e){main.post(()->Toast.makeText(this,"שמירת ספק נכשלה",Toast.LENGTH_LONG).show());}});});if(s!=null){Button del=button("מחיקת ספק",red,Color.WHITE);box.addView(del,new LinearLayout.LayoutParams(-1,dp(54)));del.setOnClickListener(v->new AlertDialog.Builder(this).setMessage("למחוק ספק?").setNegativeButton("לא",null).setPositiveButton("כן",(d,w)->io.execute(()->{try{requestOrQueue("DELETE","/rest/v1/suppliers?id=eq."+url(s.id),null,true);main.post(()->{dlg.dismiss();showSuppliersAdmin();});}catch(Exception e){main.post(()->Toast.makeText(this,"מחיקת ספק נכשלה",Toast.LENGTH_LONG).show());}})).show());}});
         dlg.show();
     }
 
@@ -455,7 +517,7 @@ public class MainActivity extends Activity {
             for(PurchaseLine l:lines){if(l.quantity()<1)continue;JSONObject it=new JSONObject();Product p=products.get(l.product.getSelectedItemPosition());it.put("product_id",p.id);it.put("quantity",l.quantity());it.put("unit_cost",l.cost());it.put("sale_price",l.sale());items.put(it);}
             if(items.length()==0)throw new Exception("אין שורות תקינות");
             JSONObject b=new JSONObject();b.put("p_supplier_id",sup.getSelectedItemPosition()==0?JSONObject.NULL:suppliers.get(sup.getSelectedItemPosition()-1).id);b.put("p_purchase_date",date.getText().toString().trim().isEmpty()?today():date.getText().toString().trim());putNullable(b,"p_invoice_number",invoice.getText().toString().trim());putNullable(b,"p_notes",notes.getText().toString().trim());b.put("p_items",items);
-            requestRaw("POST","/rest/v1/rpc/create_purchase",b,true);
+            requestOrQueue("POST","/rest/v1/rpc/create_purchase",b,true);
             loadData(()->{Toast.makeText(this,"הרכישה נשמרה",Toast.LENGTH_LONG).show();showPurchaseHistory();});
         }catch(Exception e){main.post(()->Toast.makeText(this,"שמירת רכישה נכשלה: "+safeMsg(e),Toast.LENGTH_LONG).show());}});
     }
@@ -493,11 +555,11 @@ public class MainActivity extends Activity {
         LinearLayout holder=new LinearLayout(this);holder.setOrientation(LinearLayout.VERTICAL);box.addView(holder);List<PurchaseLine> lines=new ArrayList<>();
         try{for(int i=0;i<allItems.length();i++){JSONObject x=allItems.getJSONObject(i);if(!p.optString("id").equals(x.optString("purchase_id")))continue;addPurchaseLine(holder,lines,new PurchaseItem(x.optString("product_id"),x.optInt("quantity"),x.optDouble("unit_cost",0),x.optDouble("sale_price",0)));}}catch(Exception ignored){}
         Button add=button("+ הוסף שורה",Color.WHITE,blue);add.setOnClickListener(v->addPurchaseLine(holder,lines,null));box.addView(add,new LinearLayout.LayoutParams(-1,dp(52)));
-        AlertDialog dlg=new AlertDialog.Builder(this).setTitle("עריכת רכישה").setView(sc).setNegativeButton("ביטול",null).setPositiveButton("שמור",null).create();dlg.setOnShowListener(x->dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->io.execute(()->{try{JSONArray arr=new JSONArray();for(PurchaseLine l:lines){if(l.quantity()<1)continue;JSONObject it=new JSONObject();Product pr=products.get(l.product.getSelectedItemPosition());it.put("product_id",pr.id);it.put("quantity",l.quantity());it.put("unit_cost",l.cost());it.put("sale_price",l.sale());arr.put(it);}JSONObject b=new JSONObject();b.put("p_purchase_id",p.optString("id"));b.put("p_supplier_id",sup.getSelectedItemPosition()==0?JSONObject.NULL:suppliers.get(sup.getSelectedItemPosition()-1).id);b.put("p_purchase_date",date.getText().toString().trim());putNullable(b,"p_invoice_number",invoice.getText().toString().trim());putNullable(b,"p_notes",notes.getText().toString().trim());b.put("p_items",arr);requestRaw("POST","/rest/v1/rpc/update_purchase",b,true);loadData(()->{dlg.dismiss();showPurchaseHistory();});}catch(Exception e){main.post(()->Toast.makeText(this,"עריכת רכישה נכשלה: "+safeMsg(e),Toast.LENGTH_LONG).show());}})));dlg.show();
+        AlertDialog dlg=new AlertDialog.Builder(this).setTitle("עריכת רכישה").setView(sc).setNegativeButton("ביטול",null).setPositiveButton("שמור",null).create();dlg.setOnShowListener(x->dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->io.execute(()->{try{JSONArray arr=new JSONArray();for(PurchaseLine l:lines){if(l.quantity()<1)continue;JSONObject it=new JSONObject();Product pr=products.get(l.product.getSelectedItemPosition());it.put("product_id",pr.id);it.put("quantity",l.quantity());it.put("unit_cost",l.cost());it.put("sale_price",l.sale());arr.put(it);}JSONObject b=new JSONObject();b.put("p_purchase_id",p.optString("id"));b.put("p_supplier_id",sup.getSelectedItemPosition()==0?JSONObject.NULL:suppliers.get(sup.getSelectedItemPosition()-1).id);b.put("p_purchase_date",date.getText().toString().trim());putNullable(b,"p_invoice_number",invoice.getText().toString().trim());putNullable(b,"p_notes",notes.getText().toString().trim());b.put("p_items",arr);requestOrQueue("POST","/rest/v1/rpc/update_purchase",b,true);loadData(()->{dlg.dismiss();showPurchaseHistory();});}catch(Exception e){main.post(()->Toast.makeText(this,"עריכת רכישה נכשלה: "+safeMsg(e),Toast.LENGTH_LONG).show());}})));dlg.show();
     }
 
     private void deletePurchase(String id){
-        new AlertDialog.Builder(this).setMessage("למחוק רכישה?").setNegativeButton("לא",null).setPositiveButton("כן",(d,w)->io.execute(()->{try{JSONObject b=new JSONObject();b.put("p_purchase_id",id);requestRaw("POST","/rest/v1/rpc/delete_purchase",b,true);loadData(this::showPurchaseHistory);}catch(Exception e){main.post(()->Toast.makeText(this,"מחיקת רכישה נכשלה",Toast.LENGTH_LONG).show());}})).show();
+        new AlertDialog.Builder(this).setMessage("למחוק רכישה?").setNegativeButton("לא",null).setPositiveButton("כן",(d,w)->io.execute(()->{try{JSONObject b=new JSONObject();b.put("p_purchase_id",id);requestOrQueue("POST","/rest/v1/rpc/delete_purchase",b,true);loadData(this::showPurchaseHistory);}catch(Exception e){main.post(()->Toast.makeText(this,"מחיקת רכישה נכשלה",Toast.LENGTH_LONG).show());}})).show();
     }
 
     private void showReports(){
