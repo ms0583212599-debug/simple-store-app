@@ -1,5 +1,5 @@
-const CACHE='simple-store-shell-v2';
-const SHELL=['/','/index.html','/styles.css','/app.js','/app-part1.js','/app-part2.js','/app-part3.js','/offline.js','/performance.js','/announcements.js','/storefront-modern.js','/customer-feedback.js','/manifest.webmanifest','/app-icon.svg'];
+const CACHE='simple-store-shell-v3';
+const SHELL=['/','/index.html','/styles.css','/app.js','/app-part1.js','/app-part2.js','/app-part3.js','/offline.js','/inventory-count.js','/performance.js','/announcements.js','/storefront-modern.js','/customer-feedback.js','/manifest.webmanifest','/app-icon.svg'];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting()));
 });
