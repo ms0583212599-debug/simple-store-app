@@ -58,6 +58,8 @@ jobs:
         run: python3 android/ci_customer_admin_mode.py
       - name: Add shared Nedarim Plus settings
         run: python3 android/ci_nedarim_settings.py
+      - name: Add saved-card payment option
+        run: python3 android/ci_saved_card_payment.py
       - name: Add app-only keyboard
         run: python3 android/ci_app_keyboard.py
       - name: Add filtered-network updater fallback
