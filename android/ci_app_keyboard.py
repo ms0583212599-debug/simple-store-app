@@ -41,7 +41,7 @@ code=r'''    private void configureAppInput(EditText e){
     }
 
     private void showAppKeyboard(EditText target){
-        Object tag=target.getTag(9001);if(tag instanceof AlertDialog&&((AlertDialog)tag).isShowing())return;
+        Object tag=target.getTag();if(tag instanceof AlertDialog&&((AlertDialog)tag).isShowing())return;
         final String[] mode={"HE"};final boolean[] shift={false};final AlertDialog[] holder=new AlertDialog[1];
         LinearLayout shell=new LinearLayout(this);shell.setOrientation(LinearLayout.VERTICAL);shell.setBackgroundColor(Color.rgb(235,239,245));shell.setPadding(dp(8),dp(8),dp(8),dp(8));
         Runnable[] render=new Runnable[1];
@@ -75,8 +75,8 @@ code=r'''    private void configureAppInput(EditText e){
             Button enter=keyboardKey("↵",blue,Color.WHITE);enter.setOnClickListener(v->{if(target.isSingleLine()){if(holder[0]!=null)holder[0].dismiss();target.clearFocus();}else insertKey(target,"\n");});tools.addView(enter,new LinearLayout.LayoutParams(0,dp(52),1.25f));shell.addView(tools);
         };
         render[0].run();
-        holder[0]=new AlertDialog.Builder(this).setView(shell).create();target.setTag(9001,holder[0]);
-        holder[0].setOnDismissListener(d->target.setTag(9001,null));holder[0].setOnShowListener(x->{android.view.Window w=holder[0].getWindow();if(w!=null){w.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);w.setGravity(Gravity.BOTTOM);w.setLayout(android.view.WindowManager.LayoutParams.MATCH_PARENT,android.view.WindowManager.LayoutParams.WRAP_CONTENT);}});holder[0].show();android.view.Window w=holder[0].getWindow();if(w!=null){w.setGravity(Gravity.BOTTOM);w.setLayout(android.view.WindowManager.LayoutParams.MATCH_PARENT,android.view.WindowManager.LayoutParams.WRAP_CONTENT);}
+        holder[0]=new AlertDialog.Builder(this).setView(shell).create();target.setTag(holder[0]);
+        holder[0].setOnDismissListener(d->target.setTag(null));holder[0].setOnShowListener(x->{android.view.Window w=holder[0].getWindow();if(w!=null){w.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);w.setGravity(Gravity.BOTTOM);w.setLayout(android.view.WindowManager.LayoutParams.MATCH_PARENT,android.view.WindowManager.LayoutParams.WRAP_CONTENT);}});holder[0].show();android.view.Window w=holder[0].getWindow();if(w!=null){w.setGravity(Gravity.BOTTOM);w.setLayout(android.view.WindowManager.LayoutParams.MATCH_PARENT,android.view.WindowManager.LayoutParams.WRAP_CONTENT);}
     }
 
 '''
