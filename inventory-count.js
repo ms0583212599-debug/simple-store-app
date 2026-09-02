@@ -32,22 +32,28 @@ async function addInventoryCountProduct(){
     const name=$('countNewName').value.trim(),category_id=$('countNewCategory').value;
     if(!name)return alert('כתוב שם מוצר');
     if(!category_id)return alert('בחר קטגוריה');
-    let existing=activeProducts().find(p=>p.name.toLowerCase()===name.toLowerCase());
-    if(existing){$('countNewName').value='';inventoryCountDraft[existing.id]=inventoryCountDraft[existing.id]??'';renderInventoryCount();return;}
+    if(activeProducts().some(p=>p.name.toLowerCase()===name.toLowerCase()))return alert('המוצר כבר קיים. יש להזין לו רק כמות ברשימת הספירה.');
+    const price=Math.max(0,Number($('countNewPrice').value)||0),stock=Math.max(0,Math.floor(Number($('countNewStock').value)||0)),low=Math.max(0,Math.floor(Number($('countNewLow').value)||3));
+    let image_url='',image_path='',file=$('countNewImage').files[0];
+    if(file){const uploaded=await uploadImage(file,'products');image_url=uploaded.url||uploaded.image_url||'';image_path=uploaded.path||uploaded.image_path||'';}
     const sort_order=Math.max(0,...prods.filter(p=>p.category_id===category_id).map(p=>Number(p.sort_order)||0))+1;
-    const body={category_id,name,price:0,stock_quantity:0,low_stock_threshold:3,sort_order,image_url:'',image_path:'',is_active:false};
+    const body={category_id,name,price,stock_quantity:0,low_stock_threshold:low,sort_order,image_url,image_path,is_active:true};
     const result=await req('/rest/v1/products',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(body)});
     const product=Array.isArray(result)?result[0]:result;
-    if(product&&product.id){prods.push(product);inventoryCountDraft[product.id]='';}
-    $('countNewName').value='';localStorage.setItem('inventory_count_draft',JSON.stringify(inventoryCountDraft));renderInventoryCount();
-    alert('המוצר נשמר. הוא יישאר מוסתר מהלקוחות עד שיוגדר לו מחיר ויופעל.');
+    if(product&&product.id){prods.push(product);inventoryCountDraft[product.id]=stock;}
+    $('countNewName').value='';$('countNewPrice').value='';$('countNewStock').value='0';$('countNewLow').value='3';$('countNewImage').value='';
+    localStorage.setItem('inventory_count_draft',JSON.stringify(inventoryCountDraft));renderInventoryCount();
   }catch(e){alert('שמירת המוצר נכשלה: '+(e.message||e));}
 }
-async function finishInventoryCount(){
+function saveInventoryCountOnly(){
+  localStorage.setItem('inventory_count_draft',JSON.stringify(inventoryCountDraft));
+  alert('הספירה נשמרה כטיוטה בלי לעדכן את מלאי הלקוחות.');
+}
+async function applyInventoryCount(zeroMissing){
   const counted=Object.keys(inventoryCountDraft).filter(id=>inventoryCountDraft[id]!==''&&Number.isFinite(Number(inventoryCountDraft[id])));
   if(!counted.length)return alert('עדיין לא הוזנו כמויות');
-  const zeroMissing=confirm('האם לאפס ל־0 את כל המוצרים שלא הוזנה עבורם כמות?\n\nאישור = כן, איפוס מלא של מלאי הלקוחות.\nביטול = לעדכן רק מוצרים שנספרו.');
-  if(!confirm('לסיים את הספירה ולעדכן עכשיו את מלאי הלקוחות?'))return;
+  const message=zeroMissing?'לעדכן את המוצרים שנספרו ולאפס ל־0 את כל השאר?':'לעדכן רק את המוצרים שנספרו ולהשאיר את השאר ללא שינוי?';
+  if(!confirm(message))return;
   try{
     const countable=prods.filter(p=>p.is_active!==false||counted.includes(p.id));
     const targets=zeroMissing?countable:countable.filter(p=>counted.includes(p.id));
@@ -57,6 +63,6 @@ async function finishInventoryCount(){
     }
     inventoryCountDraft={};localStorage.removeItem('inventory_count_draft');
     await load();renderInventoryCount();
-    alert(navigator.onLine?'ספירת המלאי נשמרה ומלאי הלקוחות עודכן.':'הספירה נשמרה במכשיר וממתינה לסנכרון לענן.');
+    alert(navigator.onLine?'הספירה נשמרה ומלאי הלקוחות עודכן.':'הספירה נשמרה במכשיר וממתינה לסנכרון לענן.');
   }catch(e){alert('עדכון הספירה נעצר: '+(e.message||e));}
 }
