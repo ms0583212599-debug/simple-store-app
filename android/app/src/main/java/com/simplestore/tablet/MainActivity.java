@@ -73,6 +73,9 @@ public class MainActivity extends Activity {
     private volatile boolean polling = false;
     private String adminToken = "";
     private String adminUserId = "";
+    private String paymentMosad = "7014693";
+    private String paymentApiValid = "vbnioH8OQd";
+    private String paymentGroupe = "";
     private OfflineStore offline;
     private volatile boolean syncPromptVisible = false;
     private final int blue = Color.rgb(34,91,203);
@@ -116,6 +119,7 @@ public class MainActivity extends Activity {
                 if(!offline.isOnline())throw new Exception("offline");
                 cs=requestArray("GET","/rest/v1/categories?select=*&order=sort_order.asc",null,false);
                 ps=requestArray("GET","/rest/v1/products?select=*&order=category_id.asc,sort_order.asc,created_at.asc",null,false);
+                try{JSONArray pay=requestArray("POST","/rest/v1/rpc/get_payment_settings_public",new JSONObject(),false);if(pay.length()>0){JSONObject x=pay.getJSONObject(0);paymentMosad=x.optString("mosad",paymentMosad);paymentApiValid=x.optString("api_valid",paymentApiValid);paymentGroupe=x.optString("groupe","");}}catch(Exception ignored){}
                 offline.saveCatalog(cs,ps);
             }catch(Exception networkError){
                 cs=offline.categories();ps=offline.products();cached=true;
