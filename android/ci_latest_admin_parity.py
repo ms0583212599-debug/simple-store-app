@@ -1,5 +1,5 @@
 from pathlib import Path
-p=Path('app/src/main/java/com/simplestore/tablet/MainActivity.java')
+p=Path('android/app/src/main/java/com/simplestore/tablet/MainActivity.java')
 s=p.read_text(encoding='utf-8')
 # This build marker keeps the native app release synchronized with the latest
 # website-admin feature batch: password management, descriptive Hebrew Excel
