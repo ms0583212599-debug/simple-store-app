@@ -8,7 +8,7 @@ if 'private String paymentMosad' not in s:
     s=s.replace(state,state+'\n    private String paymentMosad = "7014693";\n    private String paymentApiValid = "vbnioH8OQd";\n    private String paymentGroupe = "";',1)
 
 # Load settings together with store data.
-needle='            JSONArray ps=requestArray("GET","/rest/v1/products?select=*&order=category_id.asc,sort_order.asc,created_at.asc",null,false);'
+needle='JSONArray ps=requestArray("GET","/rest/v1/products?select=*&order=category_id.asc,sort_order.asc,created_at.asc",null,false);'
 if 'get_payment_settings_public' not in s:
     repl=needle+'\n            try{JSONArray pay=requestArray("POST","/rest/v1/rpc/get_payment_settings_public",new JSONObject(),false);if(pay.length()>0){JSONObject x=pay.getJSONObject(0);paymentMosad=x.optString("mosad",paymentMosad);paymentApiValid=x.optString("api_valid",paymentApiValid);paymentGroupe=x.optString("groupe","");}}catch(Exception ignored){}'
     if needle not in s: raise SystemExit('load marker not found')
