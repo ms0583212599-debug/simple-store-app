@@ -79,6 +79,7 @@ public class MainActivity extends Activity {
     private OfflineStore offline;
     private volatile boolean syncPromptVisible = false;
     private final Map<String,EditText> inventoryCountInputs = new HashMap<>();
+    private boolean inventoryCountProductMode = false;
     private final int blue = Color.rgb(34,91,203);
     private final int green = Color.rgb(22,163,74);
     private final int red = Color.rgb(220,38,38);
@@ -426,6 +427,7 @@ public class MainActivity extends Activity {
     }
 
     private void productDialog(Product p){
+        final boolean fromInventoryCount=inventoryCountProductMode;inventoryCountProductMode=false;
         ScrollView sc=new ScrollView(this);LinearLayout box=baseRoot();box.setPadding(dp(12),dp(6),dp(12),dp(6));sc.addView(box);
         EditText name=input("שם מוצר");EditText price=input("מחיר");price.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);
         EditText stock=input("מלאי");stock.setInputType(InputType.TYPE_CLASS_NUMBER);EditText low=input("סף מלאי נמוך");low.setInputType(InputType.TYPE_CLASS_NUMBER);
@@ -438,8 +440,8 @@ public class MainActivity extends Activity {
                 if(name.getText().toString().trim().isEmpty()||categories.isEmpty()){Toast.makeText(this,"חסר שם מוצר או קטגוריה",Toast.LENGTH_LONG).show();return;}
                 io.execute(()->{try{
                     JSONObject body=new JSONObject();body.put("name",name.getText().toString().trim());body.put("price",num(price,0));body.put("stock_quantity",intNum(stock,0));body.put("low_stock_threshold",intNum(low,3));body.put("category_id",categories.get(cat.getSelectedItemPosition()).id);body.put("is_active",true);
-                    if(p==null){int next=1;for(Product x2:products)if(x2.categoryId.equals(categories.get(cat.getSelectedItemPosition()).id))next=Math.max(next,x2.sortOrder+1);body.put("sort_order",next);body.put("image_url","");body.put("image_path","");requestOrQueue("POST","/rest/v1/products",body,true);}else requestOrQueue("PATCH","/rest/v1/products?id=eq."+url(p.id),body,true);
-                    loadData(()->{dlg.dismiss();showProductsAdmin();});
+                    if(p==null){String newId=java.util.UUID.randomUUID().toString();body.put("id",newId);int next=1;for(Product x2:products)if(x2.categoryId.equals(categories.get(cat.getSelectedItemPosition()).id))next=Math.max(next,x2.sortOrder+1);body.put("sort_order",next);body.put("image_url","");body.put("image_path","");requestOrQueue("POST","/rest/v1/products",body,true);if(fromInventoryCount){android.content.SharedPreferences prefs=getSharedPreferences("inventory_count",MODE_PRIVATE);String ids=prefs.getString("new_ids","");prefs.edit().putString("new_ids",ids+","+newId+",").putInt("qty_"+newId,Math.max(0,intNum(stock,0))).apply();}}else requestOrQueue("PATCH","/rest/v1/products?id=eq."+url(p.id),body,true);
+                    loadData(()->{dlg.dismiss();if(fromInventoryCount)showInventoryCount();else showProductsAdmin();});
                 }catch(Exception e){main.post(()->Toast.makeText(this,"שמירה נכשלה: "+safeMsg(e),Toast.LENGTH_LONG).show());}});
             });
             if(p!=null){
@@ -487,25 +489,16 @@ public class MainActivity extends Activity {
     }
 
     private void addInventoryCountProduct(){
-        EditText name=input("שם המוצר");
-        new AlertDialog.Builder(this).setTitle("מוצר חדש").setView(name).setNegativeButton("ביטול",null).setPositiveButton("המשך",(d,w)->{
-            String productName=name.getText().toString().trim();if(productName.isEmpty())return;
-            Spinner category=new Spinner(this);category.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,categories.stream().map(x->x.name).toArray(String[]::new)));
-            new AlertDialog.Builder(this).setTitle("לאיזו קטגוריה להכניס?").setView(category).setNegativeButton("ביטול",null).setPositiveButton("שמור",(d2,w2)->io.execute(()->{try{
-                String id=java.util.UUID.randomUUID().toString();Category cat=categories.get(category.getSelectedItemPosition());int next=1;for(Product p:products)if(p.categoryId.equals(cat.id))next=Math.max(next,p.sortOrder+1);
-                JSONObject body=new JSONObject();body.put("id",id);body.put("category_id",cat.id);body.put("name",productName);body.put("price",0);body.put("stock_quantity",0);body.put("low_stock_threshold",3);body.put("sort_order",next);body.put("image_url","");body.put("image_path","");body.put("is_active",false);
-                requestOrQueue("POST","/rest/v1/products",body,true);
-                android.content.SharedPreferences prefs=getSharedPreferences("inventory_count",MODE_PRIVATE);String ids=prefs.getString("new_ids","");prefs.edit().putString("new_ids",ids+","+id+",").apply();
-                loadData(this::showInventoryCount);
-            }catch(Exception e){main.post(()->Toast.makeText(this,"שמירת המוצר נכשלה: "+safeMsg(e),Toast.LENGTH_LONG).show());}})).show();
-        }).show();
+        inventoryCountProductMode=true;
+        productDialog(null);
     }
 
     private void confirmInventoryCount(){
         boolean any=false;for(EditText e:inventoryCountInputs.values())if(!e.getText().toString().trim().isEmpty()){any=true;break;}if(!any){Toast.makeText(this,"עדיין לא הוזנו כמויות",Toast.LENGTH_LONG).show();return;}
-        new AlertDialog.Builder(this).setTitle("מוצרים שלא נספרו").setMessage("לאפס ל־0 את כל המוצרים שלא הוזנה עבורם כמות?")
-                .setNegativeButton("לעדכן רק שנספרו",(d,w)->applyInventoryCount(false))
-                .setPositiveButton("כן, לאפס",(d,w)->applyInventoryCount(true)).show();
+        new AlertDialog.Builder(this).setTitle("סיום ספירת מלאי").setMessage("בחר מה לעשות עם הספירה:")
+                .setNeutralButton("שמור בלי עדכון",(d,w)->{Toast.makeText(this,"הספירה נשמרה כטיוטה בלי לעדכן מלאי",Toast.LENGTH_LONG).show();showAdminHome();})
+                .setNegativeButton("עדכן רק שנספרו",(d,w)->applyInventoryCount(false))
+                .setPositiveButton("עדכן ואפס השאר",(d,w)->applyInventoryCount(true)).show();
     }
 
     private void applyInventoryCount(boolean zeroMissing){
