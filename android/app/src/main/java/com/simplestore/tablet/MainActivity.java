@@ -403,9 +403,10 @@ public class MainActivity extends Activity {
 
     private void showAdminHome(){
         buildShell("ניהול",this::showHome,false);
-        String[] labels={"מוצרים וקטגוריות","מלאי","ספירת מלאי","ספקים","רכישה חדשה","היסטוריית רכישות","דוחות"};
-        Runnable[] actions={this::showProductsAdmin,this::showStockAdmin,this::showInventoryCount,this::showSuppliersAdmin,this::showNewPurchase,this::showPurchaseHistory,this::showReports};
+        String[] labels={"מוצרים וקטגוריות","מלאי","ספקים","רכישה חדשה","היסטוריית רכישות","דוחות"};
+        Runnable[] actions={this::showProductsAdmin,this::showStockAdmin,this::showSuppliersAdmin,this::showNewPurchase,this::showPurchaseHistory,this::showReports};
         for(int i=0;i<labels.length;i++){final int idx=i;Button b=button(labels[idx],Color.WHITE,blue);b.setOnClickListener(v->actions[idx].run());LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,dp(64));p.setMargins(0,0,0,dp(12));content.addView(b,p);}
+        Button countInventory=button("ספירת מלאי",Color.WHITE,blue);countInventory.setOnClickListener(v->showInventoryCount());LinearLayout.LayoutParams countParams=new LinearLayout.LayoutParams(-1,dp(64));countParams.setMargins(0,0,0,dp(12));content.addView(countInventory,countParams);
         Button logout=button("יציאה מניהול",red,Color.WHITE);logout.setOnClickListener(v->{adminToken="";adminUserId="";getSharedPreferences("simple_store_auth",MODE_PRIVATE).edit().clear().apply();showHome();});content.addView(logout,new LinearLayout.LayoutParams(-1,dp(60)));
     }
 
