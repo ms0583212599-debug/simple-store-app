@@ -78,6 +78,7 @@ public class MainActivity extends Activity {
     private String paymentGroupe = "";
     private OfflineStore offline;
     private volatile boolean syncPromptVisible = false;
+    private final Map<String,EditText> inventoryCountInputs = new HashMap<>();
     private final int blue = Color.rgb(34,91,203);
     private final int green = Color.rgb(22,163,74);
     private final int red = Color.rgb(220,38,38);
@@ -402,8 +403,8 @@ public class MainActivity extends Activity {
 
     private void showAdminHome(){
         buildShell("ניהול",this::showHome,false);
-        String[] labels={"מוצרים וקטגוריות","מלאי","ספקים","רכישה חדשה","היסטוריית רכישות","דוחות"};
-        Runnable[] actions={this::showProductsAdmin,this::showStockAdmin,this::showSuppliersAdmin,this::showNewPurchase,this::showPurchaseHistory,this::showReports};
+        String[] labels={"מוצרים וקטגוריות","מלאי","ספירת מלאי","ספקים","רכישה חדשה","היסטוריית רכישות","דוחות"};
+        Runnable[] actions={this::showProductsAdmin,this::showStockAdmin,this::showInventoryCount,this::showSuppliersAdmin,this::showNewPurchase,this::showPurchaseHistory,this::showReports};
         for(int i=0;i<labels.length;i++){final int idx=i;Button b=button(labels[idx],Color.WHITE,blue);b.setOnClickListener(v->actions[idx].run());LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,dp(64));p.setMargins(0,0,0,dp(12));content.addView(b,p);}
         Button logout=button("יציאה מניהול",red,Color.WHITE);logout.setOnClickListener(v->{adminToken="";adminUserId="";getSharedPreferences("simple_store_auth",MODE_PRIVATE).edit().clear().apply();showHome();});content.addView(logout,new LinearLayout.LayoutParams(-1,dp(60)));
     }
@@ -458,6 +459,64 @@ public class MainActivity extends Activity {
         LinearLayout box=baseRoot();EditText name=input("שם קטגוריה");Spinner mode=new Spinner(this);String[] modes={"תמונות אוטומטיות","תמונה מותאמת קיימת"};mode.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,modes));box.addView(name);box.addView(mode);
         if(c!=null){name.setText(c.name);mode.setSelection("custom".equals(c.imageMode)?1:0);}
         new AlertDialog.Builder(this).setTitle(c==null?"קטגוריה חדשה":"עריכת קטגוריה").setView(box).setNegativeButton("ביטול",null).setPositiveButton("שמור",(d,w)->io.execute(()->{try{JSONObject b=new JSONObject();b.put("name",name.getText().toString().trim());b.put("image_mode",mode.getSelectedItemPosition()==1?"custom":"auto");if(mode.getSelectedItemPosition()==0){b.put("image_url",JSONObject.NULL);b.put("image_path",JSONObject.NULL);}if(c==null){int next=1;for(Category x:categories)next=Math.max(next,x.sortOrder+1);b.put("sort_order",next);requestOrQueue("POST","/rest/v1/categories",b,true);}else requestOrQueue("PATCH","/rest/v1/categories?id=eq."+url(c.id),b,true);loadData(this::showCategoriesAdmin);}catch(Exception e){main.post(()->Toast.makeText(this,"שמירת קטגוריה נכשלה",Toast.LENGTH_LONG).show());}})).show();
+    }
+
+    private List<Product> inventoryCountProducts(){
+        List<Product> result=new ArrayList<>(products);
+        String ids=getSharedPreferences("inventory_count",MODE_PRIVATE).getString("new_ids","");
+        try{JSONArray raw=offline.products();for(int i=0;i<raw.length();i++){JSONObject o=raw.getJSONObject(i);if(ids.contains(o.optString("id"))&&findProduct(o.optString("id"))==null)result.add(new Product(o.optString("id"),o.optString("category_id"),o.optString("name"),o.optDouble("price",0),o.optInt("stock_quantity",0),o.optString("image_url"),o.optInt("low_stock_threshold",3),o.optInt("sort_order",0)));}}catch(Exception ignored){}
+        return result;
+    }
+
+    private void showInventoryCount(){
+        buildShell("ספירת מלאי",this::showAdminHome,false);
+        TextView help=text("הזן רק כמה יחידות יש כרגע. הטיוטה נשמרת אוטומטית במכשיר.",16,false);help.setPadding(0,0,0,dp(12));content.addView(help);
+        Button add=button("+ מוצר שלא קיים",green,Color.WHITE);add.setOnClickListener(v->addInventoryCountProduct());content.addView(add,new LinearLayout.LayoutParams(-1,dp(58)));
+        inventoryCountInputs.clear();
+        android.content.SharedPreferences draft=getSharedPreferences("inventory_count",MODE_PRIVATE);
+        for(Product p:inventoryCountProducts()){
+            LinearLayout row=card();row.setOrientation(LinearLayout.HORIZONTAL);row.setGravity(Gravity.CENTER_VERTICAL);
+            Category cat=null;for(Category x:categories)if(x.id.equals(p.categoryId)){cat=x;break;}
+            TextView name=text(p.name+"\n"+(cat==null?"":cat.name)+" · נוכחי: "+p.stock,17,true);row.addView(name,new LinearLayout.LayoutParams(0,dp(72),1));
+            EditText qty=input("כמה יש?");qty.setInputType(InputType.TYPE_CLASS_NUMBER);if(draft.contains("qty_"+p.id))qty.setText(String.valueOf(draft.getInt("qty_"+p.id,0)));
+            qty.addTextChangedListener(new SimpleWatcher(()->{String value=qty.getText().toString().trim();android.content.SharedPreferences.Editor e=draft.edit();if(value.isEmpty())e.remove("qty_"+p.id);else e.putInt("qty_"+p.id,Math.max(0,intNum(qty,0)));e.apply();}));
+            inventoryCountInputs.put(p.id,qty);row.addView(qty,new LinearLayout.LayoutParams(dp(150),dp(58)));content.addView(row);
+        }
+        Button finish=button("סיום ספירה ועדכון מלאי הלקוחות",blue,Color.WHITE);finish.setOnClickListener(v->confirmInventoryCount());LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,dp(64));fp.setMargins(0,dp(14),0,dp(10));content.addView(finish,fp);
+    }
+
+    private void addInventoryCountProduct(){
+        EditText name=input("שם המוצר");
+        new AlertDialog.Builder(this).setTitle("מוצר חדש").setView(name).setNegativeButton("ביטול",null).setPositiveButton("המשך",(d,w)->{
+            String productName=name.getText().toString().trim();if(productName.isEmpty())return;
+            Spinner category=new Spinner(this);category.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,categories.stream().map(x->x.name).toArray(String[]::new)));
+            new AlertDialog.Builder(this).setTitle("לאיזו קטגוריה להכניס?").setView(category).setNegativeButton("ביטול",null).setPositiveButton("שמור",(d2,w2)->io.execute(()->{try{
+                String id=java.util.UUID.randomUUID().toString();Category cat=categories.get(category.getSelectedItemPosition());int next=1;for(Product p:products)if(p.categoryId.equals(cat.id))next=Math.max(next,p.sortOrder+1);
+                JSONObject body=new JSONObject();body.put("id",id);body.put("category_id",cat.id);body.put("name",productName);body.put("price",0);body.put("stock_quantity",0);body.put("low_stock_threshold",3);body.put("sort_order",next);body.put("image_url","");body.put("image_path","");body.put("is_active",false);
+                requestOrQueue("POST","/rest/v1/products",body,true);
+                android.content.SharedPreferences prefs=getSharedPreferences("inventory_count",MODE_PRIVATE);String ids=prefs.getString("new_ids","");prefs.edit().putString("new_ids",ids+","+id+",").apply();
+                loadData(this::showInventoryCount);
+            }catch(Exception e){main.post(()->Toast.makeText(this,"שמירת המוצר נכשלה: "+safeMsg(e),Toast.LENGTH_LONG).show());}})).show();
+        }).show();
+    }
+
+    private void confirmInventoryCount(){
+        boolean any=false;for(EditText e:inventoryCountInputs.values())if(!e.getText().toString().trim().isEmpty()){any=true;break;}if(!any){Toast.makeText(this,"עדיין לא הוזנו כמויות",Toast.LENGTH_LONG).show();return;}
+        new AlertDialog.Builder(this).setTitle("מוצרים שלא נספרו").setMessage("לאפס ל־0 את כל המוצרים שלא הוזנה עבורם כמות?")
+                .setNegativeButton("לעדכן רק שנספרו",(d,w)->applyInventoryCount(false))
+                .setPositiveButton("כן, לאפס",(d,w)->applyInventoryCount(true)).show();
+    }
+
+    private void applyInventoryCount(boolean zeroMissing){
+        new AlertDialog.Builder(this).setTitle("סיום ספירה").setMessage("לעדכן עכשיו את מלאי הלקוחות לפי הספירה?").setNegativeButton("ביטול",null).setPositiveButton("עדכן",(d,w)->io.execute(()->{try{
+            for(Product p:inventoryCountProducts()){
+                EditText input=inventoryCountInputs.get(p.id);String value=input==null?"":input.getText().toString().trim();if(value.isEmpty()&&!zeroMissing)continue;
+                JSONObject body=new JSONObject();body.put("stock_quantity",value.isEmpty()?0:Math.max(0,Integer.parseInt(value)));
+                requestOrQueue("PATCH","/rest/v1/products?id=eq."+url(p.id),body,true);
+            }
+            getSharedPreferences("inventory_count",MODE_PRIVATE).edit().clear().apply();
+            loadData(()->{Toast.makeText(this,offline.isOnline()?"הספירה נשמרה ומלאי הלקוחות עודכן":"הספירה נשמרה במכשיר וממתינה לסנכרון",Toast.LENGTH_LONG).show();showInventoryCount();});
+        }catch(Exception e){main.post(()->Toast.makeText(this,"עדכון הספירה נכשל: "+safeMsg(e),Toast.LENGTH_LONG).show());}})).show();
     }
 
     private void showStockAdmin(){
