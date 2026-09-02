@@ -5,22 +5,37 @@ function renderInventoryCount(){
   const host=$('inventoryCountRows');if(!host)return;
   const category=$('countNewCategory');
   if(category)category.innerHTML=cats.map(c=>'<option value="'+c.id+'">'+esc(c.name)+'</option>').join('');
-  const rows=prods.filter(p=>p.is_active!==false||Object.prototype.hasOwnProperty.call(inventoryCountDraft,p.id)).slice().sort((a,b)=>{
-    const ac=cats.findIndex(c=>c.id===a.category_id),bc=cats.findIndex(c=>c.id===b.category_id);
-    return ac-bc||(a.sort_order||0)-(b.sort_order||0);
+  const rows=prods.filter(p=>p.is_active!==false||Object.prototype.hasOwnProperty.call(inventoryCountDraft,p.id));
+  const groups=[];
+  cats.forEach(cat=>{
+    const products=rows.filter(p=>p.category_id===cat.id).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+    if(products.length)groups.push({id:cat.id,name:cat.name,products});
   });
-  host.innerHTML=rows.map(p=>{
-    const cat=cats.find(c=>c.id===p.category_id)?.name||'ללא קטגוריה';
-    const value=Object.prototype.hasOwnProperty.call(inventoryCountDraft,p.id)?inventoryCountDraft[p.id]:'';
-    return '<div class="admin-product" style="grid-template-columns:1fr 150px;gap:12px">'
-      +'<div class="admin-info"><b>'+esc(p.name)+'</b><br><span class="msg">'+esc(cat)+' · מלאי נוכחי: '+Number(p.stock_quantity||0)+'</span></div>'
-      +'<input class="count-qty" data-product-id="'+p.id+'" min="0" step="1" inputmode="numeric" type="number" value="'+esc(value)+'" placeholder="כמה יש?"></div>';
+  const uncategorized=rows.filter(p=>!cats.some(c=>c.id===p.category_id)).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'he'));
+  if(uncategorized.length)groups.push({id:'uncategorized',name:'ללא קטגוריה',products:uncategorized});
+  host.innerHTML=groups.map(group=>{
+    const counted=group.products.filter(p=>Object.prototype.hasOwnProperty.call(inventoryCountDraft,p.id)).length;
+    const productRows=group.products.map(p=>{
+      const value=Object.prototype.hasOwnProperty.call(inventoryCountDraft,p.id)?inventoryCountDraft[p.id]:'';
+      return '<div class="admin-product" style="grid-template-columns:1fr 150px;gap:12px">'
+        +'<div class="admin-info"><b>'+esc(p.name)+'</b><br><span class="msg">מלאי נוכחי: '+Number(p.stock_quantity||0)+'</span></div>'
+        +'<input class="count-qty" data-product-id="'+p.id+'" min="0" step="1" inputmode="numeric" type="number" value="'+esc(value)+'" placeholder="כמה יש?"></div>';
+    }).join('');
+    return '<details class="history-card inventory-count-category" '+(counted?'open':'')+'>'
+      +'<summary class="history-head" style="cursor:pointer;list-style:none"><span><b>'+esc(group.name)+'</b></span><span class="msg">'+counted+' מתוך '+group.products.length+' נספרו</span></summary>'
+      +'<div class="history-body">'+productRows+'</div></details>';
   }).join('')||'<div class="msg">אין מוצרים לספירה</div>';
   host.querySelectorAll('.count-qty').forEach(input=>input.oninput=()=>{
     if(input.value==='')delete inventoryCountDraft[input.dataset.productId];
     else inventoryCountDraft[input.dataset.productId]=Math.max(0,Math.floor(Number(input.value)||0));
     localStorage.setItem('inventory_count_draft',JSON.stringify(inventoryCountDraft));
     updateInventoryCountSummary();
+    const details=input.closest('.inventory-count-category'),counter=details?.querySelector('summary .msg');
+    if(details&&counter){
+      const total=details.querySelectorAll('.count-qty').length;
+      const done=[...details.querySelectorAll('.count-qty')].filter(x=>x.value!=='').length;
+      counter.textContent=done+' מתוך '+total+' נספרו';
+    }
   });
   updateInventoryCountSummary();
 }
