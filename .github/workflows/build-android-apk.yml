@@ -49,6 +49,9 @@ jobs:
         run: python3 android/ci_compact_storefront.py
       - name: Make storefront responsive
         run: python3 android/ci_responsive_storefront.py
+      - name: Make storefront tiles smaller and clearer
+        working-directory: android
+        run: python3 ci_storefront_tiny_tiles.py
       - name: Allow purchase product name editing
         run: python3 android/ci_purchase_product_name.py
       - name: Add purchase customer visibility
