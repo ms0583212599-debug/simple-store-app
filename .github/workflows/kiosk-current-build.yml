@@ -90,12 +90,15 @@ jobs:
         run: python3 ci_auto_update_check.py
       - name: Add filtered-network updater fallback
         run: python3 android/ci_updater_text_fallback.py
-      - name: Build kiosk APK from version 107 codebase
+      - name: Use kiosk update channel
         working-directory: android
-        run: gradle assembleDebug -PversionCode=9107 -PversionName=1.0.107-kiosk
+        run: python3 ci_kiosk_update_channel.py
+      - name: Build kiosk APK
+        working-directory: android
+        run: gradle assembleDebug -PversionCode=9200 -PversionName=1.0.107-kiosk.9200
       - name: Upload kiosk APK
         uses: actions/upload-artifact@v4
         with:
-          name: simple-store-kiosk-v107-apk
+          name: simple-store-kiosk-v9200-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
