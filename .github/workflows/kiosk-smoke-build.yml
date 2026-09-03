@@ -31,15 +31,20 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-      - name: Ensure signing key
+      - name: Restore stable Android signing key
+        id: signing-key-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: simple-store-android-signing-key-v1
+      - name: Create signing key once
+        if: steps.signing-key-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p ~/.android
-          if [ ! -f ~/.android/debug.keystore ]; then
-            keytool -genkeypair -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Simple Store Tablet,O=Simple Store,C=IL"
-          fi
+          keytool -genkeypair -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Simple Store Tablet,O=Simple Store,C=IL"
       - name: Compile kiosk APK
         working-directory: android
-        run: gradle assembleDebug -PversionCode=9001 -PversionName=kiosk-smoke
+        run: gradle assembleDebug -PversionCode=9002 -PversionName=kiosk-smoke-signed
       - name: Upload kiosk APK
         uses: actions/upload-artifact@v4
         with:
