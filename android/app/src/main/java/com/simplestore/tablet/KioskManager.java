@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.UserManager;
 import android.view.View;
@@ -31,13 +30,11 @@ public final class KioskManager {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             dpm.setLockTaskFeatures(admin, DevicePolicyManager.LOCK_TASK_FEATURE_NONE);
         }
-        PackageManager pm = activity.getPackageManager();
-        ComponentName home = new ComponentName(activity, MainActivity.class);
-        dpm.addPersistentPreferredActivity(admin,
-                new android.content.IntentFilter(android.content.Intent.ACTION_MAIN) {{
-                    addCategory(android.content.Intent.CATEGORY_HOME);
-                    addCategory(android.content.Intent.CATEGORY_DEFAULT);
-                }}, home);
+        ComponentName home = new ComponentName(activity, KioskActivity.class);
+        android.content.IntentFilter filter = new android.content.IntentFilter(android.content.Intent.ACTION_MAIN);
+        filter.addCategory(android.content.Intent.CATEGORY_HOME);
+        filter.addCategory(android.content.Intent.CATEGORY_DEFAULT);
+        dpm.addPersistentPreferredActivity(admin, filter, home);
     }
 
     public static void enter(Activity activity) {
