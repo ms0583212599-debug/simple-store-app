@@ -1,5 +1,47 @@
 // Fast physical inventory count shared by the website and the native app.
 let inventoryCountDraft=JSON.parse(localStorage.getItem('inventory_count_draft')||'{}');
+let editingInventoryCountId=sessionStorage.getItem('inventory_count_editing_id')||'';
+
+function getInventoryCountHistory(){
+  try{return JSON.parse(localStorage.getItem('inventory_count_history')||'[]')||[]}catch(e){return []}
+}
+function setInventoryCountHistory(rows){localStorage.setItem('inventory_count_history',JSON.stringify(rows||[]));}
+function saveInventoryCountSnapshot(zeroMissing){
+  const now=Date.now(),history=getInventoryCountHistory();
+  const items={};
+  const counted=Object.keys(inventoryCountDraft).filter(id=>inventoryCountDraft[id]!==''&&Number.isFinite(Number(inventoryCountDraft[id])));
+  const countable=prods.filter(p=>p.is_active!==false||counted.includes(p.id));
+  countable.forEach(p=>{if(counted.includes(p.id))items[p.id]=Math.max(0,Math.floor(Number(inventoryCountDraft[p.id])||0));else if(zeroMissing)items[p.id]=0;});
+  if(editingInventoryCountId){
+    const i=history.findIndex(x=>String(x.id)===String(editingInventoryCountId));
+    if(i>=0)history[i]={...history[i],items,zero_missing:!!zeroMissing,updated_at:now};
+    else history.unshift({id:editingInventoryCountId,saved_at:now,updated_at:now,items,zero_missing:!!zeroMissing});
+  }else history.unshift({id:String(now),saved_at:now,updated_at:now,items,zero_missing:!!zeroMissing});
+  setInventoryCountHistory(history);
+}
+function inventoryCountDate(ts){try{return new Date(Number(ts)).toLocaleString('he-IL')}catch(e){return ''}}
+function renderInventoryCountHistory(){
+  const tab=$('inventoryCountTab');if(!tab)return;
+  let box=$('inventoryCountHistoryBox');
+  if(!box){
+    box=document.createElement('div');box.id='inventoryCountHistoryBox';box.className='card';box.style.margin='14px 0';
+    const rows=$('inventoryCountRows');if(rows)rows.insertAdjacentElement('beforebegin',box);else tab.appendChild(box);
+  }
+  const history=getInventoryCountHistory();
+  const editing=editingInventoryCountId?'<div class="msg" style="margin-bottom:10px">אתה עורך עכשיו ספירה ישנה. שמירה ועדכון יעדכנו גם את הרשומה ההיסטורית.</div>':'';
+  if(!history.length){box.innerHTML='<div class="bar"><h3>היסטוריית ספירות מלאי</h3></div><div class="msg">אין עדיין ספירות שמורות</div>';return;}
+  box.innerHTML='<div class="bar"><h3>היסטוריית ספירות מלאי</h3></div>'+editing+history.map(h=>{
+    const amount=Object.keys(h.items||{}).length;
+    return '<div class="supplier-row"><div><b>'+esc(inventoryCountDate(h.saved_at))+'</b><br><span class="msg">'+amount+' מוצרים בספירה'+(h.updated_at&&h.updated_at!==h.saved_at?' · נערכה '+esc(inventoryCountDate(h.updated_at)):'')+'</span></div><button class="blue" type="button" onclick="openInventoryCountHistory(\''+String(h.id).replace(/'/g,'')+'\')">פתח / ערוך</button></div>';
+  }).join('');
+}
+function openInventoryCountHistory(id){
+  const h=getInventoryCountHistory().find(x=>String(x.id)===String(id));if(!h)return alert('הספירה לא נמצאה');
+  if(!confirm('לפתוח את הספירה מתאריך '+inventoryCountDate(h.saved_at)+' לעריכה?\nהמלאי עצמו לא ישתנה עד שתלחץ על שמירה ועדכון.'))return;
+  inventoryCountDraft={...h.items};editingInventoryCountId=String(h.id);sessionStorage.setItem('inventory_count_editing_id',editingInventoryCountId);
+  localStorage.setItem('inventory_count_draft',JSON.stringify(inventoryCountDraft));renderInventoryCount();
+}
+function cancelInventoryCountHistoryEdit(){editingInventoryCountId='';sessionStorage.removeItem('inventory_count_editing_id');inventoryCountDraft={};localStorage.removeItem('inventory_count_draft');renderInventoryCount();}
 
 function renderInventoryCount(){
   const host=$('inventoryCountRows');if(!host)return;
@@ -13,7 +55,7 @@ function renderInventoryCount(){
   });
   const uncategorized=rows.filter(p=>!cats.some(c=>c.id===p.category_id)).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'he'));
   if(uncategorized.length)groups.push({id:'uncategorized',name:'ללא קטגוריה',products:uncategorized});
-  host.innerHTML=groups.map(group=>{
+  host.innerHTML=(editingInventoryCountId?'<div class="card" style="margin-bottom:12px"><b>עריכת ספירה ישנה</b> <button class="light" type="button" onclick="cancelInventoryCountHistoryEdit()">בטל עריכה</button></div>':'')+groups.map(group=>{
     const counted=group.products.filter(p=>Object.prototype.hasOwnProperty.call(inventoryCountDraft,p.id)).length;
     const productRows=group.products.map(p=>{
       const value=Object.prototype.hasOwnProperty.call(inventoryCountDraft,p.id)?inventoryCountDraft[p.id]:'';
@@ -37,10 +79,10 @@ function renderInventoryCount(){
       counter.textContent=done+' מתוך '+total+' נספרו';
     }
   });
-  updateInventoryCountSummary();
+  updateInventoryCountSummary();renderInventoryCountHistory();
 }
 function updateInventoryCountSummary(){
-  const e=$('inventoryCountSummary');if(e)e.textContent=Object.keys(inventoryCountDraft).length+' מוצרים נספרו';
+  const e=$('inventoryCountSummary');if(e)e.textContent=Object.keys(inventoryCountDraft).length+' מוצרים נספרו'+(editingInventoryCountId?' · עריכת ספירה ישנה':'');
 }
 async function addInventoryCountProduct(){
   try{
@@ -76,8 +118,9 @@ async function applyInventoryCount(zeroMissing){
       const quantity=counted.includes(p.id)?Math.max(0,Math.floor(Number(inventoryCountDraft[p.id])||0)):0;
       await req('/rest/v1/products?id=eq.'+encodeURIComponent(p.id),{method:'PATCH',body:JSON.stringify({stock_quantity:quantity})});
     }
-    inventoryCountDraft={};localStorage.removeItem('inventory_count_draft');
+    saveInventoryCountSnapshot(zeroMissing);
+    inventoryCountDraft={};localStorage.removeItem('inventory_count_draft');editingInventoryCountId='';sessionStorage.removeItem('inventory_count_editing_id');
     await load();renderInventoryCount();
-    alert(navigator.onLine?'הספירה נשמרה ומלאי הלקוחות עודכן.':'הספירה נשמרה במכשיר וממתינה לסנכרון לענן.');
+    alert(navigator.onLine?'הספירה נשמרה, נוספה להיסטוריה ומלאי הלקוחות עודכן.':'הספירה נשמרה במכשיר וממתינה לסנכרון לענן.');
   }catch(e){alert('עדכון הספירה נעצר: '+(e.message||e));}
 }
