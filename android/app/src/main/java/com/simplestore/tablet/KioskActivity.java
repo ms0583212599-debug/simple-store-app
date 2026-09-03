@@ -46,21 +46,48 @@ public class KioskActivity extends MainActivity {
     }
 
     private void showAdminExit() {
-        EditText pin = new EditText(this);
-        pin.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
-        pin.setHint("קוד מנהל");
+        String savedPin = getSharedPreferences("kiosk", MODE_PRIVATE).getString("admin_pin", "");
+        if (savedPin.isEmpty()) {
+            showCreateAdminPin();
+            return;
+        }
+        EditText pin = pinField("קוד מנהל");
         new AlertDialog.Builder(this)
                 .setTitle("יציאה ממצב נעול")
                 .setView(pin)
                 .setNegativeButton("ביטול", null)
                 .setPositiveButton("פתח", (dialog, which) -> {
-                    String saved = getSharedPreferences("kiosk", MODE_PRIVATE).getString("admin_pin", "7391");
-                    if (saved.equals(pin.getText().toString())) {
+                    if (savedPin.equals(pin.getText().toString())) {
                         KioskManager.exit(this);
                         Toast.makeText(this, "מצב Kiosk שוחרר זמנית", Toast.LENGTH_LONG).show();
                     } else {
                         Toast.makeText(this, "קוד שגוי", Toast.LENGTH_SHORT).show();
                     }
                 }).show();
+    }
+
+    private void showCreateAdminPin() {
+        EditText pin = pinField("קוד חדש - לפחות 6 ספרות");
+        new AlertDialog.Builder(this)
+                .setTitle("הגדרת קוד מנהל")
+                .setMessage("בפעם הראשונה יש לקבוע קוד יציאה אישי. אין קוד ברירת מחדל.")
+                .setView(pin)
+                .setCancelable(false)
+                .setPositiveButton("שמור", (dialog, which) -> {
+                    String value = pin.getText().toString();
+                    if (value.length() < 6) {
+                        Toast.makeText(this, "הקוד חייב להכיל לפחות 6 ספרות", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    getSharedPreferences("kiosk", MODE_PRIVATE).edit().putString("admin_pin", value).apply();
+                    Toast.makeText(this, "קוד המנהל נשמר", Toast.LENGTH_LONG).show();
+                }).show();
+    }
+
+    private EditText pinField(String hint) {
+        EditText pin = new EditText(this);
+        pin.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        pin.setHint(hint);
+        return pin;
     }
 }
