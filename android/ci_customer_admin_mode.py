@@ -17,10 +17,25 @@ replacement='        buildShell("מערכת מכירה",null,true);\n        if(
 s=s.replace(home,replacement,1)
 
 # In customer-management mode, the product card becomes an edit action instead of add-to-cart.
-old='        Button add=button(p.stock>0?"הוסף לסל":"לא זמין",blue,Color.WHITE);add.setEnabled(p.stock>0);\n        add.setOnClickListener(v->{int now=cart.getOrDefault(p.id,0);if(now<p.stock){cart.put(p.id,now+1);updateCartButton();Toast.makeText(this,"נוסף לסל",Toast.LENGTH_SHORT).show();}});'
-new='        Button add=button(customerAdminMode?"✎ עריכת מוצר":(p.stock>0?"הוסף לסל":"לא זמין"),blue,Color.WHITE);add.setEnabled(customerAdminMode||p.stock>0);\n        add.setOnClickListener(v->{if(customerAdminMode){productDialog(p);return;}int now=cart.getOrDefault(p.id,0);if(now<p.stock){cart.put(p.id,now+1);updateCartButton();Toast.makeText(this,"נוסף לסל",Toast.LENGTH_SHORT).show();}});\n        if(customerAdminMode)card.setOnClickListener(v->productDialog(p));'
-if old not in s: raise SystemExit('product card marker not found')
-s=s.replace(old,new,1)
+# Support both the original storefront button and the later compact/tiny-tile variant.
+variants=[
+(
+'        Button add=button(p.stock>0?"הוסף לסל":"לא זמין",blue,Color.WHITE);add.setEnabled(p.stock>0);\n        add.setOnClickListener(v->{int now=cart.getOrDefault(p.id,0);if(now<p.stock){cart.put(p.id,now+1);updateCartButton();Toast.makeText(this,"נוסף לסל",Toast.LENGTH_SHORT).show();}});',
+'        Button add=button(customerAdminMode?"✎ עריכת מוצר":(p.stock>0?"הוסף לסל":"לא זמין"),blue,Color.WHITE);add.setEnabled(customerAdminMode||p.stock>0);\n        add.setOnClickListener(v->{if(customerAdminMode){productDialog(p);return;}int now=cart.getOrDefault(p.id,0);if(now<p.stock){cart.put(p.id,now+1);updateCartButton();Toast.makeText(this,"נוסף לסל",Toast.LENGTH_SHORT).show();}});\n        if(customerAdminMode)card.setOnClickListener(v->productDialog(p));'
+),
+(
+'        Button add=button(p.stock>0?"+  הוסף לסל":"לא זמין",p.stock>0?green:Color.LTGRAY,p.stock>0?Color.WHITE:Color.DKGRAY);add.setEnabled(p.stock>0);add.setTextSize(12);add.setPadding(0,0,0,0);\n        add.setOnClickListener(v->{int now=cart.getOrDefault(p.id,0);if(now<p.stock){cart.put(p.id,now+1);updateCartButton();Toast.makeText(this,"נוסף לסל",Toast.LENGTH_SHORT).show();}});',
+'        Button add=button(customerAdminMode?"✎ עריכת מוצר":(p.stock>0?"+  הוסף לסל":"לא זמין"),customerAdminMode?blue:(p.stock>0?green:Color.LTGRAY),customerAdminMode?Color.WHITE:(p.stock>0?Color.WHITE:Color.DKGRAY));add.setEnabled(customerAdminMode||p.stock>0);add.setTextSize(12);add.setPadding(0,0,0,0);\n        add.setOnClickListener(v->{if(customerAdminMode){productDialog(p);return;}int now=cart.getOrDefault(p.id,0);if(now<p.stock){cart.put(p.id,now+1);updateCartButton();Toast.makeText(this,"נוסף לסל",Toast.LENGTH_SHORT).show();}});\n        if(customerAdminMode)card.setOnClickListener(v->productDialog(p));'
+)
+]
+if 'if(customerAdminMode){productDialog(p);return;}' not in s:
+    applied=False
+    for old,new in variants:
+        if old in s:
+            s=s.replace(old,new,1)
+            applied=True
+            break
+    if not applied: raise SystemExit('product card marker not found')
 
 # Return to the customer screen after saving/archiving if edit was opened from customer mode.
 s=s.replace('loadData(()->{dlg.dismiss();showProductsAdmin();});','loadData(()->{dlg.dismiss();if(customerAdminMode)showHome();else showProductsAdmin();});')
