@@ -80,6 +80,9 @@ jobs:
       - name: Add inventory draft controls
         working-directory: android
         run: python3 ci_inventory_draft_button.py
+      - name: Add inventory count editing
+        working-directory: android
+        run: python3 ci_inventory_count_edit.py
       - name: Check for updates automatically on launch
         working-directory: android
         run: python3 ci_auto_update_check.py
