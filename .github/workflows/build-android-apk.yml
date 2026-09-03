@@ -52,6 +52,9 @@ jobs:
       - name: Make storefront tiles smaller and clearer
         working-directory: android
         run: python3 ci_storefront_tiny_tiles.py
+      - name: Rebuild category tiles with contained images
+        working-directory: android
+        run: python3 ci_category_tiles.py
       - name: Cache storefront images automatically
         working-directory: android
         run: python3 ci_image_cache.py
