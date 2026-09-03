@@ -1,0 +1,53 @@
+name: Kiosk Latest Build
+
+on:
+  push:
+    branches:
+      - feature/kiosk-latest
+    paths:
+      - 'android/**'
+      - '.github/workflows/kiosk-latest-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android SDK 35
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Restore stable Android signing key
+        id: signing-key-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: simple-store-android-signing-key-v1
+      - name: Create signing key once
+        if: steps.signing-key-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/.android
+          keytool -genkeypair -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Simple Store Tablet,O=Simple Store,C=IL"
+      - name: Compile latest kiosk APK
+        working-directory: android
+        run: gradle assembleDebug -PversionCode=9100 -PversionName=kiosk-latest
+      - name: Upload latest kiosk APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: simple-store-kiosk-latest-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
