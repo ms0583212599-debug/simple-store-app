@@ -17,19 +17,15 @@ if old_urls in s:
 elif new_urls not in s:
     raise SystemExit('VERSION_URLS marker not found')
 
-old_fallback = 'String apkUrlFallback = info.optString("apkUrlFallback", UPDATE_PROXY + "?file=apk");'
-new_fallback = 'String apkUrlFallback = info.optString("apkUrlFallback", "");'
-if old_fallback in s:
-    s = s.replace(old_fallback, new_fallback, 1)
-elif new_fallback not in s:
-    raise SystemExit('apkUrlFallback marker not found')
-
-old_auto_fallback = '''                if (baseUrl.contains("raw.githubusercontent.com") || baseUrl.contains("vercel.app")) {
-                    info.put("apkUrlFallback", UPDATE_PROXY + "?file=apk&v=" + info.optLong("versionCode", 0));
-                }
-'''
-if old_auto_fallback in s:
-    s = s.replace(old_auto_fallback, '', 1)
+# The filtered-network updater patch may already have converted the APK URL
+# to apkTextUrl. In kiosk mode we keep that mechanism, but point its metadata
+# to the kiosk channel instead of the normal app channel.
+if 'String apkTextUrl = info.optString("apkTextUrl"' not in s and 'String apkUrlFallback = info.optString("apkUrlFallback"' in s:
+    s = s.replace(
+        'String apkUrlFallback = info.optString("apkUrlFallback", UPDATE_PROXY + "?file=apk");',
+        'String apkUrlFallback = info.optString("apkUrlFallback", "");',
+        1,
+    )
 
 p.write_text(s, encoding='utf-8')
 print('kiosk-specific update channel configured')
