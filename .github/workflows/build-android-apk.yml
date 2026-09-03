@@ -83,6 +83,9 @@ jobs:
       - name: Add inventory count editing
         working-directory: android
         run: python3 ci_inventory_count_edit.py
+      - name: Add cloud inventory count history
+        working-directory: android
+        run: python3 ci_inventory_cloud_history.py
       - name: Check for updates automatically on launch
         working-directory: android
         run: python3 ci_auto_update_check.py
