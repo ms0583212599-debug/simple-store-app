@@ -23,6 +23,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Set kiosk version
         run: |
           KIOSK_CODE=$((9200 + GITHUB_RUN_NUMBER))
@@ -121,5 +123,8 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add updates/kiosk-version.json updates/simple-store-kiosk.apk.b64
-          git commit -m "Publish kiosk update $KIOSK_CODE" || exit 0
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Publish kiosk update $KIOSK_CODE"
+          git fetch origin feature/kiosk-current
+          git rebase origin/feature/kiosk-current
           git push origin HEAD:feature/kiosk-current
