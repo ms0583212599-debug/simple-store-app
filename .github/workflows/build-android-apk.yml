@@ -74,6 +74,9 @@ jobs:
       - name: Add inventory draft controls
         working-directory: android
         run: python3 ci_inventory_draft_button.py
+      - name: Check for updates automatically on launch
+        working-directory: android
+        run: python3 ci_auto_update_check.py
       - name: Add filtered-network updater fallback
         run: python3 android/ci_updater_text_fallback.py
       - name: Build debug APK
