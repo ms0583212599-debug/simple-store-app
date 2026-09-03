@@ -9,9 +9,11 @@ s=s.replace('p.height=dp(235);','p.height=dp(155);')
 # Category/product image area: compact but readable.
 s=s.replace('card.addView(image,new LinearLayout.LayoutParams(-1,dp(100)));','card.addView(image,new LinearLayout.LayoutParams(-1,dp(66)));')
 s=s.replace('card.addView(collage,new LinearLayout.LayoutParams(-1,dp(100)));','card.addView(collage,new LinearLayout.LayoutParams(-1,dp(66)));')
-# Category images should fill their cells better instead of looking tiny/empty.
+# Fit the whole image inside the smaller tile instead of cropping/zooming it.
 s=s.replace('i.setScaleType(ImageView.ScaleType.FIT_CENTER);i.setAdjustViewBounds(false);i.setCropToPadding(false);i.setPadding(dp(2),dp(2),dp(2),dp(2));',
-'''i.setScaleType(ImageView.ScaleType.CENTER_CROP);i.setAdjustViewBounds(false);i.setCropToPadding(true);i.setPadding(0,0,0,0);''')
+'''i.setScaleType(ImageView.ScaleType.CENTER_INSIDE);i.setAdjustViewBounds(false);i.setCropToPadding(false);i.setPadding(dp(5),dp(4),dp(5),dp(4));''')
+s=s.replace('i.setScaleType(ImageView.ScaleType.CENTER_CROP);i.setAdjustViewBounds(false);i.setCropToPadding(true);i.setPadding(0,0,0,0);',
+'''i.setScaleType(ImageView.ScaleType.CENTER_INSIDE);i.setAdjustViewBounds(false);i.setCropToPadding(false);i.setPadding(dp(5),dp(4),dp(5),dp(4));''')
 # Keep names readable in the smaller tiles.
 s=s.replace('TextView name=text(c.name,15,true);name.setGravity(Gravity.CENTER);name.setPadding(dp(4),dp(5),dp(4),dp(5));',
 '''TextView name=text(c.name,13,true);name.setGravity(Gravity.CENTER);name.setMaxLines(2);name.setPadding(dp(3),dp(3),dp(3),dp(3));''')
@@ -27,4 +29,4 @@ s=s.replace('LinearLayout.LayoutParams ab=new LinearLayout.LayoutParams(-1,dp(40
 s=s.replace('button("הוסף לסל",blue,Color.WHITE)','button("+ הוסף לסל",green,Color.WHITE)')
 s=s.replace('button("הוסף לסל",green,Color.WHITE)','button("+ הוסף לסל",green,Color.WHITE)')
 p.write_text(s,encoding='utf-8')
-print('tiny storefront tiles and improved category images applied')
+print('tiny storefront tiles with fitted images applied')
