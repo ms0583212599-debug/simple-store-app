@@ -4,10 +4,16 @@ import android.app.AlertDialog;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.MotionEvent;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 public class KioskActivity extends MainActivity {
+    private static final int ADMIN_EXIT_TAPS = 20;
+    private static final long ADMIN_EXIT_TAP_WINDOW_MS = 10000L;
+
     private int adminTapCount = 0;
     private long firstAdminTapAt = 0L;
     private boolean adminUnlocked = false;
@@ -19,12 +25,44 @@ public class KioskActivity extends MainActivity {
     @Override public void onWindowFocusChanged(boolean hasFocus) { super.onWindowFocusChanged(hasFocus); if (hasFocus) ensureKiosk(); }
 
     @Override public boolean dispatchTouchEvent(MotionEvent event) {
-        if (event.getAction() == MotionEvent.ACTION_DOWN && event.getX() < 120 && event.getY() < 120) {
+        if (event.getAction() == MotionEvent.ACTION_DOWN && isMainAdminScreen() && event.getX() < 120 && event.getY() < 120) {
             long now = System.currentTimeMillis();
-            if (firstAdminTapAt == 0L || now - firstAdminTapAt > 5000L) { firstAdminTapAt = now; adminTapCount = 1; } else adminTapCount++;
-            if (adminTapCount >= 7) { adminTapCount = 0; firstAdminTapAt = 0L; showAdminExit(); return true; }
+            if (firstAdminTapAt == 0L || now - firstAdminTapAt > ADMIN_EXIT_TAP_WINDOW_MS) {
+                firstAdminTapAt = now;
+                adminTapCount = 1;
+            } else {
+                adminTapCount++;
+            }
+            if (adminTapCount >= ADMIN_EXIT_TAPS) {
+                adminTapCount = 0;
+                firstAdminTapAt = 0L;
+                showAdminExit();
+                return true;
+            }
+        } else if (event.getAction() == MotionEvent.ACTION_DOWN && !isMainAdminScreen()) {
+            adminTapCount = 0;
+            firstAdminTapAt = 0L;
         }
         return super.dispatchTouchEvent(event);
+    }
+
+    private boolean isMainAdminScreen() {
+        View root = getWindow().getDecorView();
+        return containsExactText(root, "ניהול");
+    }
+
+    private boolean containsExactText(View view, String wanted) {
+        if (view instanceof TextView) {
+            CharSequence text = ((TextView) view).getText();
+            if (text != null && wanted.contentEquals(text)) return true;
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                if (containsExactText(group.getChildAt(i), wanted)) return true;
+            }
+        }
+        return false;
     }
 
     private void showAdminExit() {
