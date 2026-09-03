@@ -1,0 +1,48 @@
+name: Kiosk Smoke Build
+
+on:
+  push:
+    branches:
+      - feature/kiosk-device-owner
+    paths:
+      - 'android/**'
+      - '.github/workflows/kiosk-smoke-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android SDK 35
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Ensure signing key
+        run: |
+          mkdir -p ~/.android
+          if [ ! -f ~/.android/debug.keystore ]; then
+            keytool -genkeypair -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Simple Store Tablet,O=Simple Store,C=IL"
+          fi
+      - name: Compile kiosk APK
+        working-directory: android
+        run: gradle assembleDebug -PversionCode=9001 -PversionName=kiosk-smoke
+      - name: Upload kiosk APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: simple-store-kiosk-smoke-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
