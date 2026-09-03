@@ -25,9 +25,29 @@
             android:name=".AppInstallReceiver"
             android:exported="false" />
 
+        <receiver
+            android:name=".KioskDeviceAdminReceiver"
+            android:permission="android.permission.BIND_DEVICE_ADMIN"
+            android:exported="true">
+            <meta-data android:name="android.app.device_admin" android:resource="@xml/device_admin_receiver" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+
         <activity
             android:name=".MainActivity"
+            android:exported="false"
+            android:screenOrientation="sensor"
+            android:keepScreenOn="true"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|smallestScreenSize" />
+
+        <activity
+            android:name=".KioskActivity"
             android:exported="true"
+            android:lockTaskMode="if_whitelisted"
+            android:excludeFromRecents="true"
             android:screenOrientation="sensor"
             android:keepScreenOn="true"
             android:windowSoftInputMode="adjustResize"
@@ -35,6 +55,11 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
     </application>
