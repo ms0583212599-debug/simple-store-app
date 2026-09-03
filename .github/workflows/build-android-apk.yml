@@ -52,6 +52,9 @@ jobs:
       - name: Make storefront tiles smaller and clearer
         working-directory: android
         run: python3 ci_storefront_tiny_tiles.py
+      - name: Cache storefront images automatically
+        working-directory: android
+        run: python3 ci_image_cache.py
       - name: Allow purchase product name editing
         run: python3 android/ci_purchase_product_name.py
       - name: Add purchase customer visibility
