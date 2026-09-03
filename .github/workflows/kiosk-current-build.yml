@@ -6,12 +6,16 @@ on:
       - feature/kiosk-current
     paths:
       - 'android/**'
+      - '*.js'
+      - 'index.html'
+      - 'styles.css'
+      - 'manifest.webmanifest'
       - '.github/scripts/ci_home_sales.py'
       - '.github/workflows/kiosk-current-build.yml'
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -19,6 +23,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Set kiosk version
+        run: |
+          KIOSK_CODE=$((9200 + GITHUB_RUN_NUMBER))
+          echo "KIOSK_CODE=$KIOSK_CODE" >> "$GITHUB_ENV"
+          echo "KIOSK_NAME=1.0.107-kiosk.$KIOSK_CODE" >> "$GITHUB_ENV"
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
@@ -95,10 +104,22 @@ jobs:
         run: python3 ci_kiosk_update_channel.py
       - name: Build kiosk APK
         working-directory: android
-        run: gradle assembleDebug -PversionCode=9200 -PversionName=1.0.107-kiosk.9200
+        run: gradle assembleDebug -PversionCode=$KIOSK_CODE -PversionName=$KIOSK_NAME
       - name: Upload kiosk APK
         uses: actions/upload-artifact@v4
         with:
-          name: simple-store-kiosk-v9200-apk
+          name: simple-store-kiosk-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+      - name: Publish kiosk update channel
+        run: |
+          mkdir -p updates
+          base64 -w 0 android/app/build/outputs/apk/debug/app-debug.apk > updates/simple-store-kiosk.apk.b64
+          cat > updates/kiosk-version.json <<EOF
+          {"versionCode":$KIOSK_CODE,"versionName":"$KIOSK_NAME","apkTextUrl":"https://raw.githubusercontent.com/ms0583212599-debug/simple-store-app/feature/kiosk-current/updates/simple-store-kiosk.apk.b64"}
+          EOF
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add updates/kiosk-version.json updates/simple-store-kiosk.apk.b64
+          git commit -m "Publish kiosk update $KIOSK_CODE" || exit 0
+          git push origin HEAD:feature/kiosk-current
