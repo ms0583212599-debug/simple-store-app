@@ -1,0 +1,101 @@
+name: Kiosk Current Build
+
+on:
+  push:
+    branches:
+      - feature/kiosk-current
+    paths:
+      - 'android/**'
+      - '.github/scripts/ci_home_sales.py'
+      - '.github/workflows/kiosk-current-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android SDK 35
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Restore stable Android signing key
+        id: signing-key-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: simple-store-android-signing-key-v1
+      - name: Require existing stable signing key
+        if: steps.signing-key-cache.outputs.cache-hit != 'true'
+        run: |
+          echo 'Stable signing key cache was not found. Refusing to create a differently signed APK.'
+          exit 1
+      - name: Add native admin enhancements
+        run: python3 android/ci_enhance.py
+      - name: Add native website parity features
+        run: python3 android/ci_parity.py
+      - name: Compact storefront cards and improve images
+        run: python3 android/ci_compact_storefront.py
+      - name: Make storefront responsive
+        run: python3 android/ci_responsive_storefront.py
+      - name: Make storefront tiles smaller and clearer
+        working-directory: android
+        run: python3 ci_storefront_tiny_tiles.py
+      - name: Rebuild category tiles with contained images
+        working-directory: android
+        run: python3 ci_category_tiles.py
+      - name: Cache storefront images automatically
+        working-directory: android
+        run: python3 ci_image_cache.py
+      - name: Allow purchase product name editing
+        run: python3 android/ci_purchase_product_name.py
+      - name: Add purchase customer visibility
+        run: python3 android/ci_purchase_visibility.py
+      - name: Add latest admin parity release
+        run: python3 android/ci_latest_admin_parity.py
+      - name: Add customer product management mode
+        run: python3 android/ci_customer_admin_mode.py
+      - name: Add shared Nedarim Plus settings
+        run: python3 android/ci_nedarim_settings.py
+      - name: Add saved-card payment option
+        run: python3 android/ci_saved_card_payment.py
+      - name: Add app-only keyboard
+        run: python3 android/ci_app_keyboard.py
+      - name: Add home-use and special-sales admin
+        run: python3 .github/scripts/ci_home_sales.py
+      - name: Add optional home stock deduction
+        working-directory: android
+        run: python3 ci_home_save_mode.py
+      - name: Add inventory draft controls
+        working-directory: android
+        run: python3 ci_inventory_draft_button.py
+      - name: Add inventory count editing
+        working-directory: android
+        run: python3 ci_inventory_count_edit.py
+      - name: Check for updates automatically on launch
+        working-directory: android
+        run: python3 ci_auto_update_check.py
+      - name: Add filtered-network updater fallback
+        run: python3 android/ci_updater_text_fallback.py
+      - name: Build kiosk APK from version 107 codebase
+        working-directory: android
+        run: gradle assembleDebug -PversionCode=9107 -PversionName=1.0.107-kiosk
+      - name: Upload kiosk APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: simple-store-kiosk-v107-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
