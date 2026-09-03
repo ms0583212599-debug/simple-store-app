@@ -65,6 +65,9 @@ jobs:
         run: python3 android/ci_app_keyboard.py
       - name: Add home-use and special-sales admin
         run: python3 .github/scripts/ci_home_sales.py
+      - name: Add optional home stock deduction
+        working-directory: android
+        run: python3 ci_home_save_mode.py
       - name: Add filtered-network updater fallback
         run: python3 android/ci_updater_text_fallback.py
       - name: Build debug APK
