@@ -31,8 +31,20 @@
     if(!proposal){box.innerHTML='';return}
     const files=(proposal.files||[]).map(x=>'<code>'+escHtml(x)+'</code>').join(' ');
     const steps=(proposal.steps||[]).map(x=>'<li>'+escHtml(x)+'</li>').join('');
-    box.innerHTML='<div class="card" style="margin:10px 0;border:2px solid #dbeafe"><h3 style="margin-top:0">שדרוג מוכן לאישור: '+escHtml(proposal.title||'שינוי באתר')+'</h3><p>'+escHtml(proposal.summary||'')+'</p><div class="msg"><b>קבצים צפויים:</b> '+files+'</div><ol>'+steps+'</ol><div class="bar"><span class="msg">רמת סיכון: '+escHtml(proposal.risk||'')+'</span><button class="blue" id="storeGptApprove">אשר ובצע</button></div><div class="msg" style="margin-top:8px">לא יתבצע שינוי בקוד לפני אישור מפורש.</div></div>';
-    document.getElementById('storeGptApprove').onclick=()=>alert('האישור התקבל. מנגנון הכתיבה המאובטח ל-GitHub יופעל בשלב הבא; כרגע לא בוצע שינוי בקוד.');
+    box.innerHTML='<div class="card" style="margin:10px 0;border:2px solid #dbeafe"><h3 style="margin-top:0">שדרוג מוכן לאישור: '+escHtml(proposal.title||'שינוי באתר')+'</h3><p>'+escHtml(proposal.summary||'')+'</p><div class="msg"><b>קבצים צפויים:</b> '+files+'</div><ol>'+steps+'</ol><div class="bar"><span class="msg">רמת סיכון: '+escHtml(proposal.risk||'')+'</span><button class="blue" id="storeGptApprove">אשר והכן לבדיקה</button></div><div class="msg" id="storeGptApplyStatus" style="margin-top:8px">האישור ייצור ענף נפרד ו-Pull Request לבדיקה. האתר הפעיל לא ישתנה בשלב הזה.</div></div>';
+    document.getElementById('storeGptApprove').onclick=applyUpgrade;
+  }
+  async function applyUpgrade(){
+    const button=document.getElementById('storeGptApprove'),status=document.getElementById('storeGptApplyStatus');
+    if(!proposal||button?.disabled)return;
+    if(!confirm('לאשר ל-GPT להכין את שינויי הקוד בענף נפרד לבדיקה?'))return;
+    button.disabled=true;status.textContent='מכין קוד, יוצר ענף נפרד ו-Pull Request...';
+    try{
+      const r=await fetch('/api/gpt-apply',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({proposal})});
+      const d=await r.json();if(!r.ok)throw new Error(d.error||'שגיאה');
+      status.innerHTML='השדרוג הוכן לבדיקה. האתר הפעיל עדיין לא שונה. <a href="'+escHtml(d.prUrl)+'" target="_blank" rel="noopener">פתח את Pull Request #'+escHtml(d.prNumber)+'</a>';
+      button.textContent='הוכן לבדיקה';
+    }catch(e){status.textContent='שגיאה: '+e.message;button.disabled=false}
   }
   async function proposeUpgrade(){
     const input=document.getElementById('storeGptInput'),status=document.getElementById('storeGptStatus'),button=document.getElementById('storeGptPlan');
