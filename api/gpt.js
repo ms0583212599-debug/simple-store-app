@@ -13,6 +13,18 @@ async function isAdmin(auth){
   return Array.isArray(rows)&&rows.length>0;
 }
 
+async function responseJson(response){
+  const text=await response.text();
+  if(!text)return {};
+  try{return JSON.parse(text)}catch{return null}
+}
+
+function responseText(data){
+  if(typeof data?.output_text==='string')return data.output_text;
+  if(!Array.isArray(data?.output))return '';
+  return data.output.flatMap(x=>x.content||[]).filter(x=>x.type==='output_text').map(x=>x.text||'').join('\n');
+}
+
 module.exports=async function handler(req,res){
   res.setHeader('Cache-Control','no-store');
   if(req.method!=='POST')return res.status(405).json({error:'Method not allowed'});
@@ -23,13 +35,14 @@ module.exports=async function handler(req,res){
     const src=Array.isArray(req.body?.messages)?req.body.messages:[];
     const messages=src.slice(-40).map(m=>({role:m?.role==='assistant'?'assistant':'user',content:String(m?.content||'').slice(0,20000)})).filter(m=>m.content.trim());
     if(!messages.length)return res.status(400).json({error:'Message is required'});
-    const body={model:process.env.OPENAI_MODEL||'gpt-5.6-sol',input:messages,max_output_tokens:6000};
+    const body={model:process.env.OPENAI_MODEL||'gpt-5.6',input:messages,max_output_tokens:6000};
     if(req.body?.webSearch===true)body.tools=[{type:'web_search'}];
     const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+process.env.OPENAI_API_KEY,'Content-Type':'application/json'},body:JSON.stringify(body)});
-    const data=await r.json();
+    const data=await responseJson(r);
     if(!r.ok)return res.status(r.status).json({error:data?.error?.message||'OpenAI request failed'});
-    let text=data.output_text||'';
-    if(!text&&Array.isArray(data.output))text=data.output.flatMap(x=>x.content||[]).filter(x=>x.type==='output_text').map(x=>x.text||'').join('\n');
-    res.status(200).json({text,model:data.model,responseId:data.id});
-  }catch(e){res.status(500).json({error:String(e?.message||e)})}
+    if(!data)return res.status(502).json({error:'OpenAI returned an invalid response'});
+    const text=responseText(data).trim();
+    if(!text)return res.status(502).json({error:'OpenAI returned an empty response'});
+    return res.status(200).json({text,model:data.model,responseId:data.id});
+  }catch(e){return res.status(500).json({error:String(e?.message||e)})}
 };
