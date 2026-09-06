@@ -11,12 +11,18 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: android-update-main
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
@@ -91,9 +97,25 @@ jobs:
         run: python3 ci_auto_update_check.py
       - name: Add filtered-network updater fallback
         run: python3 android/ci_updater_text_fallback.py
+      - name: Choose Android version
+        id: version
+        shell: bash
+        run: |
+          PUBLISHED=$(python3 - <<'PY'
+          import json
+          try:
+              with open('updates/version.json', encoding='utf-8') as f:
+                  print(int(json.load(f).get('versionCode', 0)))
+          except Exception:
+              print(0)
+          PY
+          )
+          VERSION=$(( GITHUB_RUN_NUMBER > PUBLISHED ? GITHUB_RUN_NUMBER : PUBLISHED + 1 ))
+          echo "code=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Publishing Android version $VERSION (previous $PUBLISHED, run $GITHUB_RUN_NUMBER)"
       - name: Build debug APK
         working-directory: android
-        run: gradle assembleDebug -PversionCode=${{ github.run_number }} -PversionName=1.0.${{ github.run_number }}
+        run: gradle assembleDebug -PversionCode=${{ steps.version.outputs.code }} -PversionName=1.0.${{ steps.version.outputs.code }}
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
@@ -101,12 +123,20 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
       - name: Publish in-app update
+        env:
+          ANDROID_VERSION: ${{ steps.version.outputs.code }}
         run: |
           mkdir -p updates
           cp android/app/build/outputs/apk/debug/app-debug.apk updates/simple-store-tablet.apk
           python3 - <<'PY'
           import json, os
-          data={'versionCode':int(os.environ['GITHUB_RUN_NUMBER']),'versionName':'1.0.'+os.environ['GITHUB_RUN_NUMBER'],'apkUrl':'https://simple-store-app-ms0583212599-1490s-projects.vercel.app/updates/simple-store-tablet.apk'}
+          version=int(os.environ['ANDROID_VERSION'])
+          data={
+            'versionCode':version,
+            'versionName':'1.0.'+str(version),
+            'apkUrl':'https://ksddrcalmszxxcuxoznd.supabase.co/functions/v1/android-update-proxy?file=apk&v='+str(version),
+            'apkUrlFallback':'https://raw.githubusercontent.com/ms0583212599-debug/simple-store-app/main/updates/simple-store-tablet.apk?v='+str(version)
+          }
           with open('updates/version.json','w',encoding='utf-8') as f:
               json.dump(data,f,ensure_ascii=False,separators=(',',':'));f.write('\n')
           PY
@@ -114,5 +144,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add updates/simple-store-tablet.apk updates/version.json
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Publish Android update ${GITHUB_RUN_NUMBER}"
-          git push
+          git commit -m "Publish Android update ${ANDROID_VERSION}"
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then exit 0; fi
+            git pull --rebase origin main
+          done
+          exit 1
