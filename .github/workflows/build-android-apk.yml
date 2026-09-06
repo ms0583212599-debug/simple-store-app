@@ -92,6 +92,8 @@ jobs:
       - name: Add cloud inventory count history
         working-directory: android
         run: python3 ci_inventory_cloud_history.py
+      - name: Add store-admin-only kiosk release
+        run: python3 android/ci_kiosk_admin_release.py
       - name: Check for updates automatically on launch
         working-directory: android
         run: python3 ci_auto_update_check.py
