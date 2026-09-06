@@ -110,9 +110,12 @@ jobs:
               print(0)
           PY
           )
-          VERSION=$(( GITHUB_RUN_NUMBER > PUBLISHED ? GITHUB_RUN_NUMBER : PUBLISHED + 1 ))
+          BASELINE=10000
+          VERSION=$(( PUBLISHED + 1 ))
+          if (( VERSION < BASELINE )); then VERSION=$BASELINE; fi
+          if (( GITHUB_RUN_NUMBER > VERSION )); then VERSION=$GITHUB_RUN_NUMBER; fi
           echo "code=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Publishing Android version $VERSION (previous $PUBLISHED, run $GITHUB_RUN_NUMBER)"
+          echo "Publishing Android version $VERSION (previous $PUBLISHED, kiosk-safe baseline $BASELINE, run $GITHUB_RUN_NUMBER)"
       - name: Build debug APK
         working-directory: android
         run: gradle assembleDebug -PversionCode=${{ steps.version.outputs.code }} -PversionName=1.0.${{ steps.version.outputs.code }}
