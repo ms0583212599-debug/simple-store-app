@@ -3,6 +3,8 @@ package com.simplestore.tablet;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.PendingIntent;
+import android.app.admin.DevicePolicyManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageInstaller;
@@ -95,12 +97,21 @@ public final class AppUpdater {
         return info.versionCode;
     }
 
+    private static boolean isDeviceOwner(Activity activity) {
+        try {
+            DevicePolicyManager dpm = (DevicePolicyManager) activity.getSystemService(Context.DEVICE_POLICY_SERVICE);
+            return dpm != null && dpm.isDeviceOwnerApp(activity.getPackageName());
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
     private static void downloadAndInstall(Activity activity, String apkUrl, String apkUrlFallback, long expectedVersion) {
         if ((apkUrl == null || apkUrl.isEmpty()) && (apkUrlFallback == null || apkUrlFallback.isEmpty())) {
             Toast.makeText(activity, "כתובת העדכון אינה תקינה", Toast.LENGTH_LONG).show();
             return;
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.getPackageManager().canRequestPackageInstalls()) {
+        if (!isDeviceOwner(activity) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.getPackageManager().canRequestPackageInstalls()) {
             Toast.makeText(activity, "יש לאשר פעם אחת התקנת אפליקציות ממקור זה, ואז לחזור וללחוץ שוב על עדכון", Toast.LENGTH_LONG).show();
             Intent settings = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + activity.getPackageName()));
             activity.startActivity(settings);
@@ -138,7 +149,7 @@ public final class AppUpdater {
                 }
 
                 final long size = apk.length();
-                activity.runOnUiThread(() -> Toast.makeText(activity, "העדכון הורד ואומת (" + (size / 1024) + " KB). פותח התקנה...", Toast.LENGTH_LONG).show());
+                activity.runOnUiThread(() -> Toast.makeText(activity, "העדכון הורד ואומת (" + (size / 1024) + " KB). מתקין...", Toast.LENGTH_LONG).show());
                 installWithPackageInstaller(activity, apk);
             } catch (Exception e) {
                 if (apk != null && apk.exists()) apk.delete();
@@ -178,7 +189,9 @@ public final class AppUpdater {
         params.setAppPackageName(activity.getPackageName());
         params.setSize(apk.length());
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED);
+            params.setRequireUserAction(isDeviceOwner(activity)
+                    ? PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED
+                    : PackageInstaller.SessionParams.USER_ACTION_REQUIRED);
         }
 
         int sessionId = installer.createSession(params);
