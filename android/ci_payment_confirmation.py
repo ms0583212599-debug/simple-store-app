@@ -17,7 +17,7 @@ new='''    public class PaymentBridge{@JavascriptInterface public void onTransac
                 String raw=requestRaw("POST",CONFIRM_CLIENT_PAYMENT,body,false);
                 JSONObject confirm=new JSONObject(raw);
                 if("paid".equals(confirm.optString("status"))){
-                    polling=false;cart.clear();loadData(()->{Toast.makeText(this,"התשלום בוצע",Toast.LENGTH_LONG).show();showHome();});return;
+                    polling=false;cart.clear();loadData(()->{Toast.makeText(MainActivity.this,"התשלום בוצע",Toast.LENGTH_LONG).show();showHome();});return;
                 }
             }catch(Exception ignored){}
             main.post(()->startPolling());
