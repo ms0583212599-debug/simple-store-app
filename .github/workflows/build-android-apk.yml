@@ -51,6 +51,8 @@ jobs:
         run: python3 android/ci_enhance.py
       - name: Add native website parity features
         run: python3 android/ci_parity.py
+      - name: Add live product search
+        run: python3 android/ci_live_product_search.py
       - name: Compact storefront cards and improve images
         run: python3 android/ci_compact_storefront.py
       - name: Make storefront responsive
