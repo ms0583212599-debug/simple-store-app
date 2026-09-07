@@ -56,3 +56,5 @@ ns,n=re.subn(pattern,replacement,s,count=1,flags=re.S)
 if n!=1: raise SystemExit('categoryCard method not found')
 p.write_text(s,encoding='utf-8')
 print('category tiles rebuilt with contained image area')
+
+# Release trigger: category-image containment update, 2026-09-07.
