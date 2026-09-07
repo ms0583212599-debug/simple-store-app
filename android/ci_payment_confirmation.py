@@ -12,20 +12,49 @@ new='''    public class PaymentBridge{@JavascriptInterface public void onTransac
         main.post(()->paymentStatus.setText("בודק תשלום..."));
         io.execute(()->{
             try{
-                JSONObject response=new JSONObject(value==null||value.trim().isEmpty()?"{}":value);
+                String rawValue=value==null?"":value.trim();
+                JSONObject response;
+                try{response=new JSONObject(rawValue.isEmpty()?"{}":rawValue);}catch(Exception first){
+                    String unwrapped=rawValue;
+                    if(rawValue.startsWith("\\\"")&&rawValue.endsWith("\\\"")){
+                        unwrapped=new org.json.JSONTokener(rawValue).nextValue().toString();
+                    }
+                    response=new JSONObject(unwrapped);
+                }
+                String providerStatus=response.optString("Status",response.optString("status","")).trim();
+                if("ERROR".equalsIgnoreCase(providerStatus)){
+                    String msg=response.optString("Message","").trim();
+                    String code=response.optString("ErrorCode","").trim();
+                    String shown="שגיאה בתשלום"+(msg.isEmpty()?"":": "+msg)+(code.isEmpty()?"":" ("+code+")");
+                    polling=false;
+                    main.post(()->{if(paymentStatus!=null)paymentStatus.setText(shown);if(chargeButton!=null)chargeButton.setEnabled(true);});
+                    return;
+                }
                 JSONObject body=new JSONObject();body.put("saleToken",saleToken);body.put("response",response);
                 String raw=requestRaw("POST",CONFIRM_CLIENT_PAYMENT,body,false);
                 JSONObject confirm=new JSONObject(raw);
                 if("paid".equals(confirm.optString("status"))){
                     polling=false;cart.clear();loadData(()->{Toast.makeText(MainActivity.this,"התשלום בוצע",Toast.LENGTH_LONG).show();showHome();});return;
                 }
-            }catch(Exception ignored){}
+                if(!confirm.optBoolean("accepted",true)){
+                    String reason=confirm.optString("reason","");
+                    main.post(()->{if(paymentStatus!=null)paymentStatus.setText("התשלום לא אושר: "+reason);if(chargeButton!=null)chargeButton.setEnabled(true);});
+                    return;
+                }
+            }catch(Exception e){
+                main.post(()->{if(paymentStatus!=null)paymentStatus.setText("שגיאה בבדיקת התשלום: "+safeMsg(e));if(chargeButton!=null)chargeButton.setEnabled(true);});
+                return;
+            }
             main.post(()->startPolling());
         });
     }}'''
 if old in s:
     s=s.replace(old,new,1)
-elif 'CONFIRM_CLIENT_PAYMENT,body,false' not in s:
+elif 'CONFIRM_CLIENT_PAYMENT,body,false' in s:
+    start=s.index('    public class PaymentBridge')
+    end=s.index('    private void startPolling()',start)
+    s=s[:start]+new+'\n\n'+s[end:]
+else:
     raise SystemExit('PaymentBridge marker not found')
 
 old_poll='''    private void startPolling(){
@@ -42,7 +71,7 @@ new_poll='''    private void startPolling(){
         polling=true;
         io.execute(()->{
             boolean confirmed=false;
-            for(int i=0;i<45&&polling;i++){
+            for(int i=0;i<15&&polling;i++){
                 try{
                     JSONObject body=new JSONObject();body.put("p_token",saleToken);
                     JSONArray a=requestArray("POST","/rest/v1/rpc/get_sale_status",body,false);
@@ -55,7 +84,7 @@ new_poll='''    private void startPolling(){
             if(!confirmed&&polling){
                 polling=false;
                 main.post(()->{
-                    if(paymentStatus!=null)paymentStatus.setText("לא התקבל עדיין אישור תשלום. אל תבצע תשלום נוסף לפני בדיקה.");
+                    if(paymentStatus!=null)paymentStatus.setText("לא התקבל אישור תשלום. אפשר לנסות שוב לאחר בדיקה.");
                     if(chargeButton!=null)chargeButton.setEnabled(true);
                 });
             }
@@ -63,7 +92,12 @@ new_poll='''    private void startPolling(){
     }'''
 if old_poll in s:
     s=s.replace(old_poll,new_poll,1)
-elif 'לא התקבל עדיין אישור תשלום' not in s:
+elif 'private void startPolling()' in s:
+    start=s.index('    private void startPolling()')
+    next_method=s.find('\n    private ',start+10)
+    if next_method==-1: raise SystemExit('polling end marker not found')
+    s=s[:start]+new_poll+'\n'+s[next_method:]
+else:
     raise SystemExit('polling marker not found')
 
 p.write_text(s,encoding='utf-8')
