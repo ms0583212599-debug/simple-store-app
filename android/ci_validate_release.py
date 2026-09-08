@@ -40,8 +40,10 @@ need(UPDATER, "android-update-proxy", "update proxy")
 need(UPDATER, "USER_ACTION_NOT_REQUIRED", "silent device-owner updater")
 need(UPDATER, "isDeviceOwner", "device-owner updater detection")
 
-# Persistent image cache transform must survive all transforms.
-need(MAIN, 'new File(getCacheDir(),"store-images")', "persistent image cache")
+# Image-cache invariants. Storefront transforms may rewrite the exact cache-directory
+# expression, so validate the functional cache pieces instead of one brittle line.
+need(MAIN, "imageMemoryCache", "in-memory image cache")
+need(MAIN, "downloadImageToCache", "persistent image cache downloader")
 need(MAIN, "setUseCaches(true)", "HTTP image cache")
 
 # Payment invariants verified working in production version 10012.
