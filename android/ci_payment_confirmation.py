@@ -7,8 +7,50 @@ if 'CONFIRM_CLIENT_PAYMENT' not in s:
     if marker not in s: raise SystemExit('callback constant marker not found')
     s=s.replace(marker, marker+'\n    private static final String CONFIRM_CLIENT_PAYMENT = BASE + "/functions/v1/confirm-client-payment";',1)
 
+# Make Android wait for the embedded Nedarim iframe exactly like the website does.
+if 'private volatile boolean paymentFrameReady' not in s:
+    marker='    private volatile boolean polling = false;'
+    if marker not in s: raise SystemExit('polling state marker not found')
+    s=s.replace(marker, marker+'\n    private volatile boolean paymentFrameReady = false;',1)
+
+old_web='paymentWebView=new WebView(this);WebSettings s=paymentWebView.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);paymentWebView.setWebChromeClient(new WebChromeClient());paymentWebView.setWebViewClient(new WebViewClient());paymentWebView.addJavascriptInterface(new PaymentBridge(),"Android");root.addView(paymentWebView,new LinearLayout.LayoutParams(-1,0,1));'
+new_web='paymentWebView=new WebView(this);WebSettings s=paymentWebView.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setDatabaseEnabled(true);android.webkit.CookieManager cm=android.webkit.CookieManager.getInstance();cm.setAcceptCookie(true);cm.setAcceptThirdPartyCookies(paymentWebView,true);paymentWebView.setWebChromeClient(new WebChromeClient());paymentWebView.setWebViewClient(new WebViewClient());paymentWebView.addJavascriptInterface(new PaymentBridge(),"Android");root.addView(paymentWebView,new LinearLayout.LayoutParams(-1,0,1));'
+if old_web in s:
+    s=s.replace(old_web,new_web,1)
+elif 'setAcceptThirdPartyCookies(paymentWebView,true)' not in s:
+    raise SystemExit('WebView settings marker not found')
+
+old_btn='chargeButton=button("בצע תשלום",green,Color.WHITE);chargeButton.setOnClickListener(v->chargeCard());root.addView(chargeButton,new LinearLayout.LayoutParams(-1,dp(64)));setContentView(root);'
+new_btn='paymentFrameReady=false;chargeButton=button("טוען תשלום...",green,Color.WHITE);chargeButton.setEnabled(false);chargeButton.setOnClickListener(v->chargeCard());root.addView(chargeButton,new LinearLayout.LayoutParams(-1,dp(64)));setContentView(root);'
+if old_btn in s:
+    s=s.replace(old_btn,new_btn,1)
+elif 'button("טוען תשלום..."' not in s:
+    raise SystemExit('charge button marker not found')
+
+old_html='String html="<!doctype html><html dir=\'rtl\'><body style=\'margin:0\'><iframe id=\'frame\' src=\'https://www.matara.pro/nedarimplus/iframe/?Picture=Hide\' style=\'width:100%;height:100vh;border:0\'></iframe><script>function p(d){frame.contentWindow.postMessage(d,\'*\')}window.addEventListener(\'message\',e=>{let d=e.data;if(d&&d.Name===\'TransactionResponse\')Android.onTransaction(JSON.stringify(d.Value||{}));});</script></body></html>";'
+new_html='String html="<!doctype html><html dir=\'rtl\'><body style=\'margin:0\'><iframe id=\'frame\' src=\'https://www.matara.pro/nedarimplus/iframe/?Picture=Hide\' style=\'width:100%;height:100vh;border:0\'></iframe><script>const frame=document.getElementById(\'frame\');function p(d){frame.contentWindow.postMessage(d,\'*\')}frame.addEventListener(\'load\',()=>{Android.onFrameReady();p({Name:\'GetHeight\'});});window.addEventListener(\'message\',e=>{let d=e.data;if(d&&d.Name===\'TransactionResponse\')Android.onTransaction(JSON.stringify(d.Value||{}));});</script></body></html>";'
+if old_html in s:
+    s=s.replace(old_html,new_html,1)
+elif 'Android.onFrameReady()' not in s:
+    raise SystemExit('payment html marker not found')
+
+old_guard='        if(paymentWebView==null)return;chargeButton.setEnabled(false);'
+new_guard='        if(paymentWebView==null)return;if(!paymentFrameReady){if(paymentStatus!=null)paymentStatus.setText("ממשק התשלום עדיין נטען...");return;}chargeButton.setEnabled(false);'
+if old_guard in s:
+    s=s.replace(old_guard,new_guard,1)
+elif 'if(!paymentFrameReady)' not in s:
+    raise SystemExit('charge guard marker not found')
+
 old='    public class PaymentBridge{@JavascriptInterface public void onTransaction(String value){main.post(()->{paymentStatus.setText("בודק תשלום...");startPolling();});}}'
-new='''    public class PaymentBridge{@JavascriptInterface public void onTransaction(String value){
+new='''    public class PaymentBridge{
+        @JavascriptInterface public void onFrameReady(){
+            main.post(()->{
+                paymentFrameReady=true;
+                if(chargeButton!=null){chargeButton.setText("בצע תשלום");chargeButton.setEnabled(true);}
+                if(paymentStatus!=null)paymentStatus.setText(String.format(Locale.US,"לתשלום: %.2f ₪",saleTotal));
+            });
+        }
+        @JavascriptInterface public void onTransaction(String value){
         main.post(()->paymentStatus.setText("בודק תשלום..."));
         io.execute(()->{
             try{
@@ -27,7 +69,7 @@ new='''    public class PaymentBridge{@JavascriptInterface public void onTransac
                     String code=response.optString("ErrorCode","").trim();
                     String shown="שגיאה בתשלום"+(msg.isEmpty()?"":": "+msg)+(code.isEmpty()?"":" ("+code+")");
                     polling=false;
-                    main.post(()->{if(paymentStatus!=null)paymentStatus.setText(shown);if(chargeButton!=null)chargeButton.setEnabled(true);});
+                    main.post(()->{if(paymentStatus!=null)paymentStatus.setText(shown);if(chargeButton!=null)chargeButton.setEnabled(paymentFrameReady);});
                     return;
                 }
                 JSONObject body=new JSONObject();body.put("saleToken",saleToken);body.put("response",response);
@@ -38,11 +80,11 @@ new='''    public class PaymentBridge{@JavascriptInterface public void onTransac
                 }
                 if(!confirm.optBoolean("accepted",true)){
                     String reason=confirm.optString("reason","");
-                    main.post(()->{if(paymentStatus!=null)paymentStatus.setText("התשלום לא אושר: "+reason);if(chargeButton!=null)chargeButton.setEnabled(true);});
+                    main.post(()->{if(paymentStatus!=null)paymentStatus.setText("התשלום לא אושר: "+reason);if(chargeButton!=null)chargeButton.setEnabled(paymentFrameReady);});
                     return;
                 }
             }catch(Exception e){
-                main.post(()->{if(paymentStatus!=null)paymentStatus.setText("שגיאה בבדיקת התשלום: "+safeMsg(e));if(chargeButton!=null)chargeButton.setEnabled(true);});
+                main.post(()->{if(paymentStatus!=null)paymentStatus.setText("שגיאה בבדיקת התשלום: "+safeMsg(e));if(chargeButton!=null)chargeButton.setEnabled(paymentFrameReady);});
                 return;
             }
             main.post(()->startPolling());
@@ -85,7 +127,7 @@ new_poll='''    private void startPolling(){
                 polling=false;
                 main.post(()->{
                     if(paymentStatus!=null)paymentStatus.setText("לא התקבל אישור תשלום. אפשר לנסות שוב לאחר בדיקה.");
-                    if(chargeButton!=null)chargeButton.setEnabled(true);
+                    if(chargeButton!=null)chargeButton.setEnabled(paymentFrameReady);
                 });
             }
         });
@@ -101,4 +143,4 @@ else:
     raise SystemExit('polling marker not found')
 
 p.write_text(s,encoding='utf-8')
-print('Payment confirmation bridge applied')
+print('Payment confirmation bridge and Nedarim iframe readiness applied')
