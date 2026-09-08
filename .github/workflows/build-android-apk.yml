@@ -111,6 +111,8 @@ jobs:
         run: python3 ci_auto_update_check.py
       - name: Add filtered-network updater fallback
         run: python3 android/ci_updater_text_fallback.py
+      - name: Fix product visibility model
+        run: python3 android/ci_fix_product_visibility_model.py
       - name: Validate production Android invariants
         run: python3 android/ci_validate_release.py
       - name: Choose Android version
@@ -155,7 +157,6 @@ jobs:
           PY
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # Publish on top of the newest main so concurrent source commits cannot break the update push.
           for attempt in 1 2 3 4 5; do
             git fetch origin main
             git reset --hard origin/main
