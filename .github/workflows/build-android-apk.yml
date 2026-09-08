@@ -84,6 +84,8 @@ jobs:
         run: python3 android/ci_app_keyboard.py
       - name: Apply Nedarim-style customer storefront
         run: python3 android/ci_nedarim_storefront.py
+      - name: Add live mini cart
+        run: python3 android/ci_mini_cart.py
       - name: Apply Nedarim-style payment screen
         run: python3 android/ci_nedarim_payment_screen.py
       - name: Add home-use and special-sales admin
@@ -146,14 +148,8 @@ jobs:
           python3 - <<'PY'
           import json, os
           version=int(os.environ['ANDROID_VERSION'])
-          data={
-            'versionCode':version,
-            'versionName':'1.0.'+str(version),
-            'apkUrl':'https://ksddrcalmszxxcuxoznd.supabase.co/functions/v1/android-update-proxy?file=apk&v='+str(version),
-            'apkUrlFallback':'https://raw.githubusercontent.com/ms0583212599-debug/simple-store-app/main/updates/simple-store-tablet.apk?v='+str(version)
-          }
-          with open('updates/version.json','w',encoding='utf-8') as f:
-              json.dump(data,f,ensure_ascii=False,separators=(',',':'));f.write('\n')
+          data={'versionCode':version,'versionName':'1.0.'+str(version),'apkUrl':'https://ksddrcalmszxxcuxoznd.supabase.co/functions/v1/android-update-proxy?file=apk&v='+str(version),'apkUrlFallback':'https://raw.githubusercontent.com/ms0583212599-debug/simple-store-app/main/updates/simple-store-tablet.apk?v='+str(version)}
+          with open('updates/version.json','w',encoding='utf-8') as f:json.dump(data,f,ensure_ascii=False,separators=(',',':'));f.write('\n')
           PY
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
