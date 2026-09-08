@@ -145,21 +145,27 @@ jobs:
         env:
           ANDROID_VERSION: ${{ steps.version.outputs.code }}
         run: |
-          mkdir -p updates
-          cp android/app/build/outputs/apk/debug/app-debug.apk updates/simple-store-tablet.apk
+          mkdir -p /tmp/android-update
+          cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/android-update/simple-store-tablet.apk
           python3 - <<'PY'
           import json, os
           version=int(os.environ['ANDROID_VERSION'])
           data={'versionCode':version,'versionName':'1.0.'+str(version),'apkUrl':'https://ksddrcalmszxxcuxoznd.supabase.co/functions/v1/android-update-proxy?file=apk&v='+str(version),'apkUrlFallback':'https://raw.githubusercontent.com/ms0583212599-debug/simple-store-app/main/updates/simple-store-tablet.apk?v='+str(version)}
-          with open('updates/version.json','w',encoding='utf-8') as f:json.dump(data,f,ensure_ascii=False,separators=(',',':'));f.write('\n')
+          with open('/tmp/android-update/version.json','w',encoding='utf-8') as f:json.dump(data,f,ensure_ascii=False,separators=(',',':'));f.write('\n')
           PY
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add updates/simple-store-tablet.apk updates/version.json
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Publish Android update ${ANDROID_VERSION}"
-          for attempt in 1 2 3; do
+          # Publish on top of the newest main so concurrent source commits cannot break the update push.
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git reset --hard origin/main
+            mkdir -p updates
+            cp /tmp/android-update/simple-store-tablet.apk updates/simple-store-tablet.apk
+            cp /tmp/android-update/version.json updates/version.json
+            git add updates/simple-store-tablet.apk updates/version.json
+            if git diff --cached --quiet; then exit 0; fi
+            git commit -m "Publish Android update ${ANDROID_VERSION}"
             if git push origin HEAD:main; then exit 0; fi
-            git pull --rebase origin main
+            echo "main changed during publish; retrying on latest main ($attempt/5)"
           done
           exit 1
