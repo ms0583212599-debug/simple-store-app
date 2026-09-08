@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 p=Path('android/app/src/main/java/com/simplestore/tablet/MainActivity.java')
 s=p.read_text(encoding='utf-8')
@@ -42,19 +43,17 @@ product=r'''    private View productCard(Product p){
 '''
 s=s[:a]+product+s[b:]
 
-# Wide list cards with Nedarim-like pale background/border and vertical spacing.
-marker='    private GridLayout.LayoutParams gridParams(){'
-a=s.index(marker)
-b=s.index('    private LinearLayout card(){',a)
-old=s[a:b]
-new=r'''    private GridLayout.LayoutParams gridParams(){
+# Wide list cards. Patch the method itself; do not depend on card() appearing after it,
+# because earlier build transforms may reorder helper methods.
+new_grid=r'''    private GridLayout.LayoutParams gridParams(){
         GridLayout.LayoutParams p=new GridLayout.LayoutParams();p.width=GridLayout.LayoutParams.MATCH_PARENT;p.height=dp(142);p.columnSpec=GridLayout.spec(0,1f);p.setMargins(dp(4),dp(6),dp(4),dp(6));return p;
     }
-
 '''
-s=s[:a]+new+s[b:]
+pattern=r'    private GridLayout\.LayoutParams gridParams\(\)\{.*?\n    \}'
+s,n=re.subn(pattern,new_grid.rstrip(),s,count=1,flags=re.S)
+if n!=1: raise SystemExit('gridParams marker not found')
 
-# Restyle the shared card surface to the pale outlined kiosk appearance without changing behavior.
+# Restyle the shared card surface when the known implementation is present.
 old='LinearLayout c=new LinearLayout(this);c.setOrientation(LinearLayout.VERTICAL);c.setBackgroundColor(Color.WHITE);c.setPadding(dp(8),dp(8),dp(8),dp(8));return c;'
 if old in s:
     new='LinearLayout c=new LinearLayout(this);c.setOrientation(LinearLayout.VERTICAL);android.graphics.drawable.GradientDrawable bg=new android.graphics.drawable.GradientDrawable();bg.setColor(Color.rgb(250,250,247));bg.setCornerRadius(dp(5));bg.setStroke(dp(1),Color.rgb(91,125,136));c.setBackground(bg);c.setPadding(dp(8),dp(8),dp(8),dp(8));return c;'
