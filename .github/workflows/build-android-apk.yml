@@ -82,6 +82,8 @@ jobs:
         run: python3 android/ci_payment_confirmation.py
       - name: Add app-only keyboard
         run: python3 android/ci_app_keyboard.py
+      - name: Apply Nedarim-style customer storefront
+        run: python3 android/ci_nedarim_storefront.py
       - name: Add home-use and special-sales admin
         run: python3 .github/scripts/ci_home_sales.py
       - name: Add optional home stock deduction
