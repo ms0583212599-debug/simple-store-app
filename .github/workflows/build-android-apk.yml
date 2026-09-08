@@ -119,6 +119,8 @@ jobs:
         run: python3 android/ci_fix_product_visibility_model.py
       - name: Add all-products and general amount checkout
         run: python3 android/ci_customer_all_products_general_amount.py
+      - name: Make product and inventory writes cloud-first
+        run: python3 android/ci_cloud_first_product_sync.py
       - name: Validate production Android invariants
         run: python3 android/ci_validate_release.py
       - name: Choose Android version
