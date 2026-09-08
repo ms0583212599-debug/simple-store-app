@@ -44,6 +44,17 @@ need(UPDATER, "isDeviceOwner", "device-owner updater detection")
 need(MAIN, 'new File(getCacheDir(),"store-images")', "persistent image cache")
 need(MAIN, "setUseCaches(true)", "HTTP image cache")
 
+# Payment invariants verified working in production version 10012.
+need(MAIN, "CONFIRM_CLIENT_PAYMENT", "client payment confirmation endpoint")
+need(MAIN, "paymentFrameReady", "Nedarim iframe readiness guard")
+need(MAIN, "setAcceptThirdPartyCookies(paymentWebView,true)", "Nedarim third-party cookies")
+need(MAIN, "Android.onFrameReady()", "Nedarim iframe load bridge")
+need(MAIN, 'button("טוען תשלום..."', "disabled payment button until iframe ready")
+need(MAIN, "if(!paymentFrameReady)", "payment submit readiness check")
+need(MAIN, '"ERROR".equalsIgnoreCase(providerStatus)', "Nedarim payment error handling")
+need(MAIN, "CONFIRM_CLIENT_PAYMENT,body,false", "direct payment response confirmation")
+need(MAIN, '"לא התקבל אישור תשלום. אפשר לנסות שוב לאחר בדיקה."', "payment polling timeout")
+
 # Published version line must never fall back below the installed kiosk generation.
 try:
     data = json.loads(VERSION.read_text(encoding="utf-8"))
