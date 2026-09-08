@@ -27,7 +27,10 @@ for i in range(brace, len(s)):
 if end is None:
     raise SystemExit('Product class closing brace not found')
 
-product_class = '''static class Product{String id,categoryId,name,imageUrl;double price;int stock,lowStock,sortOrder;boolean showToCustomers;Product(String i,String c,String n,double p,int s,String u,int l,int so,boolean sh){id=i;categoryId=c;name=n;price=p;stock=s;imageUrl=u;lowStock=l;sortOrder=so;showToCustomers=sh;}}'''
+# Keep both visibility concepts. active is retained for older purchase/admin transforms
+# that edit is_active; showToCustomers controls customer storefront visibility.
+# Catalog parsing already excludes inactive rows, so loaded products begin active=true.
+product_class = '''static class Product{String id,categoryId,name,imageUrl;double price;int stock,lowStock,sortOrder;boolean active=true,showToCustomers;Product(String i,String c,String n,double p,int s,String u,int l,int so,boolean sh){id=i;categoryId=c;name=n;price=p;stock=s;imageUrl=u;lowStock=l;sortOrder=so;showToCustomers=sh;}}'''
 s = s[:start] + product_class + s[end:]
 
 # Upgrade any remaining legacy JSON-backed Product constructor calls that earlier/later
@@ -50,8 +53,8 @@ replacement = ('new Product(o.optString("id"),o.optString("category_id"),o.optSt
 s = legacy.sub(replacement, s)
 
 # Fail before Gradle if the generated source still has an inconsistent model.
-if 'boolean showToCustomers' not in s:
-    raise SystemExit('showToCustomers field missing after normalization')
+if 'boolean active=true,showToCustomers' not in s:
+    raise SystemExit('Product active/customer visibility fields missing after normalization')
 if 'Product(String i,String c,String n,double p,int s,String u,int l,int so,boolean sh)' not in s:
     raise SystemExit('9-argument Product constructor missing after normalization')
 
