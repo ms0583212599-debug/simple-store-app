@@ -7,7 +7,6 @@ if 'CONFIRM_CLIENT_PAYMENT' not in s:
     if marker not in s: raise SystemExit('callback constant marker not found')
     s=s.replace(marker, marker+'\n    private static final String CONFIRM_CLIENT_PAYMENT = BASE + "/functions/v1/confirm-client-payment";',1)
 
-# Make Android wait for the embedded Nedarim iframe exactly like the website does.
 if 'private volatile boolean paymentFrameReady' not in s:
     marker='    private volatile boolean polling = false;'
     if marker not in s: raise SystemExit('polling state marker not found')
@@ -20,8 +19,8 @@ if old_web in s:
 elif 'setAcceptThirdPartyCookies(paymentWebView,true)' not in s:
     raise SystemExit('WebView settings marker not found')
 
-old_btn='chargeButton=button("בצע תשלום",green,Color.WHITE);chargeButton.setOnClickListener(v->chargeCard());root.addView(chargeButton,new LinearLayout.LayoutParams(-1,dp(64)));setContentView(root);'
-new_btn='paymentFrameReady=false;chargeButton=button("טוען תשלום...",green,Color.WHITE);chargeButton.setEnabled(false);chargeButton.setOnClickListener(v->chargeCard());root.addView(chargeButton,new LinearLayout.LayoutParams(-1,dp(64)));setContentView(root);'
+old_btn='chargeButton=button("בצע תשלום",green,Color.WHITE);chargeButton.setOnClickListener(v->chargeCard());root.addView(chargeButton,new LinearLayout.LayoutParams(-1,dp(64)));'
+new_btn='paymentFrameReady=false;chargeButton=button("טוען תשלום...",green,Color.WHITE);chargeButton.setEnabled(false);chargeButton.setOnClickListener(v->chargeCard());root.addView(chargeButton,new LinearLayout.LayoutParams(-1,dp(64)));'
 if old_btn in s:
     s=s.replace(old_btn,new_btn,1)
 elif 'button("טוען תשלום..."' not in s:
