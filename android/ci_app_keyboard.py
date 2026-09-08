@@ -2,79 +2,23 @@ from pathlib import Path
 
 p=Path('android/app/src/main/java/com/simplestore/tablet/MainActivity.java')
 s=p.read_text(encoding='utf-8')
-
 needle='import android.widget.EditText;'
-if needle in s and 'import android.text.InputType;' not in s:
-    s=s.replace(needle, needle+'\nimport android.text.InputType;',1)
-
+if needle in s and 'import android.text.InputType;' not in s:s=s.replace(needle,needle+'\nimport android.text.InputType;',1)
 for old in ['EditText e=new EditText(this);','EditText e = new EditText(this);']:
-    if old in s and 'configureAppInput(e);' not in s:
-        s=s.replace(old,old+'configureAppInput(e);',1)
-
-marker='    private int dp(int v){'
-old_start='    private void showAppKeyboard(EditText target){'
+    if old in s and 'configureAppInput(e);' not in s:s=s.replace(old,old+'configureAppInput(e);',1)
+marker='    private int dp(int v){';old_start='    private void showAppKeyboard(EditText target){'
 if old_start in s:
-    a=s.index(old_start)
-    b=s.index(marker,a)
-    s=s[:a]+s[b:]
-
-code=r'''    private void configureAppInput(EditText e){
-        e.setShowSoftInputOnFocus(false);
-        e.setOnClickListener(v->showAppKeyboard(e));
-        e.setOnFocusChangeListener((v,has)->{if(has)showAppKeyboard(e);});
-    }
-
-    private void insertKey(EditText target,String value){
-        int a=Math.max(0,target.getSelectionStart()),z=Math.max(0,target.getSelectionEnd());
-        target.getText().replace(Math.min(a,z),Math.max(a,z),value);
-        int pos=Math.min(a,z)+value.length();target.setSelection(Math.min(pos,target.length()));
-    }
-
-    private Button keyboardKey(String label,int bg,int fg){
-        Button b=button(label,bg,fg);b.setTextSize(21);b.setAllCaps(false);b.setMinHeight(0);b.setMinimumHeight(0);b.setPadding(dp(2),0,dp(2),0);
-        android.graphics.drawable.GradientDrawable gd=new android.graphics.drawable.GradientDrawable();gd.setColor(bg);gd.setCornerRadius(dp(4));gd.setStroke(dp(1),Color.rgb(180,187,196));b.setBackground(gd);b.setTextColor(fg);return b;
-    }
-
-    private void addKeyboardRow(LinearLayout box,EditText target,String[] keys,int bg){
-        LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);row.setGravity(Gravity.CENTER);row.setPadding(dp(4),dp(4),dp(4),0);
-        for(String k:keys){Button b=keyboardKey(k,bg,Color.rgb(35,43,52));b.setOnClickListener(v->insertKey(target,k));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(62),1);lp.setMargins(dp(4),0,dp(4),0);row.addView(b,lp);}box.addView(row);
-    }
-
-    private void showAppKeyboard(EditText target){
-        Object tag=target.getTag();if(tag instanceof AlertDialog&&((AlertDialog)tag).isShowing())return;
-        boolean numeric=(target.getInputType()&InputType.TYPE_CLASS_NUMBER)==InputType.TYPE_CLASS_NUMBER;
-        final String[] mode={numeric?"NUM":"HE"};final boolean[] shift={false};final AlertDialog[] holder=new AlertDialog[1];
-        LinearLayout shell=new LinearLayout(this);shell.setOrientation(LinearLayout.VERTICAL);shell.setBackgroundColor(Color.rgb(73,82,91));shell.setPadding(dp(10),dp(8),dp(10),dp(10));
-        Runnable[] render=new Runnable[1];
-        render[0]=()->{
-            shell.removeAllViews();
-            int keyBg=Color.rgb(239,242,246);
-            if("HE".equals(mode[0])){
-                addKeyboardRow(shell,target,new String[]{"ק","ר","א","ט","ו","ן","ם","פ"},keyBg);
-                addKeyboardRow(shell,target,new String[]{"ש","ד","ג","כ","ע","י","ח","ל","ך","ף"},keyBg);
-                addKeyboardRow(shell,target,new String[]{"ז","ס","ב","ה","נ","מ","צ","ת","ץ"},keyBg);
-                LinearLayout tools=new LinearLayout(this);tools.setOrientation(LinearLayout.HORIZONTAL);tools.setGravity(Gravity.CENTER);tools.setPadding(dp(4),dp(5),dp(4),0);
-                Button nums=keyboardKey("123",keyBg,Color.DKGRAY);nums.setOnClickListener(v->{mode[0]="NUM";render[0].run();});tools.addView(nums,new LinearLayout.LayoutParams(0,dp(64),1.1f));
-                Button lang=keyboardKey("HE",keyBg,Color.DKGRAY);lang.setOnClickListener(v->{mode[0]="EN";shift[0]=false;render[0].run();});LinearLayout.LayoutParams lpLang=new LinearLayout.LayoutParams(0,dp(64),.85f);lpLang.setMargins(dp(5),0,dp(5),0);tools.addView(lang,lpLang);
-                Button space=keyboardKey("",keyBg,Color.DKGRAY);space.setOnClickListener(v->insertKey(target," "));tools.addView(space,new LinearLayout.LayoutParams(0,dp(64),4.8f));
-                Button go=keyboardKey("Go",keyBg,Color.DKGRAY);go.setOnClickListener(v->{if(holder[0]!=null)holder[0].dismiss();target.clearFocus();});LinearLayout.LayoutParams lpGo=new LinearLayout.LayoutParams(0,dp(64),1.25f);lpGo.setMargins(dp(5),0,0,0);tools.addView(go,lpGo);shell.addView(tools);
-            }else if("EN".equals(mode[0])){
-                String[] r1={"q","w","e","r","t","y","u","i","o","p"};String[] r2={"a","s","d","f","g","h","j","k","l"};String[] r3={"z","x","c","v","b","n","m"};
-                if(shift[0]){for(int i=0;i<r1.length;i++)r1[i]=r1[i].toUpperCase(Locale.ROOT);for(int i=0;i<r2.length;i++)r2[i]=r2[i].toUpperCase(Locale.ROOT);for(int i=0;i<r3.length;i++)r3[i]=r3[i].toUpperCase(Locale.ROOT);}
-                addKeyboardRow(shell,target,r1,keyBg);addKeyboardRow(shell,target,r2,keyBg);addKeyboardRow(shell,target,r3,keyBg);
-                LinearLayout tools=new LinearLayout(this);tools.setOrientation(LinearLayout.HORIZONTAL);tools.setPadding(dp(4),dp(5),dp(4),0);Button nums=keyboardKey("123",keyBg,Color.DKGRAY);nums.setOnClickListener(v->{mode[0]="NUM";render[0].run();});tools.addView(nums,new LinearLayout.LayoutParams(0,dp(64),1));Button he=keyboardKey("HE",keyBg,Color.DKGRAY);he.setOnClickListener(v->{mode[0]="HE";render[0].run();});LinearLayout.LayoutParams hlp=new LinearLayout.LayoutParams(0,dp(64),1);hlp.setMargins(dp(5),0,dp(5),0);tools.addView(he,hlp);Button space=keyboardKey("",keyBg,Color.DKGRAY);space.setOnClickListener(v->insertKey(target," "));tools.addView(space,new LinearLayout.LayoutParams(0,dp(64),4.8f));Button go=keyboardKey("Go",keyBg,Color.DKGRAY);go.setOnClickListener(v->{if(holder[0]!=null)holder[0].dismiss();target.clearFocus();});LinearLayout.LayoutParams glp=new LinearLayout.LayoutParams(0,dp(64),1.2f);glp.setMargins(dp(5),0,0,0);tools.addView(go,glp);shell.addView(tools);
-            }else{
-                String[][] rows={{"(","1","2","3",".","P"},{")","4","5","6",",","W"},{"+","7","8","9","-","⌫"},{"/","*","0","#","","Go"}};
-                for(String[] keys:rows){LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);row.setGravity(Gravity.CENTER);row.setPadding(dp(4),dp(4),dp(4),0);for(String k:keys){Button b=keyboardKey(k,keyBg,Color.rgb(35,43,52));if("⌫".equals(k)){b.setOnClickListener(v->{int a=target.getSelectionStart(),z=target.getSelectionEnd();if(a!=z&&a>=0&&z>=0)target.getText().delete(Math.min(a,z),Math.max(a,z));else if(a>0)target.getText().delete(a-1,a);});}else if("Go".equals(k)){b.setOnClickListener(v->{if(holder[0]!=null)holder[0].dismiss();target.clearFocus();});}else if(k.isEmpty()){b.setOnClickListener(v->insertKey(target," "));}else b.setOnClickListener(v->insertKey(target,k));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(64),1);lp.setMargins(dp(4),0,dp(4),0);row.addView(b,lp);}shell.addView(row);}
-                if(!numeric){Button he=keyboardKey("חזרה לעברית",keyBg,Color.DKGRAY);he.setOnClickListener(v->{mode[0]="HE";render[0].run();});LinearLayout.LayoutParams hlp=new LinearLayout.LayoutParams(-1,dp(52));hlp.setMargins(dp(8),dp(5),dp(8),0);shell.addView(he,hlp);}
-            }
-        };
-        render[0].run();
-        holder[0]=new AlertDialog.Builder(this).setView(shell).create();target.setTag(holder[0]);
-        holder[0].setOnDismissListener(d->target.setTag(null));holder[0].setOnShowListener(x->{android.view.Window w=holder[0].getWindow();if(w!=null){w.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);w.setGravity(Gravity.BOTTOM);w.setLayout(android.view.WindowManager.LayoutParams.MATCH_PARENT,android.view.WindowManager.LayoutParams.WRAP_CONTENT);}});holder[0].show();android.view.Window w=holder[0].getWindow();if(w!=null){w.setGravity(Gravity.BOTTOM);w.setLayout(android.view.WindowManager.LayoutParams.MATCH_PARENT,android.view.WindowManager.LayoutParams.WRAP_CONTENT);}
-    }
+    a=s.index(old_start);b=s.index(marker,a);s=s[:a]+s[b:]
+code=r'''    private void configureAppInput(EditText e){e.setShowSoftInputOnFocus(false);e.setOnClickListener(v->showAppKeyboard(e));e.setOnFocusChangeListener((v,has)->{if(has)showAppKeyboard(e);});}
+    private void insertKey(EditText target,String value){int a=Math.max(0,target.getSelectionStart()),z=Math.max(0,target.getSelectionEnd());target.getText().replace(Math.min(a,z),Math.max(a,z),value);int pos=Math.min(a,z)+value.length();target.setSelection(Math.min(pos,target.length()));}
+    private void deleteKey(EditText target){int a=target.getSelectionStart(),z=target.getSelectionEnd();if(a!=z&&a>=0&&z>=0)target.getText().delete(Math.min(a,z),Math.max(a,z));else if(a>0)target.getText().delete(a-1,a);}
+    private Button keyboardKey(String label,int bg,int fg){Button b=button(label,bg,fg);b.setTextSize(21);b.setAllCaps(false);b.setMinHeight(0);b.setMinimumHeight(0);b.setPadding(dp(2),0,dp(2),0);android.graphics.drawable.GradientDrawable gd=new android.graphics.drawable.GradientDrawable();gd.setColor(bg);gd.setCornerRadius(dp(4));gd.setStroke(dp(1),Color.rgb(180,187,196));b.setBackground(gd);b.setTextColor(fg);return b;}
+    private void addKeyboardRow(LinearLayout box,EditText target,String[] keys,int bg){LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);row.setGravity(Gravity.CENTER);row.setPadding(dp(4),dp(4),dp(4),0);for(String k:keys){Button b=keyboardKey(k,bg,Color.rgb(35,43,52));b.setOnClickListener(v->insertKey(target,k));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(62),1);lp.setMargins(dp(4),0,dp(4),0);row.addView(b,lp);}box.addView(row);}
+    private void showAppKeyboard(EditText target){Object tag=target.getTag();if(tag instanceof AlertDialog&&((AlertDialog)tag).isShowing())return;boolean numeric=(target.getInputType()&InputType.TYPE_CLASS_NUMBER)==InputType.TYPE_CLASS_NUMBER;final String[] mode={numeric?"NUM":"HE"};final boolean[] shift={false};final AlertDialog[] holder=new AlertDialog[1];LinearLayout shell=new LinearLayout(this);shell.setOrientation(LinearLayout.VERTICAL);shell.setBackgroundColor(Color.rgb(73,82,91));shell.setPadding(dp(10),dp(8),dp(10),dp(10));Runnable[] render=new Runnable[1];render[0]=()->{shell.removeAllViews();int keyBg=Color.rgb(239,242,246);
+        if("HE".equals(mode[0])){addKeyboardRow(shell,target,new String[]{"ק","ר","א","ט","ו","ן","ם","פ"},keyBg);addKeyboardRow(shell,target,new String[]{"ש","ד","ג","כ","ע","י","ח","ל","ך","ף"},keyBg);addKeyboardRow(shell,target,new String[]{"ז","ס","ב","ה","נ","מ","צ","ת","ץ"},keyBg);LinearLayout tools=new LinearLayout(this);tools.setOrientation(LinearLayout.HORIZONTAL);tools.setGravity(Gravity.CENTER);tools.setPadding(dp(4),dp(5),dp(4),0);Button nums=keyboardKey("123",keyBg,Color.DKGRAY);nums.setOnClickListener(v->{mode[0]="NUM";render[0].run();});tools.addView(nums,new LinearLayout.LayoutParams(0,dp(64),1.05f));Button lang=keyboardKey("HE",keyBg,Color.DKGRAY);lang.setOnClickListener(v->{mode[0]="EN";shift[0]=false;render[0].run();});LinearLayout.LayoutParams ll=new LinearLayout.LayoutParams(0,dp(64),.8f);ll.setMargins(dp(5),0,dp(5),0);tools.addView(lang,ll);Button space=keyboardKey("",keyBg,Color.DKGRAY);space.setOnClickListener(v->insertKey(target," "));tools.addView(space,new LinearLayout.LayoutParams(0,dp(64),4f));Button del=keyboardKey("⌫",keyBg,Color.DKGRAY);del.setOnClickListener(v->deleteKey(target));LinearLayout.LayoutParams dl=new LinearLayout.LayoutParams(0,dp(64),1f);dl.setMargins(dp(5),0,0,0);tools.addView(del,dl);Button go=keyboardKey("Go",keyBg,Color.DKGRAY);go.setOnClickListener(v->{if(holder[0]!=null)holder[0].dismiss();target.clearFocus();});LinearLayout.LayoutParams gl=new LinearLayout.LayoutParams(0,dp(64),1.1f);gl.setMargins(dp(5),0,0,0);tools.addView(go,gl);shell.addView(tools);
+        }else if("EN".equals(mode[0])){String[] r1={"q","w","e","r","t","y","u","i","o","p"},r2={"a","s","d","f","g","h","j","k","l"},r3={"z","x","c","v","b","n","m"};addKeyboardRow(shell,target,r1,keyBg);addKeyboardRow(shell,target,r2,keyBg);addKeyboardRow(shell,target,r3,keyBg);LinearLayout tools=new LinearLayout(this);tools.setOrientation(LinearLayout.HORIZONTAL);tools.setPadding(dp(4),dp(5),dp(4),0);Button nums=keyboardKey("123",keyBg,Color.DKGRAY);nums.setOnClickListener(v->{mode[0]="NUM";render[0].run();});tools.addView(nums,new LinearLayout.LayoutParams(0,dp(64),1));Button he=keyboardKey("HE",keyBg,Color.DKGRAY);he.setOnClickListener(v->{mode[0]="HE";render[0].run();});LinearLayout.LayoutParams hl=new LinearLayout.LayoutParams(0,dp(64),1);hl.setMargins(dp(5),0,dp(5),0);tools.addView(he,hl);Button space=keyboardKey("",keyBg,Color.DKGRAY);space.setOnClickListener(v->insertKey(target," "));tools.addView(space,new LinearLayout.LayoutParams(0,dp(64),4f));Button del=keyboardKey("⌫",keyBg,Color.DKGRAY);del.setOnClickListener(v->deleteKey(target));LinearLayout.LayoutParams dl=new LinearLayout.LayoutParams(0,dp(64),1);dl.setMargins(dp(5),0,0,0);tools.addView(del,dl);Button go=keyboardKey("Go",keyBg,Color.DKGRAY);go.setOnClickListener(v->{if(holder[0]!=null)holder[0].dismiss();target.clearFocus();});LinearLayout.LayoutParams gl=new LinearLayout.LayoutParams(0,dp(64),1.1f);gl.setMargins(dp(5),0,0,0);tools.addView(go,gl);shell.addView(tools);
+        }else{String[][] rows={{"(","1","2","3",".","P"},{")","4","5","6",",","W"},{"+","7","8","9","-","⌫"},{"/","*","0","#","","Go"}};for(String[] keys:rows){LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);row.setGravity(Gravity.CENTER);row.setPadding(dp(4),dp(4),dp(4),0);for(String k:keys){Button b=keyboardKey(k,keyBg,Color.rgb(35,43,52));if("⌫".equals(k))b.setOnClickListener(v->deleteKey(target));else if("Go".equals(k))b.setOnClickListener(v->{if(holder[0]!=null)holder[0].dismiss();target.clearFocus();});else if(k.isEmpty())b.setOnClickListener(v->insertKey(target," "));else b.setOnClickListener(v->insertKey(target,k));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(64),1);lp.setMargins(dp(4),0,dp(4),0);row.addView(b,lp);}shell.addView(row);}if(!numeric){Button he=keyboardKey("חזרה לעברית",keyBg,Color.DKGRAY);he.setOnClickListener(v->{mode[0]="HE";render[0].run();});LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,dp(52));hp.setMargins(dp(8),dp(5),dp(8),0);shell.addView(he,hp);}}};render[0].run();holder[0]=new AlertDialog.Builder(this).setView(shell).create();target.setTag(holder[0]);holder[0].setOnDismissListener(d->target.setTag(null));holder[0].show();android.view.Window w=holder[0].getWindow();if(w!=null){w.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);w.setGravity(Gravity.BOTTOM);w.setLayout(android.view.WindowManager.LayoutParams.MATCH_PARENT,android.view.WindowManager.LayoutParams.WRAP_CONTENT);}}
 
 '''
-if marker not in s: raise SystemExit('dp marker not found')
-s=s.replace(marker,code+marker,1)
-p.write_text(s,encoding='utf-8')
+if marker not in s:raise SystemExit('dp marker not found')
+s=s.replace(marker,code+marker,1);p.write_text(s,encoding='utf-8')
