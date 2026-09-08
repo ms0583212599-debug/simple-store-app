@@ -33,28 +33,45 @@ def replace_method(text, signature, replacement):
 s=s.replace('GridLayout grid=new GridLayout(this);grid.setColumnCount(6);grid.setUseDefaultMargins(true);content.addView(grid,new LinearLayout.LayoutParams(-1,-2));', 'GridLayout grid=new GridLayout(this);grid.setColumnCount(1);grid.setUseDefaultMargins(false);content.addView(grid,new LinearLayout.LayoutParams(-1,-2));')
 s=s.replace('GridLayout grid=new GridLayout(this);grid.setColumnCount(3);grid.setUseDefaultMargins(true);content.addView(grid,new LinearLayout.LayoutParams(-1,-2));', 'GridLayout grid=new GridLayout(this);grid.setColumnCount(1);grid.setUseDefaultMargins(false);content.addView(grid,new LinearLayout.LayoutParams(-1,-2));')
 
+# Nedarim reference layout, forced explicitly:
+# RIGHT = image, CENTER = text/details, LEFT-BOTTOM = action button.
+# Keep the card container LTR so the physical positions are deterministic;
+# the Hebrew text itself remains RTL/right-aligned.
 category=r'''    private View categoryCard(Category c){
-        LinearLayout card=card();card.setOrientation(LinearLayout.HORIZONTAL);card.setGravity(Gravity.CENTER_VERTICAL);card.setPadding(dp(12),dp(10),dp(12),dp(10));
+        LinearLayout card=card();card.setOrientation(LinearLayout.HORIZONTAL);card.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);card.setGravity(Gravity.CENTER_VERTICAL);card.setPadding(dp(12),dp(10),dp(12),dp(10));
+
+        LinearLayout actionCol=new LinearLayout(this);actionCol.setOrientation(LinearLayout.VERTICAL);actionCol.setGravity(Gravity.BOTTOM|Gravity.LEFT);
+        Button open=button("מעבר לקטגוריה",Color.rgb(31,111,132),Color.WHITE);open.setOnClickListener(v->showCategory(c));actionCol.addView(open,new LinearLayout.LayoutParams(dp(190),dp(46)));
+        card.addView(actionCol,new LinearLayout.LayoutParams(dp(200),dp(105)));
+
+        LinearLayout info=new LinearLayout(this);info.setOrientation(LinearLayout.VERTICAL);info.setGravity(Gravity.CENTER_VERTICAL);info.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);info.setPadding(dp(16),0,dp(16),0);
+        TextView name=text(c.name,22,true);name.setTextColor(Color.rgb(156,49,60));name.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);info.addView(name,new LinearLayout.LayoutParams(-1,-1));
+        card.addView(info,new LinearLayout.LayoutParams(0,dp(105),1));
+
         ImageView image=imageView();
         if("custom".equals(c.imageMode)&&c.imageUrl!=null&&!c.imageUrl.isEmpty())loadImage(c.imageUrl,image);
         else{for(Product p:products){if(p.categoryId.equals(c.id)&&p.imageUrl!=null&&!p.imageUrl.isEmpty()){loadImage(p.imageUrl,image);break;}}}
         card.addView(image,new LinearLayout.LayoutParams(dp(145),dp(105)));
-        LinearLayout info=new LinearLayout(this);info.setOrientation(LinearLayout.VERTICAL);info.setGravity(Gravity.CENTER_VERTICAL);info.setPadding(dp(18),0,dp(8),0);
-        TextView name=text(c.name,22,true);name.setTextColor(Color.rgb(156,49,60));name.setGravity(Gravity.RIGHT);info.addView(name,new LinearLayout.LayoutParams(-1,0,1));
-        Button open=button("מעבר לקטגוריה",Color.rgb(31,111,132),Color.WHITE);open.setOnClickListener(v->showCategory(c));LinearLayout.LayoutParams op=new LinearLayout.LayoutParams(dp(190),dp(46));op.gravity=Gravity.LEFT;info.addView(open,op);
-        card.addView(info,new LinearLayout.LayoutParams(0,dp(105),1));card.setOnClickListener(v->showCategory(c));return card;
+
+        card.setOnClickListener(v->showCategory(c));return card;
     }'''
 s=replace_method(s,'    private View categoryCard(Category c)',category)
 
 product=r'''    private View productCard(Product p){
-        LinearLayout card=card();card.setOrientation(LinearLayout.HORIZONTAL);card.setGravity(Gravity.CENTER_VERTICAL);card.setPadding(dp(12),dp(10),dp(12),dp(10));
-        ImageView image=imageView();if(p.imageUrl!=null&&!p.imageUrl.isEmpty())loadImage(p.imageUrl,image);card.addView(image,new LinearLayout.LayoutParams(dp(145),dp(112)));
-        LinearLayout info=new LinearLayout(this);info.setOrientation(LinearLayout.VERTICAL);info.setPadding(dp(18),0,dp(8),0);
-        TextView n=text(p.name,21,true);n.setTextColor(Color.rgb(156,49,60));n.setGravity(Gravity.RIGHT);info.addView(n,new LinearLayout.LayoutParams(-1,0,1));
+        LinearLayout card=card();card.setOrientation(LinearLayout.HORIZONTAL);card.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);card.setGravity(Gravity.CENTER_VERTICAL);card.setPadding(dp(12),dp(10),dp(12),dp(10));
+
+        LinearLayout actionCol=new LinearLayout(this);actionCol.setOrientation(LinearLayout.VERTICAL);actionCol.setGravity(Gravity.BOTTOM|Gravity.LEFT);
+        Button add=button(p.stock>0?"הוסף לסל":"לא זמין",Color.rgb(31,111,132),Color.WHITE);add.setEnabled(p.stock>0);add.setOnClickListener(v->{int now=cart.getOrDefault(p.id,0);if(now<p.stock){cart.put(p.id,now+1);updateCartButton();Toast.makeText(this,"נוסף לסל",Toast.LENGTH_SHORT).show();}});actionCol.addView(add,new LinearLayout.LayoutParams(dp(190),dp(46)));
+        card.addView(actionCol,new LinearLayout.LayoutParams(dp(200),dp(112)));
+
+        LinearLayout info=new LinearLayout(this);info.setOrientation(LinearLayout.VERTICAL);info.setGravity(Gravity.CENTER_VERTICAL);info.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);info.setPadding(dp(16),0,dp(16),0);
+        TextView n=text(p.name,21,true);n.setTextColor(Color.rgb(156,49,60));n.setGravity(Gravity.RIGHT);info.addView(n);
         TextView price=text(String.format(Locale.US,"מחיר: %.2f ₪",p.price),17,true);price.setTextColor(Color.rgb(55,76,93));price.setGravity(Gravity.RIGHT);info.addView(price);
         TextView stock=text(p.stock>0?"במלאי: "+p.stock:"אזל מהמלאי",14,true);stock.setTextColor(p.stock>0?Color.rgb(55,76,93):Color.RED);stock.setGravity(Gravity.RIGHT);info.addView(stock);
-        Button add=button(p.stock>0?"הוסף לסל":"לא זמין",Color.rgb(31,111,132),Color.WHITE);add.setEnabled(p.stock>0);add.setOnClickListener(v->{int now=cart.getOrDefault(p.id,0);if(now<p.stock){cart.put(p.id,now+1);updateCartButton();Toast.makeText(this,"נוסף לסל",Toast.LENGTH_SHORT).show();}});LinearLayout.LayoutParams ab=new LinearLayout.LayoutParams(dp(190),dp(46));ab.gravity=Gravity.LEFT;ab.setMargins(0,dp(5),0,0);info.addView(add,ab);
-        card.addView(info,new LinearLayout.LayoutParams(0,dp(112),1));return card;
+        card.addView(info,new LinearLayout.LayoutParams(0,dp(112),1));
+
+        ImageView image=imageView();if(p.imageUrl!=null&&!p.imageUrl.isEmpty())loadImage(p.imageUrl,image);card.addView(image,new LinearLayout.LayoutParams(dp(145),dp(112)));
+        return card;
     }'''
 s=replace_method(s,'    private View productCard(Product p)',product)
 
@@ -69,4 +86,4 @@ if old in s:
     s=s.replace(old,new,1)
 
 p.write_text(s,encoding='utf-8')
-print('Nedarim-style customer storefront enabled without removing image helpers')
+print('Nedarim reference card alignment applied: image right, text center, action left-bottom')
