@@ -39,8 +39,26 @@ if 'paymentManualToggleButton=button(' not in pay:
     if frame_marker not in pay:raise SystemExit('frame marker not found')
     pay=pay.replace(frame_marker,selector+frame_marker,1)
 if 'paymentFrameWrap=frameWrap;' not in pay:pay=pay.replace(frame_marker,'LinearLayout frameWrap=new LinearLayout(this);paymentFrameWrap=frameWrap;',1)
-# Ensure reader mode starts only after every payment view (including keyboard) has been created.
 if 'main.postDelayed(()->setPaymentInputMode(true),350);' not in pay:pay=pay.replace('setContentView(root);','setContentView(root);main.postDelayed(()->setPaymentInputMode(true),350);',1)
 s=s[:pay_start]+pay+s[pay_end:]
+
+# Performance: fail faster on weak connections instead of waiting 15s.
+s=s.replace('c.setConnectTimeout(15000);c.setReadTimeout(15000);','c.setConnectTimeout(6000);c.setReadTimeout(10000);',1)
+
+# Performance: open checkout feedback screen immediately while create-checkout runs.
+old_start='''    private void startCheckout(){\n        if(cart.isEmpty())return;\n        io.execute(()->{try{'''
+new_start='''    private void startCheckout(){\n        if(cart.isEmpty())return;\n        showCheckoutPreparing();\n        io.execute(()->{try{'''
+if old_start in s:s=s.replace(old_start,new_start,1)
+if 'private void showCheckoutPreparing()' not in s:
+    helper='''    private void showCheckoutPreparing(){\n        LinearLayout root=baseRoot();LinearLayout top=new LinearLayout(this);top.setGravity(Gravity.CENTER_VERTICAL);top.setPadding(dp(22),dp(12),dp(22),dp(8));\n        Button back=button("‹  חזור",Color.WHITE,blue);back.setOnClickListener(v->showCart());top.addView(back,new LinearLayout.LayoutParams(dp(130),dp(52)));\n        TextView title=text("תשלום",24,true);title.setGravity(Gravity.CENTER);top.addView(title,new LinearLayout.LayoutParams(0,dp(52),1));root.addView(top);\n        TextView wait=text("מכין את התשלום...",24,true);wait.setGravity(Gravity.CENTER);wait.setPadding(dp(20),dp(100),dp(20),dp(20));root.addView(wait,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);\n    }\n\n'''
+    sp='    private void showPayment(){'
+    if sp not in s:raise SystemExit('showPayment marker missing for preparing screen')
+    s=s.replace(sp,helper+sp,1)
+
+# Performance: if a cached catalog exists, render it immediately on launch and refresh silently in background.
+old_boot='''        showLoading();\n        loadData(this::showHome);'''
+new_boot='''        showLoading();\n        try{\n            JSONArray cachedCategories=offline.categories(),cachedProducts=offline.products();\n            if(cachedCategories.length()>0||cachedProducts.length()>0){\n                parseCatalog(cachedCategories,cachedProducts);showHome();\n                io.execute(()->{try{JSONArray cs=requestArray("GET","/rest/v1/categories?select=*&order=sort_order.asc",null,false);JSONArray ps=requestArray("GET","/rest/v1/products?select=*&order=category_id.asc,sort_order.asc,created_at.asc",null,false);offline.saveCatalog(cs,ps);parseCatalog(cs,ps);}catch(Exception ignored){}});\n            }else loadData(this::showHome);\n        }catch(Exception e){loadData(this::showHome);}'''
+if old_boot in s:s=s.replace(old_boot,new_boot,1)
+
 p.write_text(s,encoding='utf-8')
-print('Reliable manual card mode: Nedarim fields, app keypad and charge button are explicitly restored')
+print('Reader/manual payment fixes plus app performance optimizations applied')
