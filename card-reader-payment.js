@@ -1,16 +1,39 @@
 // ZCS90/HID card-reader payment helper.
-// Security: raw magnetic-stripe data is never persisted, logged, or sent by this helper.
+// Reader mode keeps card data inside Nedarim's PCI iframe; this page does not read/store magnetic-track data.
 (function(){
-  let mode='manual', buf='', last=0, timer=null;
+  let mode='manual';
   function el(id){return document.getElementById(id)}
-  function style(){if(el('cardReaderPaymentStyle'))return;const s=document.createElement('style');s.id='cardReaderPaymentStyle';s.textContent='.card-pay-modes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}.card-pay-modes button{padding:14px 10px;border-radius:12px;border:2px solid #d7dde3;background:#fff;font-weight:700;font-size:16px}.card-pay-modes button.active{border-color:#2b778b;background:#edf8fa}.reader-box{padding:22px 14px;border-radius:12px;background:#f5f7f9;text-align:center;margin:8px 0 12px}.reader-box b{display:block;font-size:20px;margin-bottom:7px}.reader-box small{color:#64727d}.reader-ok{background:#eef9f1!important}.reader-ok b{font-size:23px;color:#23723a}';document.head.appendChild(s)}
-  function setMode(m){mode=m;buf='';document.querySelectorAll('[data-card-pay-mode]').forEach(b=>b.classList.toggle('active',b.dataset.cardPayMode===m));const r=el('readerPaymentBox'),f=el('NedarimFrame'),c=el('chargeBtn');if(r){r.style.display=m==='reader'?'block':'none';r.classList.remove('reader-ok');r.innerHTML='<b>העבר את הכרטיס בקורא</b><small>נתוני הפס אינם נשמרים במערכת.</small>'}if(f)f.style.display=m==='reader'?'none':'block';if(c)c.style.display=m==='reader'?'none':'block';const st=el('paymentStatus');if(st&&m==='reader')st.textContent='ממתין להעברת כרטיס';else if(st&&m==='manual')st.textContent='הזן פרטי אשראי';if(m==='reader')window.focus()}
-  function install(){const frame=el('NedarimFrame');if(!frame||el('cardPayModes'))return;style();const wrap=document.createElement('div');wrap.id='cardPayModes';wrap.className='card-pay-modes';wrap.innerHTML='<button type="button" data-card-pay-mode="reader">העברת כרטיס</button><button type="button" data-card-pay-mode="manual">הקלדת פרטי כרטיס</button>';frame.parentNode.insertBefore(wrap,frame);const box=document.createElement('div');box.id='readerPaymentBox';box.className='reader-box';frame.parentNode.insertBefore(box,frame);wrap.querySelectorAll('button').forEach(b=>b.onclick=()=>setMode(b.dataset.cardPayMode));setMode('manual')}
-  function parseTrack2(raw){const m=String(raw||'').match(/[;?]?([0-9]{12,19})[=D]([0-9]{2})([0-9]{2})[0-9]*/);if(!m)return null;return{pan:m[1],yy:m[2],mm:m[3]}}
-  function complete(){const data=parseTrack2(buf);buf='';const st=el('paymentStatus'),box=el('readerPaymentBox');if(!data){if(st)st.textContent='הכרטיס לא נקרא. נסה להעביר שוב';if(box){box.classList.remove('reader-ok');box.innerHTML='<b>הכרטיס לא נקרא</b><small>נסה להעביר שוב</small>'}return}if(st)st.textContent='הכרטיס נקרא בהצלחה';if(box){box.classList.add('reader-ok');box.innerHTML='<b>✓ הכרטיס נקרא בהצלחה</b><small>מכין את התשלום...</small>'}// Until provider-side/card-frame injection is completed, do not attempt a charge with incomplete fields.
-    data.pan='';data.yy='';data.mm='';
+  function style(){if(el('cardReaderPaymentStyle'))return;const s=document.createElement('style');s.id='cardReaderPaymentStyle';s.textContent=`
+    .card-pay-modes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
+    .card-pay-modes button{padding:14px 10px;border-radius:12px;border:2px solid #d7dde3;background:#fff;font-weight:700;font-size:16px}
+    .card-pay-modes button.active{border-color:#2b778b;background:#edf8fa}
+    .reader-box{padding:22px 14px;border-radius:12px;background:#f5f7f9;text-align:center;margin:8px 0 12px}
+    .reader-box b{display:block;font-size:20px;margin-bottom:7px}.reader-box small{color:#64727d}
+    #NedarimFrame.reader-secure-hidden{position:fixed!important;left:-10000px!important;top:0!important;width:2px!important;height:2px!important;opacity:.01!important;pointer-events:none!important;display:block!important}
+  `;document.head.appendChild(s)}
+  function focusSecureFrame(){const f=el('NedarimFrame');if(!f)return;try{f.contentWindow.focus()}catch(e){} }
+  function setMode(m){
+    mode=m;
+    document.querySelectorAll('[data-card-pay-mode]').forEach(b=>b.classList.toggle('active',b.dataset.cardPayMode===m));
+    const r=el('readerPaymentBox'),f=el('NedarimFrame'),c=el('chargeBtn'),st=el('paymentStatus');
+    if(r){r.style.display=m==='reader'?'block':'none';r.innerHTML='<b>העבר את הכרטיס בקורא</b><small>הקריאה נכנסת ישירות למסך המאובטח של נדרים פלוס.</small>'}
+    if(f){f.classList.toggle('reader-secure-hidden',m==='reader');if(m==='manual'){f.style.display='block'}}
+    if(c)c.style.display=m==='reader'?'none':'block';
+    if(st)st.textContent=m==='reader'?'ממתין להעברת כרטיס':'הזן פרטי אשראי';
+    if(m==='reader'){setTimeout(focusSecureFrame,100);setTimeout(focusSecureFrame,500)}
   }
-  document.addEventListener('keydown',e=>{if(mode!=='reader'||!el('payment')?.classList.contains('active'))return;const now=Date.now();if(now-last>120)buf='';last=now;if(e.key==='Enter'){e.preventDefault();complete();return}if(e.key.length===1){e.preventDefault();buf+=e.key;if(timer)clearTimeout(timer);timer=setTimeout(complete,180)}} ,true);
+  function install(){
+    const frame=el('NedarimFrame');if(!frame||el('cardPayModes'))return;style();
+    const wrap=document.createElement('div');wrap.id='cardPayModes';wrap.className='card-pay-modes';
+    wrap.innerHTML='<button type="button" data-card-pay-mode="reader">העברת כרטיס</button><button type="button" data-card-pay-mode="manual">הקלדת פרטי כרטיס</button>';
+    frame.parentNode.insertBefore(wrap,frame);
+    const box=document.createElement('div');box.id='readerPaymentBox';box.className='reader-box';frame.parentNode.insertBefore(box,frame);
+    wrap.querySelectorAll('button').forEach(b=>b.onclick=()=>setMode(b.dataset.cardPayMode));
+    frame.addEventListener('load',()=>{if(mode==='reader')setTimeout(focusSecureFrame,200)});
+    setMode('manual');
+  }
+  // If Nedarim reports a successful transaction, the existing app listener handles confirmation/polling.
+  // No card number, expiry, CVV or raw track is captured by the parent page.
   const mo=new MutationObserver(()=>install());mo.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
