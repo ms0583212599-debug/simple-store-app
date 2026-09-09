@@ -14,13 +14,10 @@
     mode=m;
     document.querySelectorAll('[data-card-pay-mode]').forEach(b=>b.classList.toggle('active',b.dataset.cardPayMode===m));
     const note=el('readerPaymentBox'),frame=el('NedarimFrame'),charge=el('chargeBtn'),st=el('paymentStatus');
-    if(note){note.style.display=m==='reader'?'block':'none';note.textContent='העבר את הכרטיס בקורא — מספר הכרטיס והתוקף ייקלטו ישירות בנדרים פלוס';}
+    if(note){note.style.display=m==='reader'?'block':'none';note.innerHTML=m==='reader'?'<b>1. לחץ פעם אחת בתוך שדה מספר הכרטיס של נדרים</b><br>2. העבר את הכרטיס בקורא':'';}
     if(frame){frame.classList.toggle('reader-frame',m==='reader');frame.style.display='block';}
-    // Keep Nedarim's secure fields visible in reader mode. The reader already knows how to split PAN/expiry there.
-    // CVV is intentionally left to Nedarim's secure field and is never captured by this page.
     if(charge)charge.style.display='block';
-    if(st)st.textContent=m==='reader'?'העבר כרטיס ולאחר מכן השלם את הפרטים שנדרים דורשים':'הזן פרטי אשראי';
-    if(m==='reader'&&frame){setTimeout(()=>{try{frame.contentWindow.focus()}catch(e){}},150)}
+    if(st)st.textContent=m==='reader'?'מוכן לקריאת כרטיס — לחץ בשדה מספר הכרטיס ואז העבר':'הזן פרטי אשראי';
   }
   function install(){
     const frame=el('NedarimFrame');if(!frame||el('cardPayModes'))return;style();
