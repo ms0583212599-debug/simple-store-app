@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - 'android/**'
+      - 'sales-report.js'
+      - 'styles.css'
       - '.github/scripts/ci_home_sales.py'
       - '.github/workflows/build-android-apk.yml'
   workflow_dispatch:
