@@ -1,6 +1,6 @@
 // Fast application loader: core first, customer UI immediately, admin tools on demand.
 (function(){
-  const V='20260909-card-reader-v1';
+  const V='20260909-card-reader-v3';
   const loaded=new Set();
   function installCategoryImageFix(){
     if(document.getElementById('categoryImageFitFix'))return;
