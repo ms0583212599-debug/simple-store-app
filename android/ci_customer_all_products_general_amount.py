@@ -9,7 +9,7 @@ s=s.replace(needle,needle+'\n    private boolean generalAmountCheckout = false;'
 
 # Add special customer entries before the normal category list.
 old='grid.removeAllViews();for(Category c:categories){boolean catMatch=q.isEmpty()||c.name.toLowerCase(Locale.ROOT).contains(q);'
-new='grid.removeAllViews();if(q.isEmpty()){View all=customerSpecialRow("כל המוצרים");all.setOnClickListener(v->showAllCustomerProducts());GridLayout.LayoutParams agp=new GridLayout.LayoutParams();agp.width=GridLayout.LayoutParams.MATCH_PARENT;agp.height=dp(68);agp.setMargins(0,dp(2),0,dp(2));grid.addView(all,agp);if(generalAmountEnabled()){View ga=customerSpecialRow("סכום כללי");ga.setOnClickListener(v->showGeneralAmountCalculator());GridLayout.LayoutParams ggp=new GridLayout.LayoutParams();ggp.width=GridLayout.LayoutParams.MATCH_PARENT;ggp.height=dp(68);ggp.setMargins(0,dp(2),0,dp(2));grid.addView(ga,ggp);}}for(Category c:categories){boolean catMatch=q.isEmpty()||c.name.toLowerCase(Locale.ROOT).contains(q);'
+new='grid.removeAllViews();if(q.isEmpty()){View all=customerSpecialRow("כל המוצרים");all.setOnClickListener(v->showAllCustomerProducts());GridLayout.LayoutParams agp=new GridLayout.LayoutParams();agp.width=GridLayout.LayoutParams.MATCH_PARENT;agp.height=dp(68);agp.setMargins(0,dp(2),0,dp(2));grid.addView(all,agp);if(generalAmountEnabled()){View ga=customerSpecialRow("סכום כללי  |  מחשבון");ga.setOnClickListener(v->showGeneralAmountCalculator());GridLayout.LayoutParams ggp=new GridLayout.LayoutParams();ggp.width=GridLayout.LayoutParams.MATCH_PARENT;ggp.height=dp(68);ggp.setMargins(0,dp(2),0,dp(2));grid.addView(ga,ggp);}}for(Category c:categories){boolean catMatch=q.isEmpty()||c.name.toLowerCase(Locale.ROOT).contains(q);'
 if old not in s: raise SystemExit('home render marker missing')
 s=s.replace(old,new,1)
 
@@ -32,7 +32,6 @@ if start<0: raise SystemExit('admin home missing')
 brace=s.find('{',start)
 pos=s.find('\n',brace)+1
 admin_insert='''        Button generalToggle=button(generalAmountEnabled()?"סכום כללי ללקוחות: פעיל":"סכום כללי ללקוחות: כבוי",generalAmountEnabled()?green:Color.WHITE,generalAmountEnabled()?Color.WHITE:blue);generalToggle.setOnClickListener(v->{boolean next=!generalAmountEnabled();getSharedPreferences("customer_options",MODE_PRIVATE).edit().putBoolean("general_amount",next).apply();showAdminHome();});LinearLayout.LayoutParams generalToggleLp=new LinearLayout.LayoutParams(-1,dp(60));generalToggleLp.setMargins(0,0,0,dp(12));content.addView(generalToggle,generalToggleLp);\n'''
-# Must insert after buildShell, not before content exists.
 line_end=s.find('\n',s.find('buildShell(',start))+1
 if line_end<=0: raise SystemExit('admin buildShell missing')
 s=s[:line_end]+admin_insert+s[line_end:]
@@ -44,7 +43,7 @@ helpers=r'''
         LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.HORIZONTAL);card.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);card.setGravity(Gravity.CENTER_VERTICAL);card.setPadding(dp(5),dp(3),dp(5),dp(3));card.setBackground(roundRect(Color.WHITE,Color.rgb(202,207,211),1,2));
         TextView arrow=text("‹",22,false);arrow.setGravity(Gravity.CENTER);arrow.setTextColor(Color.rgb(92,99,105));card.addView(arrow,new LinearLayout.LayoutParams(dp(34),-1));
         TextView name=text(label,17,true);name.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);name.setTextColor(Color.rgb(62,72,82));name.setPadding(dp(5),0,dp(8),0);card.addView(name,new LinearLayout.LayoutParams(0,-1,1));
-        TextView icon=text("כל המוצרים".equals(label)?"▦":"₪",25,true);icon.setGravity(Gravity.CENTER);icon.setTextColor(Color.rgb(43,119,139));card.addView(icon,new LinearLayout.LayoutParams(dp(76),dp(60)));return card;
+        TextView icon=text("כל המוצרים".equals(label)?"▦":"🧮",25,true);icon.setGravity(Gravity.CENTER);icon.setTextColor(Color.rgb(43,119,139));card.addView(icon,new LinearLayout.LayoutParams(dp(76),dp(60)));return card;
     }
 
     private void showAllCustomerProducts(){
