@@ -25,6 +25,9 @@ jobs:
           fetch-depth: 0
       - name: Set up Java
         uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
       - name: Install Android SDK 35
@@ -122,6 +125,8 @@ jobs:
         run: python3 android/ci_checkout_keyboard_success_cart.py
       - name: Add collapsible mini cart
         run: python3 android/ci_collapsible_mini_cart.py
+      - name: Add magnetic card reader payment mode
+        run: python3 android/ci_card_reader_payment.py
       - name: Validate production Android invariants
         run: python3 android/ci_validate_release.py
       - name: Choose Android version
