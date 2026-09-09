@@ -1,0 +1,16 @@
+// ZCS90/HID card-reader payment helper.
+// Security: raw magnetic-stripe data is never persisted, logged, or sent by this helper.
+(function(){
+  let mode='manual', buf='', last=0, timer=null;
+  function el(id){return document.getElementById(id)}
+  function style(){if(el('cardReaderPaymentStyle'))return;const s=document.createElement('style');s.id='cardReaderPaymentStyle';s.textContent='.card-pay-modes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}.card-pay-modes button{padding:14px 10px;border-radius:12px;border:2px solid #d7dde3;background:#fff;font-weight:700;font-size:16px}.card-pay-modes button.active{border-color:#2b778b;background:#edf8fa}.reader-box{padding:14px;border-radius:12px;background:#f5f7f9;text-align:center;margin:8px 0 12px}.reader-box b{display:block;font-size:17px;margin-bottom:5px}.reader-box small{color:#64727d}';document.head.appendChild(s)}
+  function setMode(m){mode=m;buf='';document.querySelectorAll('[data-card-pay-mode]').forEach(b=>b.classList.toggle('active',b.dataset.cardPayMode===m));const r=el('readerPaymentBox'),f=el('NedarimFrame');if(r)r.style.display=m==='reader'?'block':'none';if(f)f.style.display='block';const st=el('paymentStatus');if(st&&m==='reader')st.textContent='העבר את הכרטיס בקורא';else if(st&&m==='manual')st.textContent='הזן פרטי אשראי';if(m==='reader')window.focus()}
+  function install(){const frame=el('NedarimFrame');if(!frame||el('cardPayModes'))return;style();const wrap=document.createElement('div');wrap.id='cardPayModes';wrap.className='card-pay-modes';wrap.innerHTML='<button type="button" data-card-pay-mode="reader">העברת כרטיס</button><button type="button" data-card-pay-mode="manual">הקלדת פרטי כרטיס</button>';frame.parentNode.insertBefore(wrap,frame);const box=document.createElement('div');box.id='readerPaymentBox';box.className='reader-box';box.innerHTML='<b>העבר את הכרטיס בקורא</b><small>הקורא מזוהה כמקלדת USB. נתוני הפס אינם נשמרים במערכת.</small>';frame.parentNode.insertBefore(box,frame);wrap.querySelectorAll('button').forEach(b=>b.onclick=()=>setMode(b.dataset.cardPayMode));setMode('manual')}
+  function parseTrack2(raw){const m=String(raw||'').match(/[;?]?([0-9]{12,19})[=D]([0-9]{2})([0-9]{2})[0-9]*/);if(!m)return null;return{pan:m[1],yy:m[2],mm:m[3]}}
+  function complete(){const data=parseTrack2(buf);buf='';const st=el('paymentStatus');if(!data){if(st)st.textContent='הכרטיס לא נקרא. נסה להעביר שוב';return}if(st)st.textContent='הכרטיס נקרא בהצלחה';// Cross-origin Nedarim iframe cannot be populated from the parent page. Keep parsed data only transiently and discard it immediately.
+    data.pan='';data.yy='';data.mm='';
+  }
+  document.addEventListener('keydown',e=>{if(mode!=='reader'||!el('payment')?.classList.contains('active'))return;const now=Date.now();if(now-last>120)buf='';last=now;if(e.key==='Enter'){e.preventDefault();complete();return}if(e.key.length===1){e.preventDefault();buf+=e.key;if(timer)clearTimeout(timer);timer=setTimeout(complete,180)}} ,true);
+  const mo=new MutationObserver(()=>install());mo.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
+})();
