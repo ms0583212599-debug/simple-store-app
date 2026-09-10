@@ -35,3 +35,8 @@ print('Fixed overlay feedback button added directly to home screen')
 perf=Path('android/ci_performance_fast_checkout.py')
 if perf.exists():
     exec(compile(perf.read_text(encoding='utf-8'),str(perf),'exec'))
+
+# Run the native Nedarim-style sales report transform late in the build as well.
+reports=Path('android/ci_nedarim_sales_reports.py')
+if reports.exists():
+    exec(compile(reports.read_text(encoding='utf-8'),str(reports),'exec'))
