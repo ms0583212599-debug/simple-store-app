@@ -43,7 +43,7 @@ helpers=r'''
         LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.HORIZONTAL);card.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);card.setGravity(Gravity.CENTER_VERTICAL);card.setPadding(dp(5),dp(3),dp(5),dp(3));card.setBackground(roundRect(Color.WHITE,Color.rgb(202,207,211),1,2));
         TextView arrow=text("‹",22,false);arrow.setGravity(Gravity.CENTER);arrow.setTextColor(Color.rgb(92,99,105));card.addView(arrow,new LinearLayout.LayoutParams(dp(34),-1));
         TextView name=text(label,17,true);name.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);name.setTextColor(Color.rgb(62,72,82));name.setPadding(dp(5),0,dp(8),0);card.addView(name,new LinearLayout.LayoutParams(0,-1,1));
-        TextView icon=text("כל המוצרים".equals(label)?"▦":"🧮",25,true);icon.setGravity(Gravity.CENTER);icon.setTextColor(Color.rgb(43,119,139));card.addView(icon,new LinearLayout.LayoutParams(dp(76),dp(60)));return card;
+        TextView icon=text("כל המוצרים".equals(label)?"▦":"▣",27,true);icon.setGravity(Gravity.CENTER);icon.setTextColor(Color.rgb(43,119,139));if(!"כל המוצרים".equals(label)){icon.setText("▦\n＋ − × ÷");icon.setTextSize(13);icon.setLines(2);icon.setGravity(Gravity.CENTER);}card.addView(icon,new LinearLayout.LayoutParams(dp(76),dp(60)));return card;
     }
 
     private void showAllCustomerProducts(){
