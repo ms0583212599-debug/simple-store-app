@@ -4,19 +4,11 @@ p=Path('android/app/src/main/java/com/simplestore/tablet/MainActivity.java')
 s=p.read_text(encoding='utf-8')
 
 method=r'''    private void openCustomerFeedback(){
-        final EditText note=input("כתוב הערה לחנות");
-        note.setMinLines(4);note.setGravity(Gravity.TOP|Gravity.RIGHT);
+        final EditText note=input("כתוב הערה לחנות");note.setMinLines(4);note.setGravity(Gravity.TOP|Gravity.RIGHT);
         AlertDialog dlg=new AlertDialog.Builder(this).setTitle("שלח הערה לחנות").setMessage("אפשר לכתוב מוצר שחסר, בקשה או הערה.").setView(note).setNegativeButton("ביטול",null).setPositiveButton("שלח",null).create();
-        dlg.setOnShowListener(x->dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
-            String msg=note.getText().toString().trim();if(msg.length()<2){Toast.makeText(this,"כתוב את ההערה",Toast.LENGTH_SHORT).show();return;}
-            dlg.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);io.execute(()->{try{JSONObject body=new JSONObject();body.put("message",msg);requestRaw("POST","/rest/v1/customer_feedback",body,false);main.post(()->{dlg.dismiss();Toast.makeText(this,"ההערה נשלחה. תודה!",Toast.LENGTH_LONG).show();});}catch(Exception e){main.post(()->{dlg.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);Toast.makeText(this,"לא הצלחנו לשלוח. נסה שוב.",Toast.LENGTH_LONG).show();});}});
-        }));dlg.show();
+        dlg.setOnShowListener(x->dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{String msg=note.getText().toString().trim();if(msg.length()<2){Toast.makeText(this,"כתוב את ההערה",Toast.LENGTH_SHORT).show();return;}dlg.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);io.execute(()->{try{JSONObject body=new JSONObject();body.put("message",msg);requestRaw("POST","/rest/v1/customer_feedback",body,false);main.post(()->{dlg.dismiss();Toast.makeText(this,"ההערה נשלחה. תודה!",Toast.LENGTH_LONG).show();});}catch(Exception e){main.post(()->{dlg.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);Toast.makeText(this,"לא הצלחנו לשלוח. נסה שוב.",Toast.LENGTH_LONG).show();});}}); }));dlg.show();
     }
-    private void addFixedHomeFeedbackButton(){
-        Button feedback=button("💬\nשלח הערה",Color.rgb(237,247,249),Color.rgb(43,119,139));feedback.setTextSize(11);feedback.setGravity(Gravity.CENTER);feedback.setAllCaps(false);feedback.setElevation(dp(8));
-        android.graphics.drawable.GradientDrawable bg=new android.graphics.drawable.GradientDrawable();bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);bg.setColor(Color.rgb(237,247,249));bg.setStroke(dp(1),Color.rgb(43,119,139));feedback.setBackground(bg);feedback.setOnClickListener(v->openCustomerFeedback());
-        android.widget.FrameLayout.LayoutParams lp=new android.widget.FrameLayout.LayoutParams(dp(78),dp(78),Gravity.TOP|Gravity.LEFT);lp.setMargins(dp(14),dp(18),0,0);addContentView(feedback,lp);
-    }
+    private void addFixedHomeFeedbackButton(){Button feedback=button("💬\nשלח הערה",Color.rgb(237,247,249),Color.rgb(43,119,139));feedback.setTextSize(11);feedback.setGravity(Gravity.CENTER);feedback.setAllCaps(false);feedback.setElevation(dp(8));android.graphics.drawable.GradientDrawable bg=new android.graphics.drawable.GradientDrawable();bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);bg.setColor(Color.rgb(237,247,249));bg.setStroke(dp(1),Color.rgb(43,119,139));feedback.setBackground(bg);feedback.setOnClickListener(v->openCustomerFeedback());android.widget.FrameLayout.LayoutParams lp=new android.widget.FrameLayout.LayoutParams(dp(78),dp(78),Gravity.TOP|Gravity.LEFT);lp.setMargins(dp(14),dp(18),0,0);addContentView(feedback,lp);}
 
 '''
 marker='    private void showHome(){'
@@ -31,13 +23,6 @@ if 'addFixedHomeFeedbackButton();' not in home:
 p.write_text(s,encoding='utf-8')
 print('Fixed overlay feedback button added directly to home screen')
 
-perf=Path('android/ci_performance_fast_checkout.py')
-if perf.exists(): exec(compile(perf.read_text(encoding='utf-8'),str(perf),'exec'))
-reports=Path('android/ci_nedarim_sales_reports.py')
-if reports.exists(): exec(compile(reports.read_text(encoding='utf-8'),str(reports),'exec'))
-keyboard_block=Path('android/ci_block_system_keyboard.py')
-if keyboard_block.exists(): exec(compile(keyboard_block.read_text(encoding='utf-8'),str(keyboard_block),'exec'))
-password_change=Path('android/ci_change_admin_password.py')
-if password_change.exists(): exec(compile(password_change.read_text(encoding='utf-8'),str(password_change),'exec'))
-multi_category=Path('android/ci_multi_category_products.py')
-if multi_category.exists(): exec(compile(multi_category.read_text(encoding='utf-8'),str(multi_category),'exec'))
+for f in ['ci_performance_fast_checkout.py','ci_nedarim_sales_reports.py','ci_block_system_keyboard.py','ci_change_admin_password.py','ci_multi_category_products.py','ci_idle_advertising.py']:
+    x=Path('android')/f
+    if x.exists(): exec(compile(x.read_text(encoding='utf-8'),str(x),'exec'))
