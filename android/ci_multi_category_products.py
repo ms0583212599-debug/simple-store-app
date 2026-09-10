@@ -8,7 +8,6 @@ new='static class Product{String id,categoryId,name,imageUrl;double price;int st
 if old in s:s=s.replace(old,new,1)
 elif 'extraCategoryIds' not in s: raise SystemExit('Product model marker missing')
 
-# Rebuild catalog parsing so the new array is loaded from Supabase.
 def replace_method(src, sig, repl):
     a=src.find(sig)
     if a<0: raise SystemExit(sig+' missing')
@@ -38,14 +37,13 @@ parse=r'''    private void parseCatalog(JSONArray cs,JSONArray ps)throws Excepti
         for(int i=0;i<cs.length();i++){JSONObject o=cs.getJSONObject(i);categories.add(new Category(o.optString("id"),o.optString("name"),o.optString("image_url"),o.optString("image_mode"),o.optInt("sort_order",0)));}
         for(int i=0;i<ps.length();i++){
             JSONObject o=ps.getJSONObject(i);if(!o.optBoolean("is_active",true))continue;
-            Product pr=new Product(o.optString("id"),o.optString("category_id"),o.optString("name"),o.optDouble("price",0),o.optInt("stock_quantity",0),o.optString("image_url"),o.optInt("low_stock_threshold",3),o.optInt("sort_order",0));
+            Product pr=new Product(o.optString("id"),o.optString("category_id"),o.optString("name"),o.optDouble("price",0),o.optInt("stock_quantity",0),o.optString("image_url"),o.optInt("low_stock_threshold",3),o.optInt("sort_order",0),o.optBoolean("show_to_customers",true));
             JSONArray ex=o.optJSONArray("additional_category_ids");if(ex!=null)for(int j=0;j<ex.length();j++){String id=ex.optString(j);if(id!=null&&!id.isEmpty()&&!id.equals(pr.categoryId))pr.extraCategoryIds.add(id);}products.add(pr);
         }
     }
 '''
 s=replace_method(s,'    private void parseCatalog(JSONArray cs,JSONArray ps)',parse)
 
-# Shared membership helper and use it in all customer/category displays.
 marker='    private Product findProduct(String id)'
 helper='    private boolean productInCategory(Product p,String categoryId){return p!=null&&categoryId!=null&&(categoryId.equals(p.categoryId)||p.extraCategoryIds.contains(categoryId));}\n'
 if 'private boolean productInCategory(' not in s:
@@ -54,7 +52,6 @@ if 'private boolean productInCategory(' not in s:
 s=s.replace('!p.categoryId.equals(c.id)','!productInCategory(p,c.id)')
 s=s.replace('p.categoryId.equals(c.id)','productInCategory(p,c.id)')
 
-# Add multiple-choice additional category selector to the product editor.
 needle='box.addView(name);box.addView(price);box.addView(stock);box.addView(low);box.addView(cat);'
 if needle not in s: raise SystemExit('product dialog fields marker missing')
 extra=r'''box.addView(name);box.addView(price);box.addView(stock);box.addView(low);box.addView(cat);
@@ -65,7 +62,6 @@ extra=r'''box.addView(name);box.addView(price);box.addView(stock);box.addView(lo
         extraCats.setOnClickListener(v->{String[] labels=new String[categories.size()];for(int i=0;i<categories.size();i++)labels[i]=categories.get(i).name;new AlertDialog.Builder(this).setTitle("בחר קטגוריות נוספות").setMultiChoiceItems(labels,extraSelected,(d,which,checked)->extraSelected[which]=checked).setNegativeButton("ביטול",null).setPositiveButton("אישור",(d,w)->refreshExtraLabel.run()).show();});'''
 s=s.replace(needle,extra,1)
 
-# Save additional categories together with the primary category.
 needle2='body.put("category_id",categories.get(cat.getSelectedItemPosition()).id);'
 if needle2 not in s: raise SystemExit('category save marker missing')
 save=r'''body.put("category_id",categories.get(cat.getSelectedItemPosition()).id);JSONArray extraIds=new JSONArray();String primaryId=categories.get(cat.getSelectedItemPosition()).id;for(int ci=0;ci<categories.size();ci++)if(extraSelected[ci]&&!categories.get(ci).id.equals(primaryId))extraIds.put(categories.get(ci).id);body.put("additional_category_ids",extraIds);'''
