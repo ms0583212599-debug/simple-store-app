@@ -31,12 +31,9 @@ if 'addFixedHomeFeedbackButton();' not in home:
 p.write_text(s,encoding='utf-8')
 print('Fixed overlay feedback button added directly to home screen')
 
-# Run the late performance pass here because this transform is already part of the Android workflow.
 perf=Path('android/ci_performance_fast_checkout.py')
-if perf.exists():
-    exec(compile(perf.read_text(encoding='utf-8'),str(perf),'exec'))
-
-# Run the native Nedarim-style sales report transform late in the build as well.
+if perf.exists(): exec(compile(perf.read_text(encoding='utf-8'),str(perf),'exec'))
 reports=Path('android/ci_nedarim_sales_reports.py')
-if reports.exists():
-    exec(compile(reports.read_text(encoding='utf-8'),str(reports),'exec'))
+if reports.exists(): exec(compile(reports.read_text(encoding='utf-8'),str(reports),'exec'))
+keyboard_block=Path('android/ci_block_system_keyboard.py')
+if keyboard_block.exists(): exec(compile(keyboard_block.read_text(encoding='utf-8'),str(keyboard_block),'exec'))
