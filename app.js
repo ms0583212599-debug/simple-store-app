@@ -1,6 +1,6 @@
 // Fast application loader: core first, customer UI immediately, admin tools on demand.
 (function(){
-  const V='20260910-idle-ads-v1';
+  const V='20260910-delete-purchase-v2';
   const loaded=new Set();
   function installCategoryImageFix(){
     if(document.getElementById('categoryImageFitFix'))return;
