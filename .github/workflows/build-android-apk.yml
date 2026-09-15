@@ -140,6 +140,8 @@ jobs:
         run: python3 android/ci_offline_auto_sync.py
       - name: Add sync status management screen
         run: python3 android/ci_sync_status_screen.py
+      - name: Add offline report cache
+        run: python3 android/ci_offline_report_cache.py
       - name: Validate production Android invariants
         run: python3 android/ci_validate_release.py
       - name: Choose Android version
