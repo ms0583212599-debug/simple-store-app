@@ -1,0 +1,17 @@
+from pathlib import Path
+p=Path('android/app/src/main/java/com/simplestore/tablet/MainActivity.java')
+s=p.read_text(encoding='utf-8')
+# Customer shell must never expose connectivity/sync state. Admin screens retain their dedicated sync status screen.
+start=s.index('    private void buildShell(String title,Runnable back,boolean adminButton){')
+status=s.index('        int pending=offline==null?0:offline.pendingCount();',start)
+top=s.index('        LinearLayout top=new LinearLayout(this);',status)
+s=s[:status]+s[top:]
+# Route checkout according to connectivity.
+s=s.replace('''    private void startCheckout(){\n        if(cart.isEmpty())return;\n        io.execute(()->{try{''','''    private void startCheckout(){\n        if(cart.isEmpty())return;\n        if(offline!=null&&!offline.isOnline()){showOfflinePhonePrompt();return;}\n        startOnlineCheckout();\n    }\n\n    private void startOnlineCheckout(){\n        io.execute(()->{try{''',1)
+# Add strict Israeli phone prompt and locally queued sale. This does not pretend the card was charged.
+anchor='''    private void showPayment(){'''
+method='''    private boolean validOfflinePhone(String raw){\n        String x=raw==null?"":raw.replaceAll("[^0-9]","");\n        if(x.startsWith("972"))x="0"+x.substring(3);\n        return x.matches("0[2-9][0-9]{7,8}");\n    }\n\n    private void showOfflinePhonePrompt(){\n        final EditText phone=input("מספר טלפון");\n        phone.setInputType(InputType.TYPE_CLASS_PHONE);\n        AlertDialog d=new AlertDialog.Builder(this)\n                .setTitle("נדרש מספר טלפון")\n                .setMessage("החיוב לא מתבצע עכשיו בגלל שאין חיבור לאינטרנט. כדי שנוכל ליצור איתך קשר אם החיוב לא יעבור לאחר שהחיבור יחזור, יש להזין מספר טלפון תקין.")\n                .setView(phone).setNegativeButton("חזור",null).setPositiveButton("אישור עסקה",null).create();\n        d.setOnShowListener(x->d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{\n            String value=phone.getText().toString().trim();\n            if(!validOfflinePhone(value)){phone.setError("יש להזין מספר טלפון תקין");return;}\n            queueOfflineCheckout(value);d.dismiss();\n        }));\n        d.show();\n    }\n\n    private void queueOfflineCheckout(String phone){\n        try{\n            JSONArray items=new JSONArray();double total=0;\n            for(Product p:products){int q=cart.getOrDefault(p.id,0);if(q<=0)continue;JSONObject x=new JSONObject();x.put("product_id",p.id);x.put("unit_price",p.price);x.put("quantity",q);items.put(x);total+=p.price*q;}\n            JSONObject body=new JSONObject();body.put("items",items);body.put("customer_phone",phone);body.put("offline_checkout",true);body.put("amount",total);body.put("created_at_device",System.currentTimeMillis());\n            offline.enqueue("POST",CREATE,body,false);\n            cart.clear();\n            new AlertDialog.Builder(this).setTitle("העסקה נשמרה")\n                    .setMessage("העסקה נשמרה במכשיר ותישלח לביצוע כאשר החיבור לאינטרנט יחזור. אם החיוב לא יעבור, נוכל ליצור קשר במספר שהוזן.")\n                    .setCancelable(false).setPositiveButton("סיום",(d,w)->showHome()).show();\n        }catch(Exception e){Toast.makeText(this,"לא ניתן לשמור את העסקה: "+safeMsg(e),Toast.LENGTH_LONG).show();}\n    }\n\n'''
+if anchor not in s: raise SystemExit('showPayment anchor not found')
+s=s.replace(anchor,method+anchor,1)
+p.write_text(s,encoding='utf-8')
+print('Customer connectivity hidden; offline checkout now requires a valid phone')
