@@ -144,6 +144,8 @@ jobs:
         run: python3 android/ci_offline_report_cache.py
       - name: Add customer offline checkout safeguards
         run: python3 android/ci_customer_offline_checkout.py
+      - name: Make sync HTTP responses null-safe
+        run: python3 android/ci_robust_sync_http.py
       - name: Validate production Android invariants
         run: python3 android/ci_validate_release.py
       - name: Choose Android version
