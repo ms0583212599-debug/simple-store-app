@@ -98,4 +98,4 @@ else:
     s=s.replace('buildShell("הגדרות נדרים פלוס",this::showAdminHome,false);','buildShell("פרטי חשבון נדרים פלוס",this::showAdminHome,false);')
 
 p.write_text(s,encoding='utf-8')
-print('Nedarim shared settings with protected admin access applied')
+print('Nedarim shared settings with protected admin access and direct payment screen applied')
