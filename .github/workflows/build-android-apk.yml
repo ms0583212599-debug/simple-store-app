@@ -9,6 +9,7 @@ on:
       - '.github/scripts/ci_home_sales.py'
       - '.github/workflows/build-android-apk.yml'
   workflow_dispatch:
+  # manual build trigger 2026-09-30 for protected Nedarim admin payment screen
 
 permissions:
   contents: write
