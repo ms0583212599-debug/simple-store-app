@@ -49,6 +49,11 @@ need(MAIN, "setUseCaches(true)", "HTTP image cache")
 # Inventory history must use the authenticated admin session before server-side access is tightened.
 need(MAIN, '"/rest/v1/rpc/get_inventory_count_history",new JSONObject(),true', "admin-authenticated inventory count history")
 
+# Do not allow a public-key inventory snapshot write to enter a release.
+main_text = MAIN.read_text(encoding="utf-8") if MAIN.exists() else ""
+if '"/rest/v1/rpc/save_inventory_count_snapshot"' in main_text and '"/rest/v1/rpc/save_inventory_count_snapshot"' in main_text.replace('"/rest/v1/rpc/save_inventory_count_snapshot",body,true',''):
+    errors.append("inventory count snapshot write must use authenticated admin access")
+
 # Payment invariants verified working in production version 10012.
 need(MAIN, "NEDARIM_HISTORY_MATCH", "server-side Nedarim history verification endpoint")
 need(MAIN, "paymentFrameReady", "Nedarim iframe readiness guard")
