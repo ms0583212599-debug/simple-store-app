@@ -192,7 +192,7 @@ jobs:
           git diff --exit-code -- updates/version.json updates/simple-store-tablet.apk
           echo "Safe test build verified: published Android update files are unchanged."
       - name: Publish in-app update
-        if: github.event_name != 'workflow_dispatch' || inputs.publish
+        if: github.event_name == 'workflow_dispatch' && inputs.publish
         env:
           ANDROID_VERSION: ${{ steps.version.outputs.code }}
         run: |
