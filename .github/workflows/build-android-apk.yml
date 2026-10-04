@@ -185,6 +185,12 @@ jobs:
           name: simple-store-tablet-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+      - name: Verify test build did not modify published update
+        if: github.event_name != 'workflow_dispatch' || !inputs.publish
+        shell: bash
+        run: |
+          git diff --exit-code -- updates/version.json updates/simple-store-tablet.apk
+          echo "Safe test build verified: published Android update files are unchanged."
       - name: Publish in-app update
         if: github.event_name == 'workflow_dispatch' && inputs.publish
         env:
