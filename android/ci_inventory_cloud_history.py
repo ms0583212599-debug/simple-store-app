@@ -21,7 +21,7 @@ methods=r'''    private void showInventoryCountCloudHistory(){
         TextView loading=text("טוען ספירות שמורות...",18,true);loading.setGravity(Gravity.CENTER);content.addView(loading);
         io.execute(()->{
             try{
-                JSONArray rows=requestArray("POST","/rest/v1/rpc/get_inventory_count_history",new JSONObject(),false);
+                JSONArray rows=requestArray("POST","/rest/v1/rpc/get_inventory_count_history",new JSONObject(),true);
                 main.post(()->renderInventoryCountCloudHistory(rows));
             }catch(Exception e){main.post(()->{content.removeAllViews();TextView err=text("לא ניתן לטעון את היסטוריית הספירות כרגע",18,true);err.setGravity(Gravity.CENTER);content.addView(err);});}
         });
