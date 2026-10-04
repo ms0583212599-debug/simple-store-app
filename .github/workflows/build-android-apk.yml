@@ -186,7 +186,7 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
       - name: Publish in-app update
-        if: github.event_name != 'workflow_dispatch' || inputs.publish
+        if: github.event_name == 'workflow_dispatch' && inputs.publish
         env:
           ANDROID_VERSION: ${{ steps.version.outputs.code }}
         run: |
