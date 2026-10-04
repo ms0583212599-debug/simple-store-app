@@ -107,12 +107,19 @@ new_poll='''    private void startPolling(){
         polling=true;
         io.execute(()->{
             boolean confirmed=false;
-            for(int i=0;i<15&&polling;i++){
+            for(int i=0;i<30&&polling;i++){
                 try{
-                    JSONObject body=new JSONObject();body.put("p_token",saleToken);
-                    JSONArray a=requestArray("POST","/rest/v1/rpc/get_sale_status",body,false);
+                    JSONObject statusBody=new JSONObject();statusBody.put("p_token",saleToken);
+                    JSONArray a=requestArray("POST","/rest/v1/rpc/get_sale_status",statusBody,false);
                     if(a.length()>0&&"paid".equals(a.getJSONObject(0).optString("status"))){
                         confirmed=true;polling=false;cart.clear();loadData(()->{Toast.makeText(this,"התשלום בוצע",Toast.LENGTH_LONG).show();showHome();});return;
+                    }
+                    if(i%2==0){
+                        JSONObject verifyBody=new JSONObject();verifyBody.put("saleToken",saleToken);
+                        JSONObject verified=new JSONObject(requestRaw("POST",NEDARIM_HISTORY_MATCH,verifyBody,false));
+                        if("paid".equals(verified.optString("status"))){
+                            confirmed=true;polling=false;cart.clear();loadData(()->{Toast.makeText(this,"התשלום בוצע",Toast.LENGTH_LONG).show();showHome();});return;
+                        }
                     }
                 }catch(Exception ignored){}
                 try{Thread.sleep(2000);}catch(InterruptedException ignored){Thread.currentThread().interrupt();break;}
@@ -120,7 +127,7 @@ new_poll='''    private void startPolling(){
             if(!confirmed&&polling){
                 polling=false;
                 main.post(()->{
-                    if(paymentStatus!=null)paymentStatus.setText("לא התקבל אישור תשלום. אפשר לנסות שוב לאחר בדיקה.");
+                    if(paymentStatus!=null)paymentStatus.setText("התשלום עדיין בבדיקה. אין לבצע תשלום נוסף לפני בדיקה.");
                     if(chargeButton!=null)chargeButton.setEnabled(paymentFrameReady);
                 });
             }
