@@ -46,6 +46,9 @@ need(MAIN, "imageMemoryCache", "in-memory image cache")
 need(MAIN, "downloadImageToCache", "persistent image cache downloader")
 need(MAIN, "setUseCaches(true)", "HTTP image cache")
 
+# Inventory history must use the authenticated admin session before server-side access is tightened.
+need(MAIN, '"/rest/v1/rpc/get_inventory_count_history",new JSONObject(),true', "admin-authenticated inventory count history")
+
 # Payment invariants verified working in production version 10012.
 need(MAIN, "NEDARIM_HISTORY_MATCH", "server-side Nedarim history verification endpoint")
 need(MAIN, "paymentFrameReady", "Nedarim iframe readiness guard")
