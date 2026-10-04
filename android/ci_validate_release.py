@@ -55,7 +55,7 @@ need(MAIN, 'button("טוען תשלום..."', "disabled payment button until ifr
 need(MAIN, "if(!paymentFrameReady)", "payment submit readiness check")
 need(MAIN, '"ERROR".equalsIgnoreCase(providerStatus)', "Nedarim payment error handling")
 need(MAIN, "NEDARIM_HISTORY_MATCH,body,false", "server-side Nedarim history verification")
-need(MAIN, '"לא התקבל אישור תשלום. אפשר לנסות שוב לאחר בדיקה."', "payment polling timeout")
+need(MAIN, '"התשלום עדיין בבדיקה. אין לבצע תשלום נוסף לפני בדיקה."', "safe payment verification timeout")
 
 # Published version line must never fall back below the installed kiosk generation.
 try:
