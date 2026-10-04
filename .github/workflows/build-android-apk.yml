@@ -9,7 +9,13 @@ on:
       - '.github/scripts/ci_home_sales.py'
       - '.github/workflows/build-android-apk.yml'
   workflow_dispatch:
-  # manual build trigger 2026-09-30 for protected Nedarim admin payment screen
+    inputs:
+      publish:
+        description: 'Publish this APK as the customer update'
+        required: true
+        type: boolean
+        default: false
+  # Manual runs default to a safe test build. Set publish=true only when releasing.
 
 permissions:
   contents: write
@@ -180,6 +186,7 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
       - name: Publish in-app update
+        if: github.event_name != 'workflow_dispatch' || inputs.publish
         env:
           ANDROID_VERSION: ${{ steps.version.outputs.code }}
         run: |
