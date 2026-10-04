@@ -1,0 +1,3 @@
+Safe Android test build trigger
+Requested: 2026-10-05
+Purpose: verify build pipeline only; do not publish.
