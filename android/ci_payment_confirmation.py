@@ -2,10 +2,10 @@ from pathlib import Path
 p=Path('android/app/src/main/java/com/simplestore/tablet/MainActivity.java')
 s=p.read_text(encoding='utf-8')
 
-if 'CONFIRM_CLIENT_PAYMENT' not in s:
+if 'NEDARIM_HISTORY_MATCH' not in s:
     marker='    private static final String CALLBACK = BASE + "/functions/v1/nedarim-callback";'
     if marker not in s: raise SystemExit('callback constant marker not found')
-    s=s.replace(marker, marker+'\n    private static final String CONFIRM_CLIENT_PAYMENT = BASE + "/functions/v1/confirm-client-payment";',1)
+    s=s.replace(marker, marker+'\n    private static final String NEDARIM_HISTORY_MATCH = BASE + "/functions/v1/nedarim-history-match";',1)
 
 if 'private volatile boolean paymentFrameReady' not in s:
     marker='    private volatile boolean polling = false;'
@@ -71,16 +71,11 @@ new='''    public class PaymentBridge{
                     main.post(()->{if(paymentStatus!=null)paymentStatus.setText(shown);if(chargeButton!=null)chargeButton.setEnabled(paymentFrameReady);});
                     return;
                 }
-                JSONObject body=new JSONObject();body.put("saleToken",saleToken);body.put("response",response);
-                String raw=requestRaw("POST",CONFIRM_CLIENT_PAYMENT,body,false);
+                JSONObject body=new JSONObject();body.put("saleToken",saleToken);
+                String raw=requestRaw("POST",NEDARIM_HISTORY_MATCH,body,false);
                 JSONObject confirm=new JSONObject(raw);
                 if("paid".equals(confirm.optString("status"))){
                     polling=false;cart.clear();loadData(()->{Toast.makeText(MainActivity.this,"התשלום בוצע",Toast.LENGTH_LONG).show();showHome();});return;
-                }
-                if(!confirm.optBoolean("accepted",true)){
-                    String reason=confirm.optString("reason","");
-                    main.post(()->{if(paymentStatus!=null)paymentStatus.setText("התשלום לא אושר: "+reason);if(chargeButton!=null)chargeButton.setEnabled(paymentFrameReady);});
-                    return;
                 }
             }catch(Exception e){
                 main.post(()->{if(paymentStatus!=null)paymentStatus.setText("שגיאה בבדיקת התשלום: "+safeMsg(e));if(chargeButton!=null)chargeButton.setEnabled(paymentFrameReady);});
@@ -91,7 +86,7 @@ new='''    public class PaymentBridge{
     }}'''
 if old in s:
     s=s.replace(old,new,1)
-elif 'CONFIRM_CLIENT_PAYMENT,body,false' in s:
+elif 'NEDARIM_HISTORY_MATCH,body,false' in s:
     start=s.index('    public class PaymentBridge')
     end=s.index('    private void startPolling()',start)
     s=s[:start]+new+'\n\n'+s[end:]
@@ -142,4 +137,4 @@ else:
     raise SystemExit('polling marker not found')
 
 p.write_text(s,encoding='utf-8')
-print('Payment confirmation bridge and Nedarim iframe readiness applied')
+print('Server-verified Nedarim payment confirmation and iframe readiness applied')
