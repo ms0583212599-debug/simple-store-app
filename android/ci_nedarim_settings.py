@@ -113,3 +113,5 @@ else:
 
 p.write_text(s,encoding='utf-8')
 print('Nedarim shared settings with protected admin access and direct payment screen applied')
+
+# fresh-install-v2-build-trigger
