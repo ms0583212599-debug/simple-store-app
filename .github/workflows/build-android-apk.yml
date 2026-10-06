@@ -180,6 +180,10 @@ jobs:
           echo "Building Android version $VERSION (previous published $PUBLISHED, kiosk-safe baseline $BASELINE, run $GITHUB_RUN_NUMBER)"
       - name: Build debug APK
         working-directory: android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: gradle assembleDebug -PversionCode=${{ steps.version.outputs.code }} -PversionName=1.0.${{ steps.version.outputs.code }}
       - name: Upload APK
         uses: actions/upload-artifact@v4
