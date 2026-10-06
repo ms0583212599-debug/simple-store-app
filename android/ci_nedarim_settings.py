@@ -5,7 +5,11 @@ s=p.read_text(encoding='utf-8')
 # Shared payment settings loaded from Supabase, same row used by the website.
 state='    private String adminUserId = "";'
 if 'private String paymentMosad =' not in s:
-    s=s.replace(state,state+'\n    private String paymentMosad = "";\n    private String paymentApiValid = "";\n    private String paymentGroupe = "";\n    private boolean showCustomerPaymentPage = false;',1)
+    s=s.replace(state,state+'\n    private String paymentMosad = "";\n    private String paymentApiValid = "";\n    private String paymentGroupe = "";',1)
+if 'private boolean showCustomerPaymentPage' not in s:
+    anchor='    private String paymentGroupe = "";'
+    if anchor not in s: raise SystemExit('payment group field marker not found')
+    s=s.replace(anchor,anchor+'\n    private boolean showCustomerPaymentPage = false;',1)
 
 # Load settings together with store data.
 needle='JSONArray ps=requestArray("GET","/rest/v1/products?select=*&order=category_id.asc,sort_order.asc,created_at.asc",null,false);'
