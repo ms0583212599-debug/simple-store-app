@@ -1,6 +1,6 @@
 // Fast application loader: core first, customer UI immediately, admin tools on demand.
 (function(){
-  const V='20261006-paid-only-reports-v6';
+  const V='20261006-nedarim-exit-v7';
   const loaded=new Set();
   function installCategoryImageFix(){if(document.getElementById('categoryImageFitFix'))return;const style=document.createElement('style');style.id='categoryImageFitFix';style.textContent=`.category-card{overflow:hidden!important}.category-visual{overflow:hidden!important;align-items:stretch!important;justify-items:stretch!important}.category-visual>img{display:block!important;width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;object-position:center!important;overflow:hidden!important;padding:2px!important}.category-custom{display:block!important;width:100%!important;max-width:100%!important;object-fit:contain!important;object-position:center!important;overflow:hidden!important}`;document.head.appendChild(style)}
   function script(file){if(loaded.has(file))return Promise.resolve();loaded.add(file);return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=file+'?v='+V;s.onload=resolve;s.onerror=()=>reject(new Error('Failed loading '+file));document.head.appendChild(s)})}
