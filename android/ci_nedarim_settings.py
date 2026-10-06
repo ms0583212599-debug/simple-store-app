@@ -4,7 +4,7 @@ s=p.read_text(encoding='utf-8')
 
 # Shared payment settings loaded from Supabase, same row used by the website.
 state='    private String adminUserId = "";'
-if 'private String paymentMosad' not in s:
+if 'private String paymentMosad =' not in s:
     s=s.replace(state,state+'\n    private String paymentMosad = "";\n    private String paymentApiValid = "";\n    private String paymentGroupe = "";\n    private boolean showCustomerPaymentPage = false;',1)
 
 # Load settings together with store data.
@@ -84,7 +84,7 @@ if 'private void showNedarimSettingsProtected()' not in s:
 
     private void showNedarimManagement(){
         buildShell("ממשק נדרים פלוס",this::showNedarimSettings,false);
-        Button back=button("חזרה לניהול");back.setOnClickListener(v->showNedarimSettings());content.addView(back,new LinearLayout.LayoutParams(-1,-2));
+        Button back=button("חזרה לניהול",18,14);back.setOnClickListener(v->showNedarimSettings());content.addView(back,new LinearLayout.LayoutParams(-1,-2));
         WebView management=new WebView(this);management.getSettings().setJavaScriptEnabled(true);management.getSettings().setDomStorageEnabled(true);management.setWebViewClient(new android.webkit.WebViewClient());management.loadUrl("https://reports.matara.pro/");content.addView(management,new LinearLayout.LayoutParams(-1,0,1));
     }
     private void showNedarimDirectPayment(){
@@ -96,7 +96,7 @@ if 'private void showNedarimSettingsProtected()' not in s:
                 if(value<=0)throw new Exception();
                 String target="https://www.matara.pro/nedarimplus/online/?mosad="+url(paymentMosad)+"&OnlyNormal=1&Amount="+url(String.format(Locale.US,"%.2f",value))+"&AmountLock=1&Payment=1&PaymentLock=1"+(paymentGroupe.isEmpty()?"":"&groupe="+url(paymentGroupe)+"&groupelock=1");
                 buildShell("תשלום נדרים פלוס",this::showNedarimSettings,false);
-                Button exitPay=button("חזרה ללא תשלום");exitPay.setOnClickListener(v->showNedarimSettings());content.addView(exitPay,new LinearLayout.LayoutParams(-1,-2));
+                Button exitPay=button("חזרה ללא תשלום",18,14);exitPay.setOnClickListener(v->showNedarimSettings());content.addView(exitPay,new LinearLayout.LayoutParams(-1,-2));
                 WebView pay=new WebView(this);pay.getSettings().setJavaScriptEnabled(true);pay.getSettings().setDomStorageEnabled(true);pay.setWebViewClient(new android.webkit.WebViewClient(){private boolean allowed(android.net.Uri u){String scheme=u.getScheme(),h=u.getHost();if(!"https".equalsIgnoreCase(scheme)||h==null)return false;h=h.toLowerCase(Locale.US);return h.equals("matara.pro")||h.endsWith(".matara.pro");} @Override public boolean shouldOverrideUrlLoading(WebView v,android.webkit.WebResourceRequest r){android.net.Uri u=r.getUrl();if(allowed(u))return false;Toast.makeText(MainActivity.this,"קישור חיצוני חסום במסך התשלום",Toast.LENGTH_SHORT).show();return true;} @Override public boolean shouldOverrideUrlLoading(WebView v,String u){try{if(allowed(android.net.Uri.parse(u)))return false;}catch(Exception ignored){}Toast.makeText(MainActivity.this,"קישור חיצוני חסום במסך התשלום",Toast.LENGTH_SHORT).show();return true;}});pay.loadUrl(target);content.addView(pay,new LinearLayout.LayoutParams(-1,0,1));
             }catch(Exception e){Toast.makeText(this,"הזן סכום תקין",Toast.LENGTH_LONG).show();}
         }).show();
