@@ -5,8 +5,7 @@ s=p.read_text(encoding='utf-8')
 # Shared payment settings loaded from Supabase, same row used by the website.
 state='    private String adminUserId = "";'
 if 'private String paymentMosad' not in s:
-    s=s.replace(state,state+'\n    private String paymentMosad = "";\n    private String paymentApiValid = "";\n    private String paymentGroupe = "";
-    private boolean showCustomerPaymentPage = false;',1)
+    s=s.replace(state,state+'\n    private String paymentMosad = "";\n    private String paymentApiValid = "";\n    private String paymentGroupe = "";\n    private boolean showCustomerPaymentPage = false;',1)
 
 # Load settings together with store data.
 needle='JSONArray ps=requestArray("GET","/rest/v1/products?select=*&order=category_id.asc,sort_order.asc,created_at.asc",null,false);'
