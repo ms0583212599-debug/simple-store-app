@@ -90,7 +90,7 @@ if 'private void showNedarimSettingsProtected()' not in s:
                 if(value<=0)throw new Exception();
                 String target="https://www.matara.pro/nedarimplus/online/?mosad="+url(paymentMosad)+"&OnlyNormal=1&Amount="+url(String.format(Locale.US,"%.2f",value))+"&AmountLock=1&Payment=1&PaymentLock=1"+(paymentGroupe.isEmpty()?"":"&groupe="+url(paymentGroupe)+"&groupelock=1");
                 buildShell("תשלום נדרים פלוס",this::showNedarimSettings,false);
-                WebView pay=new WebView(this);pay.getSettings().setJavaScriptEnabled(true);pay.getSettings().setDomStorageEnabled(true);pay.setWebViewClient(new android.webkit.WebViewClient());pay.loadUrl(target);content.addView(pay,new LinearLayout.LayoutParams(-1,0,1));
+                Button exitPay=button("חזרה ללא תשלום");exitPay.setOnClickListener(v->showNedarimSettings());content.addView(exitPay,new LinearLayout.LayoutParams(-1,-2));\n                WebView pay=new WebView(this);pay.getSettings().setJavaScriptEnabled(true);pay.getSettings().setDomStorageEnabled(true);pay.setWebViewClient(new android.webkit.WebViewClient());pay.loadUrl(target);content.addView(pay,new LinearLayout.LayoutParams(-1,0,1));
             }catch(Exception e){Toast.makeText(this,"הזן סכום תקין",Toast.LENGTH_LONG).show();}
         }).show();
     }
