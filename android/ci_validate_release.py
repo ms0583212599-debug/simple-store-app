@@ -81,3 +81,5 @@ if errors:
     sys.exit(1)
 
 print("Android production invariants validated")
+
+# Trigger permanent-signing verification build.
