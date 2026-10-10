@@ -1,0 +1,21 @@
+name: Verify Android signing certificate
+on:
+  workflow_dispatch:
+jobs:
+  fingerprint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show public SHA-256 signing certificate fingerprint only
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          test -n "$ANDROID_KEYSTORE_PASSWORD"
+          test -n "$ANDROID_KEY_ALIAS"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/signing-check.keystore"
+          keytool -list -v -keystore "$RUNNER_TEMP/signing-check.keystore" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" | grep 'SHA256:'
+          rm -f "$RUNNER_TEMP/signing-check.keystore"
