@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.simplestore.keyboardtest">
+<uses-sdk android:minSdkVersion="23" android:targetSdkVersion="33"/>
+<application android:label="Isolated payment settings test"/>
+<instrumentation android:name=".PaymentSettingsInstrumentation" android:targetPackage="com.simplestore.tablet"/>
+</manifest>
