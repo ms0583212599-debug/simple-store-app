@@ -17,6 +17,7 @@ public final class PaymentSettingsInstrumentation extends Instrumentation {
   return new JSONObject().put("mosad",mosad).put("api_valid",api).put("groupe",group).put("show_customer_payment_page",visible);
  }
  private static android.webkit.WebView web(View v){if(v instanceof android.webkit.WebView)return (android.webkit.WebView)v;if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int i=0;i<g.getChildCount();i++){android.webkit.WebView w=web(g.getChildAt(i));if(w!=null)return w;}}return null;}
+ private static android.widget.Button button(View v,String text){if(v instanceof android.widget.Button&&text.contentEquals(((android.widget.Button)v).getText()))return (android.widget.Button)v;if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int i=0;i<g.getChildCount();i++){android.widget.Button b=button(g.getChildAt(i),text);if(b!=null)return b;}}return null;}
  private static boolean hasInput(View v,String value){
   if(v instanceof EditText&&value.contentEquals(((EditText)v).getText()))return true;
   if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int i=0;i<g.getChildCount();i++)if(hasInput(g.getChildAt(i),value))return true;}
@@ -74,10 +75,30 @@ public final class PaymentSettingsInstrumentation extends Instrumentation {
     android.webkit.WebViewClient client=w.getWebViewClient();
     check(client.shouldOverrideUrlLoading(w,"https://example.com/"),"External navigation allowed");
     check(!client.shouldOverrideUrlLoading(w,"https://www.matara.pro/nedarimplus/online/"),"Nedarim navigation blocked");
+    field(c,"showCustomerPaymentPage").setBoolean(activity,false);
+    method(c,"showPayment").invoke(activity);
+    check(button(activity.getWindow().getDecorView(),"תשלום דרך נדרים פלוס")==null,"Hidden option is visible");
+    field(c,"showCustomerPaymentPage").setBoolean(activity,true);
+    method(c,"showPayment").invoke(activity);
+    check(button(activity.getWindow().getDecorView(),"תשלום דרך נדרים פלוס")!=null,"Enabled customer option is missing");
+    method(c,"renderNedarimSettings").invoke(activity);
+    check(button(activity.getWindow().getDecorView(),"שמור אפשרות ללקוחות")!=null,"Native visibility save missing");
+    field(c,"customerOnlineActive").setBoolean(activity,true);
+    field(c,"saleToken").set(activity,"fixture-order-123456789");
+    method(c,"openNedarimDirectPaymentPage",double.class).invoke(activity,1.25);
+    check(button(activity.getWindow().getDecorView(),"בדוק תשלום שבוצע")!=null,"Customer verification missing");
+    android.webkit.WebView direct=web(activity.getWindow().getDecorView());
+    android.net.Uri address=android.net.Uri.parse((String)method(c,"buildNedarimDirectUrl",double.class).invoke(activity,1.25));
+    check("SimpleStore:fixture-order-123456789".equals(address.getQueryParameter("comment")),"Unique order marker missing");
+    check("1.25".equals(address.getQueryParameter("Amount")),"Cart amount missing");
+    Method returned=method(c,"isCustomerNedarimReturn",android.net.Uri.class);
+    check((Boolean)returned.invoke(activity,android.net.Uri.parse("https://www.matara.pro/simplestore/return?order=fixture-order-123456789")),"Expected return not recognized");
+    check(!(Boolean)returned.invoke(activity,android.net.Uri.parse("https://evil.test/simplestore/return?order=fixture-order-123456789")),"Forged return accepted");
+    check(!(Boolean)returned.invoke(activity,android.net.Uri.parse("https://www.matara.pro/simplestore/return?order=wrong-order")),"Wrong order return accepted");
     activity.finish();
    }catch(Throwable t){error[0]=t;}});
    if(error[0]!=null)throw error[0];
-   result.putString("keyboard_result","PASS: website account replacement, editor, visibility, cleared group, atomic validation, duplicate guard, offline checkout block, visible direct payment WebView and navigation restrictions");
+   result.putString("keyboard_result","PASS: website account replacement, editor, visibility, cleared group, atomic validation, duplicate guard, offline checkout block, visible direct page, navigation restrictions, customer visibility toggle, exact order URL and return guards");
    finish(Activity.RESULT_OK,result);
   }catch(Throwable t){result.putString("keyboard_result","FAIL: "+t.getClass().getSimpleName()+": "+t.getMessage());finish(Activity.RESULT_CANCELED,result);}
  }
