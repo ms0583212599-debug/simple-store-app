@@ -15,5 +15,5 @@ ADB=(adb -s "$SERIAL")
 "${ADB[@]}" shell svc data disable
 "${ADB[@]}" install target-apk/app-debug.apk
 "${ADB[@]}" install -t keyboard-test.apk
-"${ADB[@]}" shell am instrument -w com.simplestore.keyboardtest/.KeyboardInstrumentation | tee keyboard-result.txt
+timeout 120 "${ADB[@]}" shell am instrument -w com.simplestore.keyboardtest/.KeyboardInstrumentation | tee keyboard-result.txt
 grep -F 'keyboard_result=PASS:' keyboard-result.txt
