@@ -16,6 +16,7 @@ public final class PaymentSettingsInstrumentation extends Instrumentation {
  private static JSONObject row(String mosad,String api,Object group,boolean visible)throws Exception{
   return new JSONObject().put("mosad",mosad).put("api_valid",api).put("groupe",group).put("show_customer_payment_page",visible);
  }
+ private static android.webkit.WebView web(View v){if(v instanceof android.webkit.WebView)return (android.webkit.WebView)v;if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int i=0;i<g.getChildCount();i++){android.webkit.WebView w=web(g.getChildAt(i));if(w!=null)return w;}}return null;}
  private static boolean hasInput(View v,String value){
   if(v instanceof EditText&&value.contentEquals(((EditText)v).getText()))return true;
   if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int i=0;i<g.getChildCount();i++)if(hasInput(g.getChildAt(i),value))return true;}
@@ -63,8 +64,20 @@ public final class PaymentSettingsInstrumentation extends Instrumentation {
    while(busy[0]&&System.currentTimeMillis()<deadline){Thread.sleep(100);runOnMainSync(()->{try{busy[0]=pending.getBoolean(activity);}catch(Exception e){error[0]=e;}});}
    check(!busy[0],"Failed request did not release pending state");
    check(continued.get()==0,"Failed refresh continued to checkout");
-   runOnMainSync(activity::finish);
-   result.putString("keyboard_result","PASS: website account replacement, editor, visibility, cleared group, atomic validation, duplicate guard and offline checkout block");
+   runOnMainSync(()->{try{method(c,"openNedarimDirectPaymentPage",double.class).invoke(activity,1.25);}catch(Throwable t){error[0]=t;}});
+   if(error[0]!=null)throw error[0];
+   Thread.sleep(1000);
+   runOnMainSync(()->{try{
+    android.webkit.WebView w=web(activity.getWindow().getDecorView());
+    check(w!=null&&w.getHeight()>100&&w.getWidth()>100,"Direct payment WebView is collapsed");
+    check(!(w.getParent().getParent() instanceof android.widget.ScrollView),"Direct page still inside unbounded scroll");
+    android.webkit.WebViewClient client=w.getWebViewClient();
+    check(client.shouldOverrideUrlLoading(w,"https://example.com/"),"External navigation allowed");
+    check(!client.shouldOverrideUrlLoading(w,"https://www.matara.pro/nedarimplus/online/"),"Nedarim navigation blocked");
+    activity.finish();
+   }catch(Throwable t){error[0]=t;}});
+   if(error[0]!=null)throw error[0];
+   result.putString("keyboard_result","PASS: website account replacement, editor, visibility, cleared group, atomic validation, duplicate guard, offline checkout block, visible direct payment WebView and navigation restrictions");
    finish(Activity.RESULT_OK,result);
   }catch(Throwable t){result.putString("keyboard_result","FAIL: "+t.getClass().getSimpleName()+": "+t.getMessage());finish(Activity.RESULT_CANCELED,result);}
  }

@@ -97,13 +97,34 @@ if 'private void showNedarimSettingsProtected()' not in s:
         new AlertDialog.Builder(this).setTitle("תשלום נדרים פלוס").setMessage("הזן סכום. דף התשלום המלא של נדרים פלוס ייפתח לאחר האישור.").setView(amount).setNegativeButton("ביטול",null).setPositiveButton("פתח דף תשלום",(d,w)->{
             try{
                 double value=Double.parseDouble(amount.getText().toString().trim().replace(',','.'));
-                if(value<=0)throw new Exception();
-                String target="https://www.matara.pro/nedarimplus/online/?mosad="+url(paymentMosad)+"&OnlyNormal=1&Amount="+url(String.format(Locale.US,"%.2f",value))+"&AmountLock=1&Payment=1&PaymentLock=1"+(paymentGroupe.isEmpty()?"":"&groupe="+url(paymentGroupe)+"&groupelock=1");
-                buildShell("תשלום נדרים פלוס",this::showNedarimSettings,false);
-                Button exitPay=button("חזרה ללא תשלום",18,14);exitPay.setOnClickListener(v->showNedarimSettings());content.addView(exitPay,new LinearLayout.LayoutParams(-1,-2));
-                WebView pay=new WebView(this);pay.getSettings().setJavaScriptEnabled(true);pay.getSettings().setDomStorageEnabled(true);pay.setWebViewClient(new android.webkit.WebViewClient(){private boolean allowed(android.net.Uri u){String scheme=u.getScheme(),h=u.getHost();if(!"https".equalsIgnoreCase(scheme)||h==null)return false;h=h.toLowerCase(Locale.US);return h.equals("matara.pro")||h.endsWith(".matara.pro");} @Override public boolean shouldOverrideUrlLoading(WebView v,android.webkit.WebResourceRequest r){android.net.Uri u=r.getUrl();if(allowed(u))return false;Toast.makeText(MainActivity.this,"קישור חיצוני חסום במסך התשלום",Toast.LENGTH_SHORT).show();return true;} @Override public boolean shouldOverrideUrlLoading(WebView v,String u){try{if(allowed(android.net.Uri.parse(u)))return false;}catch(Exception ignored){}Toast.makeText(MainActivity.this,"קישור חיצוני חסום במסך התשלום",Toast.LENGTH_SHORT).show();return true;}});pay.loadUrl(target);content.addView(pay,new LinearLayout.LayoutParams(-1,0,1));
+                if(!Double.isFinite(value)||value<=0)throw new Exception();
+                openNedarimDirectPaymentPage(value);
             }catch(Exception e){Toast.makeText(this,"הזן סכום תקין",Toast.LENGTH_LONG).show();}
         }).show();
+    }
+
+    private void openNedarimDirectPaymentPage(double value){
+        String target="https://www.matara.pro/nedarimplus/online/?mosad="+url(paymentMosad)+"&OnlyNormal=1&Amount="+url(String.format(Locale.US,"%.2f",value))+"&AmountLock=1&Payment=1&PaymentLock=1"+(paymentGroupe.isEmpty()?"":"&groupe="+url(paymentGroupe)+"&groupelock=1");
+        buildShell("תשלום נדרים פלוס",this::showNedarimSettings,false);
+        // A weighted WebView needs bounded height, not a wrap-content ScrollView.
+        android.view.ViewGroup scroll=(android.view.ViewGroup)content.getParent();
+        android.view.ViewGroup root=(android.view.ViewGroup)scroll.getParent();
+        scroll.removeView(content);root.removeView(scroll);
+        content.setPadding(dp(12),dp(8),dp(12),dp(12));
+        root.addView(content,new LinearLayout.LayoutParams(-1,0,1));
+        TextView loadStatus=text("טוען דף תשלום נדרים פלוס...",16,false);
+        content.addView(loadStatus,new LinearLayout.LayoutParams(-1,-2));
+        Button retry=button("נסה לטעון שוב",Color.WHITE,blue);retry.setVisibility(View.GONE);
+        content.addView(retry,new LinearLayout.LayoutParams(-1,dp(48)));
+        Button exitPay=button("חזרה ללא תשלום",18,14);exitPay.setOnClickListener(v->showNedarimSettings());content.addView(exitPay,new LinearLayout.LayoutParams(-1,-2));
+        WebView pay=new WebView(this);pay.getSettings().setJavaScriptEnabled(true);pay.getSettings().setDomStorageEnabled(true);pay.setWebViewClient(new android.webkit.WebViewClient(){
+            private boolean failed=false;
+            @Override public void onPageStarted(WebView v,String u,android.graphics.Bitmap icon){failed=false;loadStatus.setVisibility(View.VISIBLE);loadStatus.setText("טוען דף תשלום נדרים פלוס...");retry.setVisibility(View.GONE);}
+            @Override public void onPageFinished(WebView v,String u){if(!failed)loadStatus.setVisibility(View.GONE);}
+            private void loadingFailed(){failed=true;loadStatus.setVisibility(View.VISIBLE);loadStatus.setText("דף התשלום לא נטען. בדוק את החיבור לאינטרנט או חסימה בסינון ונסה שוב.");retry.setVisibility(View.VISIBLE);}
+            @Override public void onReceivedError(WebView v,android.webkit.WebResourceRequest r,android.webkit.WebResourceError e){if(r.isForMainFrame())loadingFailed();}
+            @Override public void onReceivedHttpError(WebView v,android.webkit.WebResourceRequest r,android.webkit.WebResourceResponse e){if(r.isForMainFrame())loadingFailed();}
+            private boolean allowed(android.net.Uri u){String scheme=u.getScheme(),h=u.getHost();if(!"https".equalsIgnoreCase(scheme)||h==null)return false;h=h.toLowerCase(Locale.US);return h.equals("matara.pro")||h.endsWith(".matara.pro");} @Override public boolean shouldOverrideUrlLoading(WebView v,android.webkit.WebResourceRequest r){android.net.Uri u=r.getUrl();if(allowed(u))return false;Toast.makeText(MainActivity.this,"קישור חיצוני חסום במסך התשלום",Toast.LENGTH_SHORT).show();return true;} @Override public boolean shouldOverrideUrlLoading(WebView v,String u){try{if(allowed(android.net.Uri.parse(u)))return false;}catch(Exception ignored){}Toast.makeText(MainActivity.this,"קישור חיצוני חסום במסך התשלום",Toast.LENGTH_SHORT).show();return true;}});retry.setOnClickListener(v->pay.loadUrl(target));content.addView(pay,new LinearLayout.LayoutParams(-1,0,1));pay.loadUrl(target);
     }
 
     private String requestPublic(String address)throws Exception{HttpURLConnection c=(HttpURLConnection)new URL(address).openConnection();c.setRequestMethod("GET");c.setConnectTimeout(15000);c.setReadTimeout(15000);int code=c.getResponseCode();InputStream in=code>=200&&code<300?c.getInputStream():c.getErrorStream();BufferedReader r=new BufferedReader(new InputStreamReader(in,StandardCharsets.UTF_8));StringBuilder b=new StringBuilder();String line;while((line=r.readLine())!=null)b.append(line);r.close();c.disconnect();if(code<200||code>=300)throw new Exception("HTTP "+code);return b.toString();}
