@@ -56,12 +56,24 @@ jobs:
         shell: bash
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
+          set -euo pipefail
           test -n "$ANDROID_KEYSTORE_BASE64"
+          test -n "$ANDROID_KEYSTORE_PASSWORD"
+          test -n "$ANDROID_KEY_ALIAS"
           mkdir -p ~/.android
+          umask 077
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > ~/.android/release.keystore
           test -s ~/.android/release.keystore
-          keytool -list -keystore ~/.android/release.keystore -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" -alias "${{ secrets.ANDROID_KEY_ALIAS }}" >/dev/null
+          keytool -exportcert -keystore ~/.android/release.keystore -storepass:env ANDROID_KEYSTORE_PASSWORD -alias "$ANDROID_KEY_ALIAS" -file "$RUNNER_TEMP/signing-cert.der" >/dev/null
+          ACTUAL=$(sha256sum "$RUNNER_TEMP/signing-cert.der" | cut -d ' ' -f 1)
+          EXPECTED=$(tr -d '\r\n' < android/signing_certificate.sha256)
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::Signing key does not match the migrated 10071 generation. Refusing to build with a different key."
+            exit 1
+          fi
 
       - name: Add native admin enhancements
         run: python3 android/ci_enhance.py
@@ -185,6 +197,39 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: gradle assembleDebug -PversionCode=${{ steps.version.outputs.code }} -PversionName=1.0.${{ steps.version.outputs.code }}
+      - name: Reject incompatible signing before publishing an update
+        if: github.event_name == 'workflow_dispatch' && inputs.publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          python3 android/verify_update_channel.py
+          "$APKSIGNER" verify --verbose "$APK"
+          "$APKSIGNER" verify --verbose updates/simple-store-tablet.apk
+          "$APKSIGNER" verify --print-certs "$APK" > "$RUNNER_TEMP/new-cert.txt"
+          "$APKSIGNER" verify --print-certs updates/simple-store-tablet.apk > "$RUNNER_TEMP/published-cert.txt"
+          sed -n 's/^Signer #[0-9]* certificate SHA-256 digest: //p' "$RUNNER_TEMP/new-cert.txt" | sort > "$RUNNER_TEMP/new-digests.txt"
+          sed -n 's/^Signer #[0-9]* certificate SHA-256 digest: //p' "$RUNNER_TEMP/published-cert.txt" | sort > "$RUNNER_TEMP/published-digests.txt"
+          test -s "$RUNNER_TEMP/new-digests.txt"
+          test -s "$RUNNER_TEMP/published-digests.txt"
+          if ! cmp -s "$RUNNER_TEMP/new-digests.txt" "$RUNNER_TEMP/published-digests.txt"; then
+            echo "::error::Signing certificate differs from the published tablet generation. Publishing is blocked; a migration APK must remain a test artifact."
+            exit 1
+          fi
+          "$AAPT" dump badging "$APK" > "$RUNNER_TEMP/new-badging.txt"
+          python3 - "$RUNNER_TEMP/new-badging.txt" "${{ steps.version.outputs.code }}" <<'PYAPK'
+          import json, re, sys
+          from pathlib import Path
+          text = Path(sys.argv[1]).read_text()
+          match = re.search(r"^package: name='([^']+)' versionCode='([0-9]+)'", text, re.M)
+          expected = int(sys.argv[2])
+          previous = json.loads(Path('updates/version.json').read_text())['versionCode']
+          if not match or match[1] != 'com.simplestore.tablet' or int(match[2]) != expected or expected <= previous:
+              raise SystemExit('Compiled APK package/version does not match the requested update')
+          print('Published-generation signing, package and version checks passed')
+          PYAPK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
@@ -205,9 +250,10 @@ jobs:
           mkdir -p /tmp/android-update
           cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/android-update/simple-store-tablet.apk
           python3 - <<'PY'
-          import json, os
+          import json, os, hashlib
           version=int(os.environ['ANDROID_VERSION'])
           data={'versionCode':version,'versionName':'1.0.'+str(version),'apkUrl':'https://ksddrcalmszxxcuxoznd.supabase.co/functions/v1/android-update-proxy?file=apk&v='+str(version),'apkUrlFallback':'https://raw.githubusercontent.com/ms0583212599-debug/simple-store-app/main/updates/simple-store-tablet.apk?v='+str(version)}
+          data['apkSha256']=hashlib.sha256(open('/tmp/android-update/simple-store-tablet.apk','rb').read()).hexdigest()
           with open('/tmp/android-update/version.json','w',encoding='utf-8') as f:json.dump(data,f,ensure_ascii=False,separators=(',',':'));f.write('\n')
           PY
           git config user.name "github-actions[bot]"
@@ -215,6 +261,13 @@ jobs:
           for attempt in 1 2 3 4 5; do
             git fetch origin main
             git reset --hard origin/main
+            python3 - <<'PYMONOTONIC'
+          import json, os
+          current=int(json.load(open('updates/version.json'))['versionCode'])
+          requested=int(os.environ['ANDROID_VERSION'])
+          if requested <= current:
+              raise SystemExit('Publishing stopped: latest main already has this or a newer version')
+          PYMONOTONIC
             mkdir -p updates
             cp /tmp/android-update/simple-store-tablet.apk updates/simple-store-tablet.apk
             cp /tmp/android-update/version.json updates/version.json
