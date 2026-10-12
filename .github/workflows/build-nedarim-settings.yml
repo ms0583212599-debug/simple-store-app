@@ -296,7 +296,9 @@ jobs:
           javac -source 8 -target 8 -cp "$ANDROID_HOME/platforms/android-35/android.jar" -d test-classes android/keyboard_test/PaymentSettingsInstrumentation.java
           jar cf test-classes.jar -C test-classes .
           "$TOOLS/d8" --min-api 23 --output test-dex test-classes.jar
-          "$TOOLS/aapt" package -f -M android/keyboard_test/PaymentSettingsManifest.xml -I "$ANDROID_HOME/platforms/android-35/android.jar" -F keyboard-test-unsigned.apk
+          mkdir -p payment-test-manifest
+          cp android/keyboard_test/PaymentSettingsManifest.xml payment-test-manifest/AndroidManifest.xml
+          "$TOOLS/aapt" package -f -M payment-test-manifest/AndroidManifest.xml -I "$ANDROID_HOME/platforms/android-35/android.jar" -F keyboard-test-unsigned.apk
           zip -j keyboard-test-unsigned.apk test-dex/classes.dex
           TEST_KEY_PASSWORD=$(openssl rand -hex 16)
           export TEST_KEY_PASSWORD
