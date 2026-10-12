@@ -1,0 +1,38 @@
+name: Build read-only tablet owner probe
+on:
+  push:
+    branches: ['diagnostics/tablet-owner-readonly']
+    paths:
+      - 'diagnostics/ReadOnlyOwnerProbe.java'
+      - '.github/workflows/build-owner-readonly-probe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Compile standalone read-only probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p probe-classes probe-output
+          javac --release 8 -d probe-classes diagnostics/ReadOnlyOwnerProbe.java
+          jar cf probe-input.jar -C probe-classes .
+          D8="$ANDROID_HOME/build-tools/35.0.0/d8"
+          if [ ! -x "$D8" ]; then
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'build-tools;35.0.0'
+          fi
+          "$D8" --min-api 33 --output probe-output/tablet-readonly-probe.jar probe-input.jar
+          unzip -l probe-output/tablet-readonly-probe.jar
+          sha256sum probe-output/tablet-readonly-probe.jar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tablet-readonly-probe
+          path: probe-output/tablet-readonly-probe.jar
+          if-no-files-found: error
