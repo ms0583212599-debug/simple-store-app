@@ -24,6 +24,8 @@ final class PaymentWebKeyboardTest {
   int[] loc=new int[2];float[] density={1};main(()->{web.getLocationOnScreen(loc);density[0]=web.getResources().getDisplayMetrics().density;});
   float x=loc[0]+(float)xy.getDouble(0)*density[0],y=loc[1]+(float)xy.getDouble(1)*density[0];long t=SystemClock.uptimeMillis();
   inst.sendPointerSync(MotionEvent.obtain(t,t,MotionEvent.ACTION_DOWN,x,y,0));inst.sendPointerSync(MotionEvent.obtain(t,t+50,MotionEvent.ACTION_UP,x,y,0));Thread.sleep(650);
+  screenshot("payment-tap.png");
+  System.out.println("Fixture focus: "+js("JSON.stringify({active:document.activeElement.id,keyboard:typeof window.__storePaymentKey,bridge:typeof StorePaymentKeyboard,error:window.fixtureError||'',width:innerWidth,dpr:devicePixelRatio})"));
  }
  static void checkIme()throws Exception{main(()->{check(!web.onCheckIsTextEditor(),"WebView advertises system editor");check(web.onCreateInputConnection(new android.view.inputmethod.EditorInfo())==null,"System IME connection created");WindowInsets insets=activity.getWindow().getDecorView().getRootWindowInsets();check(insets==null||!insets.isVisible(WindowInsets.Type.ime()),"Tablet IME became visible");});}
  static void fit()throws Exception{check("true".equals(js("(function(){return document.getElementById('footer').getBoundingClientRect().bottom<=innerHeight+3&&document.getElementById('MainDiv').getBoundingClientRect().right<=innerWidth+3})()")),"Payment form does not fit viewport");}
@@ -36,8 +38,8 @@ final class PaymentWebKeyboardTest {
    @Override public void onPageFinished(WebView w,String u){original.onPageFinished(w,u);}
   });web.loadUrl("https://www.matara.pro/nedarimplus/online/?fixture=1");});
   Thread.sleep(2000);fit();checkIme();screenshot("payment-form.png");
-  tap("name");key("HE");key("Aa");key("A");key("B");key("⌫");key("C");
-  check("\"AC\"".equals(js("document.getElementById('name').value")),"Uppercase/delete insertion failed");
+  tap("name");key("ש");key("HE");key("Aa");key("A");key("B");key("⌫");key("C");
+  check("\"שAC\"".equals(js("document.getElementById('name').value")),"Hebrew/uppercase/delete insertion failed");
   fit();checkIme();screenshot("payment-keyboard.png");key("Go");
   tap("email");key("a");key("@");key("b");key(".");key("c");key("Go");
   check("\"a@b.c\"".equals(js("document.getElementById('email').value")),"Email entry failed");
@@ -48,7 +50,11 @@ final class PaymentWebKeyboardTest {
   key("Go");checkIme();tap("amount");main(()->check(dialog()==null,"Readonly amount opened keyboard"));
   check("\"1.25\"".equals(js("document.getElementById('amount').value")),"Readonly amount changed");
   check("true".equals(js("inputs>0&&keys>0&&changes>0&&!window.submitted")),"Provider events absent or unexpected submission");
-  // Existing account, amount and verification tests above remain in the same run.
-  main(()->{android.content.res.Configuration conf=new android.content.res.Configuration(activity.getResources().getConfiguration());check(web.getHeight()>100,"WebView collapsed after keyboard close");});
+  js("StorePaymentKeyboard.open('forged-nonce','NUM')");Thread.sleep(100);main(()->check(dialog()==null,"Untrusted bridge request opened keyboard"));
+  js("var alert=document.createElement('div');alert.style.height='180px';document.getElementById('FormDiv').appendChild(alert)");Thread.sleep(300);fit();
+  main(()->activity.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));Thread.sleep(1200);fit();checkIme();
+  tap("name");key("ש");key("Go");
+  main(()->activity.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));Thread.sleep(1200);fit();
+  main(()->{Method m=owner.getDeclaredMethod("showCart");m.setAccessible(true);m.invoke(activity);check(field("directPaymentPage").get(activity)==null,"Payment WebView survived leaving checkout");check(dialog()==null,"Keyboard survived leaving checkout");});
  }
 }

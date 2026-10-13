@@ -5,4 +5,4 @@ body{margin:0}#MainDiv{width:600px;margin:20px auto;padding:20px;background:whit
 <div class="SpanDiv">מספר בדיקה<input id="number" type="tel" maxlength="4"></div><div class="SpanDiv">סכום נעול<input id="amount" type="tel" readonly value="1.25"></div>
 <div id="PaiementData"><div class="SpanDiv">בדיקה<input id="other" type="text"></div></div>
 <button id="submit" onclick="window.submitted=true">כפתור בדיקה בלבד</button></div><div id="footer">סוף הטופס</div></div></div>
-<script>window.inputs=0;window.keys=0;window.changes=0;document.addEventListener('input',()=>inputs++);document.addEventListener('keyup',()=>keys++);document.addEventListener('change',()=>changes++);</script></body></html>
+<script>window.onerror=function(m){window.fixtureError=m};window.inputs=0;window.keys=0;window.changes=0;document.addEventListener('input',()=>inputs++);document.addEventListener('keyup',()=>keys++);document.addEventListener('change',()=>changes++);</script></body></html>

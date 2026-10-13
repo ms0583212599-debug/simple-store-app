@@ -18,7 +18,7 @@
     }
     private void closeDirectPaymentPage(){
         dismissPaymentKeyboard();
-        if(directPaymentPage!=null){PaymentPageWebView old=directPaymentPage;directPaymentPage=null;old.nonce="";old.stopLoading();old.removeJavascriptInterface("StorePaymentKeyboard");old.destroy();}
+        if(directPaymentPage!=null){PaymentPageWebView old=directPaymentPage;directPaymentPage=null;old.nonce="";old.stopLoading();old.removeJavascriptInterface("StorePaymentKeyboard");if(old.getParent() instanceof android.view.ViewGroup)((android.view.ViewGroup)old.getParent()).removeView(old);old.destroy();}
     }
     private void preparePaymentKeyboardWindow(android.view.Window window){
         if(window==null)return;
@@ -56,7 +56,7 @@
     }
     private final class PaymentPageWebView extends WebView{
         String nonce="";
-        PaymentPageWebView(){super(MainActivity.this);setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);addJavascriptInterface(new PaymentKeyboardBridge(this),"StorePaymentKeyboard");}
+        PaymentPageWebView(){super(MainActivity.this);if(android.os.Build.VERSION.SDK_INT>=26)setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);addJavascriptInterface(new PaymentKeyboardBridge(this),"StorePaymentKeyboard");}
         // Do not create a connection to Samsung/Gboard, even before page JS loads.
         @Override public boolean onCheckIsTextEditor(){return false;}
         @Override public android.view.inputmethod.InputConnection onCreateInputConnection(android.view.inputmethod.EditorInfo info){return null;}

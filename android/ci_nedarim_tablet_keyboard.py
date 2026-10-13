@@ -26,7 +26,7 @@ replace('    private void buildShell(String title,Runnable back,boolean adminBut
 replace('private void insertKey(EditText target,String value){', 'private void insertKey(EditText target,String value){if(target instanceof PaymentKeyboardInput){sendPaymentKeyboardKey((PaymentKeyboardInput)target,"insert",value);return;}')
 replace('private void deleteKey(EditText target){', 'private void deleteKey(EditText target){if(target instanceof PaymentKeyboardInput){sendPaymentKeyboardKey((PaymentKeyboardInput)target,"delete","");return;}')
 replace('final String[] mode={numeric?"NUM":"HE"};', 'final String[] mode={target instanceof PaymentKeyboardInput?((PaymentKeyboardInput)target).mode:numeric?"NUM":"HE"};')
-replace('holder[0].setOnDismissListener(d->target.setTag(null));holder[0].show();', 'holder[0].setOnDismissListener(d->{target.setTag(null);if(target instanceof PaymentKeyboardInput)paymentKeyboardDismissed((PaymentKeyboardInput)target);});if(target instanceof PaymentKeyboardInput)preparePaymentKeyboardWindow(holder[0].getWindow());holder[0].show();')
+replace('holder[0].setOnDismissListener(d->target.setTag(null));holder[0].show();', 'holder[0].setOnDismissListener(d->{target.setTag(null);if(target instanceof PaymentKeyboardInput)paymentKeyboardDismissed((PaymentKeyboardInput)target);});if(target instanceof PaymentKeyboardInput){holder[0].setCanceledOnTouchOutside(false);preparePaymentKeyboardWindow(holder[0].getWindow());}holder[0].show();')
 # Compact only the web-field keyboard. Other app screens keep their existing size.
 a=s.index('    private void addKeyboardRow(')
 b=s.index('    private int dp(int v)',a)

@@ -17,9 +17,12 @@ ADB=(adb -s "$SERIAL")
 "${ADB[@]}" shell wm density 320
 "${ADB[@]}" install target-apk/app-debug.apk
 "${ADB[@]}" install -t keyboard-test.apk
+capture() {
+  for shot in payment-form.png payment-keyboard.png payment-tap.png; do
+    "${ADB[@]}" exec-out run-as com.simplestore.tablet cat "cache/$shot" > "$shot" || true
+  done
+  "${ADB[@]}" logcat -d -s System.out:I chromium:E AndroidRuntime:E > payment-diagnostics.txt
+}
+trap capture EXIT
 timeout 120 "${ADB[@]}" shell am instrument -w com.simplestore.keyboardtest/.PaymentSettingsInstrumentation | tee keyboard-result.txt
 grep -F 'keyboard_result=PASS:' keyboard-result.txt
-
-for shot in payment-form.png payment-keyboard.png; do
-  "${ADB[@]}" exec-out run-as com.simplestore.tablet cat "cache/$shot" > "$shot"
-done
