@@ -16,7 +16,11 @@
     StorePaymentKeyboard.open(nonce,mode);
   }
   document.addEventListener('focusin',e=>open(e.target),true);
-  document.addEventListener('click',e=>open(e.target),true);
+  document.addEventListener('click',e=>{
+    const label=e.target.closest&&e.target.closest('label');
+    const input=editable(e.target)?e.target:label&&label.control;
+    if(editable(input)){input.focus();open(input);}else StorePaymentKeyboard.close(nonce);
+  },true);
   // Values stay in the provider's DOM; only keyboard mode crosses the bridge.
   window.__storePaymentKey=function(proof,kind,key){
     if(proof!==window.__storeKeyboardNonce||!target||!target.isConnected||!editable(target))return;

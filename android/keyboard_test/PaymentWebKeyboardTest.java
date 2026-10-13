@@ -29,7 +29,7 @@ final class PaymentWebKeyboardTest {
   System.out.println("Fixture native touch events="+touchCount);
   screenshot("payment-tap.png");
   System.out.println("Fixture focus: "+js("JSON.stringify({active:document.activeElement.id,keyboard:typeof window.__storePaymentKey,bridge:typeof StorePaymentKeyboard,error:window.fixtureError||'',width:innerWidth,dpr:devicePixelRatio,events:window.fixtureEvents})"));
-  if(!id.equals(new JSONArray("["+js("document.activeElement.id")+"]").getString(0))&&!"amount".equals(id)){
+  if(!id.equals(new JSONArray("["+js("document.activeElement.id")+"]").getString(0))&&!"amount".equals(id)&&!"MosadName".equals(id)){
     js("document.getElementById("+JSONObject.quote(id)+").focus()");Thread.sleep(400);
     System.out.println("Fixture programmatic focus: "+js("JSON.stringify({active:document.activeElement.id,error:window.fixtureError||''})"));
     main(()->{System.out.println("Fixture native dialog: "+(dialog()!=null));});
@@ -72,11 +72,31 @@ final class PaymentWebKeyboardTest {
   challengeIme();screenshot("payment-regular.png");
  }
  static void fit()throws Exception{
-  // Android 13's bundled Chromium reports unzoomed DOMRects; recent Chromium
-  // reports zoomed rects. Calibrate a known width before comparing visible bounds.
-  String metrics=js("(function(){"+VISUAL_SCALE+"return {bottom:factor*document.getElementById('footer').getBoundingClientRect().bottom,right:factor*document.getElementById('MainDiv').getBoundingClientRect().right,height:innerHeight,width:innerWidth,zoom:document.body.style.zoom,factor:factor}})()");
-  JSONObject m=new JSONObject(metrics);System.out.println("Fixture bounds "+metrics);
-  check(m.getDouble("bottom")<=m.getDouble("height")+3&&m.getDouble("right")<=m.getDouble("width")+3,"Payment form does not fit viewport: "+metrics);
+  JSONObject m=new JSONObject(js("({zoom:parseFloat(document.body.style.zoom||1),width:innerWidth,scrollWidth:document.documentElement.scrollWidth,height:innerHeight})"));
+  check(m.getDouble("zoom")==1,"Payment page was shrunk");
+  check(m.getDouble("scrollWidth")<=m.getDouble("width")+2,"Payment page overflows horizontally");
+ }
+ static int webHeight()throws Exception{int[] height={0};main(()->height[0]=web.getHeight());return height[0];}
+ static void automaticConfirmation()throws Exception{
+  main(()->{
+   Method open=owner.getDeclaredMethod("openNedarimDirectPaymentPage",double.class);open.setAccessible(true);
+   field("customerOnlineActive").setBoolean(activity,true);field("saleToken").set(activity,"fixture-auto-order-123456");open.invoke(activity,1.25);
+   Method accept=owner.getDeclaredMethod("acceptCustomerOnlineResult",int.class,String.class,String.class);accept.setAccessible(true);
+   int generation=field("customerOnlinePollGeneration").getInt(activity);String token="fixture-auto-order-123456";
+   check(field("customerOnlinePoll").get(activity)!=null,"Automatic check timer missing");
+   check(!(Boolean)accept.invoke(activity,generation,"another-order-123456","paid"),"Wrong order accepted");
+   check(!(Boolean)accept.invoke(activity,generation-1,token,"paid"),"Stale confirmation accepted");
+   check(!(Boolean)accept.invoke(activity,generation,token,"pending"),"Pending result completed purchase");
+   check(field("customerOnlineActive").getBoolean(activity),"Pending result closed purchase");
+   check((Boolean)accept.invoke(activity,generation,token,"paid"),"Current server confirmation not accepted");
+   check(!(Boolean)accept.invoke(activity,generation,token,"paid"),"Duplicate confirmation accepted");
+   check(field("customerOnlinePoll").get(activity)==null,"Polling survived approval");
+   field("customerOnlineActive").setBoolean(activity,true);open.invoke(activity,1.25);
+   generation=field("customerOnlinePollGeneration").getInt(activity);
+   Method leave=owner.getDeclaredMethod("showCart");leave.setAccessible(true);leave.invoke(activity);
+   check(field("customerOnlinePoll").get(activity)==null,"Polling survived leaving checkout");
+   check(!(Boolean)accept.invoke(activity,generation,token,"paid"),"Late confirmation after exit accepted");
+  });
  }
  static void screenshot(String path)throws Exception{java.io.FileOutputStream out=new java.io.FileOutputStream(new java.io.File(inst.getTargetContext().getCacheDir(),path));inst.getUiAutomation().takeScreenshot().compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);out.close();}
  static void run(Instrumentation i,Activity a,Class<?> c)throws Exception{
@@ -87,13 +107,16 @@ final class PaymentWebKeyboardTest {
    @Override public void onPageFinished(WebView w,String u){original.onPageFinished(w,u);}
   });web.loadUrl("https://www.matara.pro/nedarimplus/online/?fixture=1");});
   Thread.sleep(2000);proveImeAvailable();fit();checkIme();
-  check("true".equals(js("getComputedStyle(document.getElementById('PayModeGpayBt')).display==='none'&&getComputedStyle(document.getElementById('PayModeCardBt')).display!=='none'")),"Google Pay visible or ordinary card option hidden");
+  check("true".equals(js("getComputedStyle(document.getElementById('PayModeGpayBt')).display==='none'&&getComputedStyle(document.getElementById('PayModeCardBt')).display==='none'")),"Provider payment-mode tiles remain visible");
   js("document.getElementById('PayModeGpayBt').style.display='flex'");
   check("\"none\"".equals(js("getComputedStyle(document.getElementById('PayModeGpayBt')).display")),"Provider update re-enabled Google Pay");
   screenshot("payment-form.png");
+  int originalHeight=webHeight();
   tap("name");key("ש");key("HE");key("Aa");key("A");key("B");key("⌫");key("C");
   check("\"שAC\"".equals(js("document.getElementById('name').value")),"Hebrew/uppercase/delete insertion failed");
-  fit();challengeIme();screenshot("payment-keyboard.png");key("Go");
+  fit();challengeIme();check(webHeight()==originalHeight,"Keyboard resized payment page");screenshot("payment-keyboard.png");
+  tap("MosadName");main(()->check(dialog()==null,"Background tap did not dismiss keyboard"));
+  tap("name");main(()->check(dialog()!=null,"Field tap did not reopen keyboard"));key("Go");
   tap("email");key("a");key("@");key("b");key(".");key("c");key("Go");
   check("\"a@b.c\"".equals(js("document.getElementById('email').value")),"Email entry failed");
   tap("number");key("1");key("2");key("3");key("4");key("5");
@@ -104,11 +127,15 @@ final class PaymentWebKeyboardTest {
   check("\"1.25\"".equals(js("document.getElementById('amount').value")),"Readonly amount changed");
   check("true".equals(js("inputs>0&&keys>0&&changes>0&&!window.submitted")),"Provider events absent or unexpected submission");
   js("StorePaymentKeyboard.open('forged-nonce','NUM')");Thread.sleep(100);main(()->check(dialog()==null,"Untrusted bridge request opened keyboard"));
-  js("var alert=document.createElement('div');alert.style.height='180px';document.getElementById('FormDiv').appendChild(alert)");Thread.sleep(300);fit();
+  js("var alert=document.createElement('div');alert.style.height='600px';document.getElementById('FormDiv').appendChild(alert)");Thread.sleep(300);fit();
+  check("true".equals(js("document.documentElement.scrollHeight>innerHeight")),"Expanded card details cannot scroll");
+  js("window.scrollTo(0,200)");Thread.sleep(150);
+  check("true".equals(js("window.scrollY>0&&parseFloat(document.body.style.zoom)===1")),"Expanded form shrank or refused scrolling");
+  js("window.scrollTo(0,0)");
   main(()->activity.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));Thread.sleep(1200);fit();checkIme();
   tap("name");key("ש");key("Go");
   main(()->activity.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));Thread.sleep(1200);fit();
   main(()->{Method m=owner.getDeclaredMethod("showCart");m.setAccessible(true);m.invoke(activity);check(field("directPaymentPage").get(activity)==null,"Payment WebView survived leaving checkout");check(dialog()==null,"Keyboard survived leaving checkout");});
-  regularPayment();
+  regularPayment();automaticConfirmation();
  }
 }

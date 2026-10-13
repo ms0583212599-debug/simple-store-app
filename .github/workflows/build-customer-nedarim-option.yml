@@ -6,6 +6,7 @@ on:
       - fix/customer-nedarim-option
       - fix/nedarim-tablet-complete
       - fix/payment-no-system-ime
+      - fix/payment-overlay-auto-status
     paths:
       - 'android/**'
       - 'sales-report.js'
