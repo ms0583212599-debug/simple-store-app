@@ -41,6 +41,11 @@ s=s.replace('    private void showCart(){','    private void showCart(){\n      
 s=s.replace('        buildShell("תשלום נדרים פלוס",this::showNedarimSettings,false);','''        Runnable directBack=customerOnlineActive?this::showCart:this::showNedarimSettings;
         buildShell("תשלום נדרים פלוס",directBack,false);''',1)
 s=s.replace('exitPay.setOnClickListener(v->showNedarimSettings());','exitPay.setOnClickListener(v->directBack.run());',1)
+# Scope the layout and WebView modifications to the payment method, not other screens.
+method_start=s.index('    private void openNedarimDirectPaymentPage(double value){')
+method_end=s.index('    private String requestPublic(',method_start)
+prefix,payment_method,suffix=s[:method_start],s[method_start:method_end],s[method_end:]
+s=payment_method
 # Give the payment page the maximum usable height below the native top navigation.
 # The WebView's viewport is independent of the Android shell's scroll container.
 s=s.replace('content.setPadding(dp(12),dp(8),dp(12),dp(12));',
@@ -106,6 +111,8 @@ helper=r'''    private boolean customerOnlineActive=false,customerOnlineOpening=
 
 '''
 s=s.replace('    private void loadData(Runnable done){',helper+'    private void loadData(Runnable done){',1)
+# Reassemble the Java source after all payment-only substitutions.
+s=prefix+s+suffix
 # Fail the build if payment layout changes upstream and the safety patches no longer apply.
 required_fragments=[
     'pay.getSettings().setUseWideViewPort(true);',
