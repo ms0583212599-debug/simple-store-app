@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - fix/nedarim-tablet-keyboard-layout
     paths:
       - 'android/**'
       - 'sales-report.js'
