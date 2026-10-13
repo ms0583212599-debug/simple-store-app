@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {matchedReceipt,marker} from './match.mjs';
+import {readHistory} from './history.mjs';
+const token='test-order-123456789';
+const exact={Confirmation:'123456',Currency:'1',TransactionType:'רגיל',TransactionId:123,Amount:12.5,Groupe:'shop',Comments:marker(token)};
+assert.equal(matchedReceipt([exact],token,12.5,'shop').length,1);
+for(const row of [null,{...exact,Comments:''},{...exact,Comments:marker('different-order-123')},{...exact,Amount:12},{...exact,Groupe:'other'},{...exact,TransactionId:''},{...exact,Confirmation:'0'},{...exact,Confirmation:''},{...exact,TransactionType:'ביטול'},{...exact,Currency:'2'},{...exact,Comments:undefined,ClientName:marker(token)}])assert.equal(matchedReceipt([row],token,12.5,'shop').length,0);
+assert.equal(matchedReceipt([exact,{...exact,TransactionId:124}],token,12.5,'shop').length,2);
+let calls=0;const batch=Array.from({length:2000},(_,i)=>({TransactionId:i+1}));
+const result=await readHistory({mosad:'fixture',api_password:'synthetic'},0,async(url)=>{calls++;const u=new URL(url);assert.equal(u.searchParams.get('LastId'),calls===1?'0':'2000');return {ok:true,json:async()=>calls===1?batch:[{TransactionId:2001}]};});
+assert.equal(result.rows.length,2001);assert.equal(result.lastId,2001);
+await assert.rejects(()=>readHistory({mosad:'fixture',api_password:'synthetic'},0,async()=>({ok:true,json:async()=>({Result:'Error'})})));
+console.log('Verified receipt matching, ambiguity, rejected receipts and provider pagination passed');

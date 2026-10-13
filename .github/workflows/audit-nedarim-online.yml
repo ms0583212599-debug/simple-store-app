@@ -1,0 +1,20 @@
+name: Read-only Nedarim online API audit
+on:
+  push:
+    branches: [fix/customer-nedarim-option]
+    paths: ['.github/workflows/audit-nedarim-online.yml', '.github/scripts/audit_nedarim_online.py']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read provider response field names without customer values
+        run: python3 .github/scripts/audit_nedarim_online.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nedarim-readonly-audit
+          path: nedarim-readonly-result.json
