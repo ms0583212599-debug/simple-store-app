@@ -34,6 +34,8 @@ public final class PaymentSettingsInstrumentation extends Instrumentation {
    Field pending=field(c,"nedarimSettingsActionPending");AtomicInteger continued=new AtomicInteger();
    final Throwable[] error={null};
    runOnMainSync(()->{try{
+    // Isolate UI tests from the delayed auto-updater's offline error dialog.
+    ((android.os.Handler)field(c,"main").get(activity)).removeCallbacksAndMessages(null);
     // Invalidate the launch request so it cannot overwrite a newer action.
     Field revision=field(c,"nedarimSettingsRevision");revision.setInt(activity,revision.getInt(activity)+1);
     apply.invoke(activity,row("1111111","synthetic-old","old-group",false));
@@ -95,10 +97,12 @@ public final class PaymentSettingsInstrumentation extends Instrumentation {
     check((Boolean)returned.invoke(activity,android.net.Uri.parse("https://www.matara.pro/simplestore/return?order=fixture-order-123456789")),"Expected return not recognized");
     check(!(Boolean)returned.invoke(activity,android.net.Uri.parse("https://evil.test/simplestore/return?order=fixture-order-123456789")),"Forged return accepted");
     check(!(Boolean)returned.invoke(activity,android.net.Uri.parse("https://www.matara.pro/simplestore/return?order=wrong-order")),"Wrong order return accepted");
-    activity.finish();
+
    }catch(Throwable t){error[0]=t;}});
    if(error[0]!=null)throw error[0];
-   result.putString("keyboard_result","PASS: website account replacement, editor, visibility, cleared group, atomic validation, duplicate guard, offline checkout block, visible direct page, navigation restrictions, customer visibility toggle, exact order URL and return guards");
+   PaymentWebKeyboardTest.run(this,activity,c);
+   runOnMainSync(()->activity.finish());
+   result.putString("keyboard_result","PASS: dedicated web keyboard, native IME block, bounded form,  website account replacement, editor, visibility, cleared group, atomic validation, duplicate guard, offline checkout block, visible direct page, navigation restrictions, customer visibility toggle, exact order URL and return guards");
    finish(Activity.RESULT_OK,result);
   }catch(Throwable t){result.putString("keyboard_result","FAIL: "+t.getClass().getSimpleName()+": "+t.getMessage());finish(Activity.RESULT_CANCELED,result);}
  }

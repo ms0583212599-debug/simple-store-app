@@ -52,7 +52,7 @@ helper=r'''    private int nedarimSettingsRevision=0;
     private void refreshNedarimSettings(Runnable next,boolean forPayment,boolean required){
         if(required&&nedarimSettingsActionPending)return;
         final int revision=++nedarimSettingsRevision;
-        if(required){nedarimSettingsActionPending=true;Toast.makeText(this,"טוען פרטי נדרים פלוס מהאתר...",Toast.LENGTH_SHORT).show();}
+        if(required){nedarimSettingsActionPending=true;} // Silent refresh; failures still block payment and show an error.
         io.execute(()->{
             try{
                 JSONObject row=readSharedNedarimSettings();

@@ -41,6 +41,38 @@ s=s.replace('    private void showCart(){','    private void showCart(){\n      
 s=s.replace('        buildShell("תשלום נדרים פלוס",this::showNedarimSettings,false);','''        Runnable directBack=customerOnlineActive?this::showCart:this::showNedarimSettings;
         buildShell("תשלום נדרים פלוס",directBack,false);''',1)
 s=s.replace('exitPay.setOnClickListener(v->showNedarimSettings());','exitPay.setOnClickListener(v->directBack.run());',1)
+# Abort rather than silently skipping payment layout changes when upstream code changes.
+layout_anchors=[
+    'content.setPadding(dp(12),dp(8),dp(12),dp(12));',
+    'content.addView(exitPay,new LinearLayout.LayoutParams(-1,-2));',
+    '            @Override public void onPageFinished(WebView v,String u){if(!failed)loadStatus.setVisibility(View.GONE);}',
+    'pay.getSettings().setDomStorageEnabled(true);',
+]
+missing_layout_anchors=[item for item in layout_anchors if item not in s]
+if missing_layout_anchors:
+    raise SystemExit('Nedarim layout source anchors changed: '+repr(missing_layout_anchors))
+# Give the payment page the maximum usable height below the native top navigation.
+# The WebView's viewport is independent of the Android shell's scroll container.
+s=s.replace('content.setPadding(dp(12),dp(8),dp(12),dp(12));',
+            'content.setPadding(dp(4),dp(2),dp(4),dp(2));',1)
+s=s.replace('content.addView(loadStatus,new LinearLayout.LayoutParams(-1,-2));',
+            'content.addView(loadStatus,new LinearLayout.LayoutParams(-1,-2));',1)
+# The shell already has a native back action. Remove the duplicate bottom
+# exit button so the payment form receives more usable height.
+s=s.replace('content.addView(exitPay,new LinearLayout.LayoutParams(-1,-2));',
+            'exitPay.setVisibility(View.GONE);',1)
+# Scale only the embedded payment page, never the native navigation or controls.
+# A viewport meta tag helps responsive pages; CSS does not alter payment values.
+s=s.replace('            @Override public void onPageFinished(WebView v,String u){if(!failed)loadStatus.setVisibility(View.GONE);}',
+'''            @Override public void onPageFinished(WebView v,String u){if(!failed){loadStatus.setVisibility(View.GONE);if(u!=null&&"https".equalsIgnoreCase(android.net.Uri.parse(u).getScheme())&&"www.matara.pro".equalsIgnoreCase(android.net.Uri.parse(u).getHost()))v.evaluateJavascript("(function(){var m=document.querySelector('meta[name=viewport]');if(!m){m=document.createElement('meta');m.name='viewport';document.head.appendChild(m);}m.content='width=device-width,initial-scale=1';document.documentElement.style.maxWidth='100%';document.body.style.maxWidth='100%';})()",null);}}''',1)
+# Keep WebView's layout viewport matched to the available tablet width.
+# Do not alter native top controls, transaction parameters or payment verification.
+s=s.replace('pay.getSettings().setDomStorageEnabled(true);',
+'''pay.getSettings().setDomStorageEnabled(true);
+        pay.getSettings().setUseWideViewPort(true);
+        pay.getSettings().setLoadWithOverviewMode(true);
+        pay.getSettings().setBuiltInZoomControls(false);
+        pay.getSettings().setDisplayZoomControls(false);''',1)
 anchor='        WebView pay=new WebView(this);'
 s=s.replace(anchor,'''        if(customerOnlineActive){Button verify=button("בדוק תשלום שבוצע",green,Color.WHITE);verify.setOnClickListener(v->verifyCustomerOnlinePayment());content.addView(verify,new LinearLayout.LayoutParams(-1,dp(48)));}
 '''+anchor,1)
@@ -86,5 +118,17 @@ helper=r'''    private boolean customerOnlineActive=false,customerOnlineOpening=
 
 '''
 s=s.replace('    private void loadData(Runnable done){',helper+'    private void loadData(Runnable done){',1)
+# Fail the build if payment layout changes upstream and the safety patches no longer apply.
+required_fragments=[
+    'pay.getSettings().setUseWideViewPort(true);',
+    'pay.getSettings().setLoadWithOverviewMode(true);',
+    'm.content=\'width=device-width,initial-scale=1\'',
+    'content.setPadding(dp(4),dp(2),dp(4),dp(2));',
+    'exitPay.setVisibility(View.GONE);',
+    'private void verifyCustomerOnlinePayment()',
+    'if(isCustomerNedarimReturn(u)){verifyCustomerOnlinePayment();return true;}',
+]
+missing=[item for item in required_fragments if item not in s]
+if missing: raise SystemExit('Nedarim payment generator patch missing: '+repr(missing))
 p.write_text(s)
 print('Customer Nedarim page and protected shared visibility control applied')
