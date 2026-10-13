@@ -12,3 +12,5 @@ result={'ready':post({'action':'ready'}),'schema':post({'action':'schema'})}
 print(json.dumps(result,ensure_ascii=False))
 Path('nedarim-readonly-result.json').write_text(json.dumps(result,ensure_ascii=False))
 assert result['schema']['http']==200
+
+# Verify approved receipt types from provider metadata only.
