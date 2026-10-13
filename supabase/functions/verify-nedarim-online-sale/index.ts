@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.110.0";
 import {matchedReceipt} from './match.mjs';
+import {readHistory} from './history.mjs';
 const H={'content-type':'application/json; charset=utf-8','access-control-allow-origin':'*','access-control-allow-headers':'content-type,apikey,authorization'};
 const reply=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:H});
 Deno.serve(async(req)=>{
@@ -8,10 +9,10 @@ Deno.serve(async(req)=>{
  if(req.method!=='POST')return reply({error:'method'},405);
  try{
   const body=await req.json();
-  const sb=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  const sb=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}});
   const {data:ps,error:pe}=await sb.from('payment_settings').select('mosad,groupe,api_password,show_customer_payment_page').eq('id',1).single();
   if(pe||!ps)return reply({error:'settings'},503);
-  if(body.action==='ready')return reply({enabled:!!ps.show_customer_payment_page,ready:!!ps.api_password});
+
   const token=String(body.saleToken||'');
   if(!/^[a-zA-Z0-9_-]{16,100}$/.test(token))return reply({error:'token'},400);
   const {data:sale,error:se}=await sb.from('sales').select('id,total_amount,status,inventory_applied').eq('external_token',token).maybeSingle();
@@ -19,12 +20,9 @@ Deno.serve(async(req)=>{
   if(sale.status==='paid')return reply({status:'paid'});
   if(sale.status!=='pending')return reply({error:'sale_not_pending'},409);
   if(!ps.api_password)return reply({error:'history_unavailable'},409);
-  const params=new URLSearchParams({Action:'GetHistoryJson',MosadId:String(ps.mosad),ApiPassword:String(ps.api_password),MaxId:'100'});
-  const r=await fetch('https://matara.pro/nedarimplus/Reports/Manage3.aspx?'+params,{signal:AbortSignal.timeout(15000)});
-  if(!r.ok)return reply({error:'provider_unavailable'},502);
-  const data=await r.json();
-  const rows=Array.isArray(data)?data:(data?.Data||data?.data);
-  if(!Array.isArray(rows))return reply({error:'provider_unavailable'},502);
+  if(String(body.mosad)!==String(ps.mosad))return reply({error:'account_changed'},409);
+  const history=await readHistory(ps,Number(body.baseline));
+  const rows=history.rows;
   const matches=matchedReceipt(rows,token,Number(sale.total_amount),String(ps.groupe||''));
   if(matches.length!==1)return reply({status:'pending'});
   const reference=String(matches[0].TransactionId);

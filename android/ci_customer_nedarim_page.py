@@ -19,7 +19,7 @@ s=s[:i]+'''        android.widget.CheckBox customerPage=new android.widget.Check
 start=s.index('    private void showPayment(){');end=s.index('    private void chargeCard()',start)
 pay=s[start:end];anchor='        paymentWebView.loadDataWithBaseURL('
 i=pay.index(anchor)
-pay=pay[:i]+'''        customerOnlineActive=false;
+pay=pay[:i]+'''        customerOnlineActive=false;customerOnlineOpening=false;customerOnlineEpoch++;
         if(showCustomerPaymentPage){Button online=button("תשלום דרך נדרים פלוס",Color.WHITE,blue);online.setOnClickListener(v->openCustomerNedarimPage());body.addView(online,new LinearLayout.LayoutParams(-1,dp(48)));}
 '''+pay[i:];s=s[:start]+pay+s[end:]
 s=s.replace('    private void chargeCard(){','    private void chargeCard(){\n        if(customerOnlineOpening||customerOnlineActive)return;',1)
@@ -29,6 +29,8 @@ b=s.index('\n',a)
 line=s[a:b]
 s=s[:a]+'        String target=buildNedarimDirectUrl(value);'+s[b:]
 s=s.replace('    private void openNedarimDirectPaymentPage(double value){','    private String buildNedarimDirectUrl(double value){\n'+line+'\n        if(customerOnlineActive)target+="&comment="+url("SimpleStore:"+saleToken)+"&Redirect="+url("https://www.matara.pro/simplestore/return?order="+url(saleToken));\n        return target;\n    }\n\n    private void openNedarimDirectPaymentPage(double value){',1)
+# Leaving the page invalidates asynchronous opens/confirmations.
+s=s.replace('    private void showCart(){','    private void showCart(){\n        customerOnlineActive=false;customerOnlineOpening=false;customerOnlineEpoch++;',1)
 # Direct page has its own confirmation path, not the amount-only legacy matcher.
 s=s.replace('        buildShell("תשלום נדרים פלוס",this::showNedarimSettings,false);','''        Runnable directBack=customerOnlineActive?this::showCart:this::showNedarimSettings;
         buildShell("תשלום נדרים פלוס",directBack,false);''',1)
@@ -39,6 +41,9 @@ s=s.replace(anchor,'''        if(customerOnlineActive){Button verify=button("ב�
 s=s.replace('android.net.Uri u=r.getUrl();if(allowed(u))return false;','android.net.Uri u=r.getUrl();if(isCustomerNedarimReturn(u)){verifyCustomerOnlinePayment();return true;}if(allowed(u))return false;',1)
 s=s.replace('try{if(allowed(android.net.Uri.parse(u)))return false;}','try{if(isCustomerNedarimReturn(android.net.Uri.parse(u))){verifyCustomerOnlinePayment();return true;}if(allowed(android.net.Uri.parse(u)))return false;}',1)
 helper=r'''    private boolean customerOnlineActive=false,customerOnlineOpening=false,customerOnlineVerifying=false;
+    private long customerOnlineBaseline=0;
+    private String customerOnlineInstitution="";
+    private int customerOnlineEpoch=0;
     private static final String ONLINE_VERIFY=BASE+"/functions/v1/verify-nedarim-online-sale";
     private boolean isCustomerNedarimReturn(android.net.Uri uri){
         return customerOnlineActive&&"https".equals(uri.getScheme())&&"www.matara.pro".equals(uri.getHost())&&"/simplestore/return".equals(uri.getPath())&&saleToken.equals(uri.getQueryParameter("order"));
@@ -47,12 +52,13 @@ helper=r'''    private boolean customerOnlineActive=false,customerOnlineOpening=
         if(customerOnlineOpening||customerOnlineActive)return;
         if(!paymentCheckoutReady||saleToken.isEmpty()){Toast.makeText(this,"התשלום עדיין בהכנה. המתן רגע.",Toast.LENGTH_SHORT).show();return;}
         if(chargeButton!=null&&paymentFrameReady&&!chargeButton.isEnabled()){Toast.makeText(this,"התשלום בבדיקה. אין להתחיל תשלום נוסף.",Toast.LENGTH_LONG).show();return;}
-        customerOnlineOpening=true;
+        customerOnlineOpening=true;final String expectedToken=saleToken;final int epoch=customerOnlineEpoch;
         io.execute(()->{try{
             JSONObject b=new JSONObject();b.put("action","ready");
             JSONObject result=new JSONObject(requestRaw("POST",BASE+"/functions/v1/nedarim-online-capability",b,false));
             if(!result.optBoolean("enabled")||!result.optBoolean("ready"))throw new Exception();
-            main.post(()->{customerOnlineOpening=false;customerOnlineActive=true;
+            main.post(()->{if(epoch!=customerOnlineEpoch||!expectedToken.equals(saleToken))return;customerOnlineOpening=false;customerOnlineActive=true;
+                customerOnlineBaseline=result.optLong("baseline",0);customerOnlineInstitution=result.optString("mosad",paymentMosad);paymentMosad=customerOnlineInstitution;paymentGroupe=result.optString("groupe","");
                 if(paymentWebView!=null){paymentWebView.stopLoading();paymentWebView.destroy();paymentWebView=null;}
                 paymentFrameReady=false;chargeButton=null;openNedarimDirectPaymentPage(saleTotal);
             });
@@ -63,7 +69,7 @@ helper=r'''    private boolean customerOnlineActive=false,customerOnlineOpening=
         customerOnlineVerifying=true;final String expectedToken=saleToken;
         Toast.makeText(this,"בודק אישור תשלום בנדרים פלוס...",Toast.LENGTH_SHORT).show();
         io.execute(()->{try{
-            JSONObject body=new JSONObject();body.put("saleToken",expectedToken);
+            JSONObject body=new JSONObject();body.put("saleToken",expectedToken);body.put("baseline",customerOnlineBaseline);body.put("mosad",customerOnlineInstitution);
             JSONObject result=new JSONObject(requestRaw("POST",ONLINE_VERIFY,body,false));
             main.post(()->{customerOnlineVerifying=false;if(!customerOnlineActive||!expectedToken.equals(saleToken))return;
                 if("paid".equals(result.optString("status"))){customerOnlineActive=false;finishSuccessfulPayment();}
