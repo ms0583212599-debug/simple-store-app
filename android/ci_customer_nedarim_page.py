@@ -41,6 +41,14 @@ s=s.replace('    private void showCart(){','    private void showCart(){\n      
 s=s.replace('        buildShell("תשלום נדרים פלוס",this::showNedarimSettings,false);','''        Runnable directBack=customerOnlineActive?this::showCart:this::showNedarimSettings;
         buildShell("תשלום נדרים פלוס",directBack,false);''',1)
 s=s.replace('exitPay.setOnClickListener(v->showNedarimSettings());','exitPay.setOnClickListener(v->directBack.run());',1)
+# Give the payment page the maximum usable height below the native top navigation.
+# The WebView's viewport is independent of the Android shell's scroll container.
+s=s.replace('content.setPadding(dp(12),dp(8),dp(12),dp(12));',
+            'content.setPadding(dp(4),dp(2),dp(4),dp(2));',1)
+s=s.replace('content.addView(loadStatus,new LinearLayout.LayoutParams(-1,-2));',
+            'content.addView(loadStatus,new LinearLayout.LayoutParams(-1,-2));',1)
+s=s.replace('content.addView(exitPay,new LinearLayout.LayoutParams(-1,-2));',
+            'content.addView(exitPay,new LinearLayout.LayoutParams(-1,dp(36)));',1)
 anchor='        WebView pay=new WebView(this);'
 s=s.replace(anchor,'''        if(customerOnlineActive){Button verify=button("בדוק תשלום שבוצע",green,Color.WHITE);verify.setOnClickListener(v->verifyCustomerOnlinePayment());content.addView(verify,new LinearLayout.LayoutParams(-1,dp(48)));}
 '''+anchor,1)
