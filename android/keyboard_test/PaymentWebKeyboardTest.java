@@ -21,11 +21,18 @@ final class PaymentWebKeyboardTest {
  static void key(String label)throws Exception{main(()->{AlertDialog d=dialog();check(d!=null&&d.isShowing(),"Dedicated keyboard missing before key "+label);Button b=button(d.getWindow().getDecorView(),label);check(b!=null,"Key missing: "+label);b.performClick();});Thread.sleep(100);}
  static void tap(String id)throws Exception{
   JSONArray xy=new JSONArray(js("(function(){var r=document.getElementById("+JSONObject.quote(id)+").getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2]})()"));
-  int[] loc=new int[2];float[] density={1};main(()->{web.getLocationOnScreen(loc);density[0]=web.getResources().getDisplayMetrics().density;});
+  int[] loc=new int[2];float[] density={1};main(()->{web.requestFocus();web.getLocationOnScreen(loc);density[0]=web.getResources().getDisplayMetrics().density;});
   float x=loc[0]+(float)xy.getDouble(0)*density[0],y=loc[1]+(float)xy.getDouble(1)*density[0];long t=SystemClock.uptimeMillis();
-  inst.sendPointerSync(MotionEvent.obtain(t,t,MotionEvent.ACTION_DOWN,x,y,0));inst.sendPointerSync(MotionEvent.obtain(t,t+50,MotionEvent.ACTION_UP,x,y,0));Thread.sleep(650);
+  System.out.println("Fixture tap: "+id+" x="+x+" y="+y+" local="+xy);
+  MotionEvent down=MotionEvent.obtain(t,t,MotionEvent.ACTION_DOWN,x,y,0);down.setSource(android.view.InputDevice.SOURCE_TOUCHSCREEN);inst.sendPointerSync(down);Thread.sleep(80);MotionEvent up=MotionEvent.obtain(t,SystemClock.uptimeMillis(),MotionEvent.ACTION_UP,x,y,0);up.setSource(android.view.InputDevice.SOURCE_TOUCHSCREEN);inst.sendPointerSync(up);Thread.sleep(650);
   screenshot("payment-tap.png");
-  System.out.println("Fixture focus: "+js("JSON.stringify({active:document.activeElement.id,keyboard:typeof window.__storePaymentKey,bridge:typeof StorePaymentKeyboard,error:window.fixtureError||'',width:innerWidth,dpr:devicePixelRatio})"));
+  System.out.println("Fixture focus: "+js("JSON.stringify({active:document.activeElement.id,keyboard:typeof window.__storePaymentKey,bridge:typeof StorePaymentKeyboard,error:window.fixtureError||'',width:innerWidth,dpr:devicePixelRatio,events:window.fixtureEvents})"));
+  if(!id.equals(new JSONArray("["+js("document.activeElement.id")+"]").getString(0))&&!"amount".equals(id)){
+    js("document.getElementById("+JSONObject.quote(id)+").focus()");Thread.sleep(400);
+    System.out.println("Fixture programmatic focus: "+js("JSON.stringify({active:document.activeElement.id,error:window.fixtureError||''})"));
+    main(()->{System.out.println("Fixture native dialog: "+(dialog()!=null));});
+    throw new AssertionError("Native tap did not focus requested fixture field");
+  }
  }
  static void checkIme()throws Exception{main(()->{check(!web.onCheckIsTextEditor(),"WebView advertises system editor");check(web.onCreateInputConnection(new android.view.inputmethod.EditorInfo())==null,"System IME connection created");WindowInsets insets=activity.getWindow().getDecorView().getRootWindowInsets();check(insets==null||!insets.isVisible(WindowInsets.Type.ime()),"Tablet IME became visible");});}
  static void fit()throws Exception{check("true".equals(js("(function(){return document.getElementById('footer').getBoundingClientRect().bottom<=innerHeight+3&&document.getElementById('MainDiv').getBoundingClientRect().right<=innerWidth+3})()")),"Payment form does not fit viewport");}
