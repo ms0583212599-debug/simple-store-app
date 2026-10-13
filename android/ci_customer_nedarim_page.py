@@ -41,6 +41,16 @@ s=s.replace('    private void showCart(){','    private void showCart(){\n      
 s=s.replace('        buildShell("תשלום נדרים פלוס",this::showNedarimSettings,false);','''        Runnable directBack=customerOnlineActive?this::showCart:this::showNedarimSettings;
         buildShell("תשלום נדרים פלוס",directBack,false);''',1)
 s=s.replace('exitPay.setOnClickListener(v->showNedarimSettings());','exitPay.setOnClickListener(v->directBack.run());',1)
+# Abort rather than silently skipping payment layout changes when upstream code changes.
+layout_anchors=[
+    'content.setPadding(dp(12),dp(8),dp(12),dp(12));',
+    'content.addView(exitPay,new LinearLayout.LayoutParams(-1,-2));',
+    '            @Override public void onPageFinished(WebView v,String u){if(!failed)loadStatus.setVisibility(View.GONE);}',
+    '        pay.getSettings().setDomStorageEnabled(true);',
+]
+missing_layout_anchors=[item for item in layout_anchors if item not in s]
+if missing_layout_anchors:
+    raise SystemExit('Nedarim layout source anchors changed: '+repr(missing_layout_anchors))
 # Give the payment page the maximum usable height below the native top navigation.
 # The WebView's viewport is independent of the Android shell's scroll container.
 s=s.replace('content.setPadding(dp(12),dp(8),dp(12),dp(12));',
