@@ -5,6 +5,7 @@
   meta.name='viewport';meta.content='width=device-width,initial-scale=1';
   const css=document.createElement('style');css.id='store-tablet-fit';
   css.textContent=`
+    #PayModeGpayBt{display:none!important;visibility:hidden!important;pointer-events:none!important}
     html{margin:0!important;min-height:0!important}body{margin:0!important;min-height:0!important}
     #MainDiv{width:98%!important;max-width:1000px!important;margin:2px auto!important;padding:4px 0!important;box-sizing:border-box}
     #PaymentDiv>div:first-child{z-index:2}

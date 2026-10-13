@@ -38,6 +38,39 @@ final class PaymentWebKeyboardTest {
   }
  }
  static void checkIme()throws Exception{main(()->{check(!web.onCheckIsTextEditor(),"WebView advertises system editor");check(web.onCreateInputConnection(new android.view.inputmethod.EditorInfo())==null,"System IME connection created");WindowInsets insets=activity.getWindow().getDecorView().getRootWindowInsets();check(insets==null||!insets.isVisible(WindowInsets.Type.ime()),"Tablet IME became visible");});}
+ static boolean systemImeShown()throws Exception{
+  android.os.ParcelFileDescriptor fd=inst.getUiAutomation().executeShellCommand("dumpsys input_method");
+  java.io.ByteArrayOutputStream out=new java.io.ByteArrayOutputStream();
+  try(java.io.InputStream in=new android.os.ParcelFileDescriptor.AutoCloseInputStream(fd)){byte[] b=new byte[4096];int n;while((n=in.read(b))!=-1)out.write(b,0,n);}
+  return out.toString("UTF-8").contains("mInputShown=true");
+ }
+ static void proveImeAvailable()throws Exception{
+  final AlertDialog[] d={null};final EditText[] e={null};
+  main(()->{e[0]=new EditText(activity);d[0]=new AlertDialog.Builder(activity).setView(e[0]).create();d[0].show();d[0].getWindow().clearFlags(WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM|WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);e[0].requestFocus();});
+  Thread.sleep(400);
+  main(()->((android.view.inputmethod.InputMethodManager)activity.getSystemService(Activity.INPUT_METHOD_SERVICE)).showSoftInput(e[0],android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT));
+  Thread.sleep(700);check(systemImeShown(),"Positive control: emulator system IME did not open");
+  main(()->{((android.view.inputmethod.InputMethodManager)activity.getSystemService(Activity.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(e[0].getWindowToken(),0);d[0].dismiss();});Thread.sleep(500);
+  check(!systemImeShown(),"Positive-control keyboard remained visible");
+  System.out.println("Positive control: real system keyboard opened and closed.");
+ }
+ static void challengeIme()throws Exception{
+  main(()->{
+   check((activity.getWindow().getAttributes().flags&WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM)!=0,"Activity permits system IME targeting");
+   ((android.view.inputmethod.InputMethodManager)activity.getSystemService(Activity.INPUT_METHOD_SERVICE)).showSoftInput(web,android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+  });
+  for(int n=0;n<4;n++){check(!systemImeShown(),"System keyboard appeared despite payment window exclusion");Thread.sleep(80);}
+  checkIme();
+ }
+ static void regularPayment()throws Exception{
+  main(()->{Method show=owner.getDeclaredMethod("showPayment");show.setAccessible(true);show.invoke(activity);web=(WebView)field("paymentWebView").get(activity);web.stopLoading();web.removeJavascriptInterface("Android");web.setWebViewClient(new WebViewClient());web.loadDataWithBaseURL("https://www.matara.pro/","<html><head><meta name='viewport' content='width=device-width,initial-scale=1'></head><body style='margin:0'><input id='number' type='tel' style='width:200px;height:42px;font-size:20px'></body></html>","text/html","UTF-8",null);});
+  Thread.sleep(700);
+  main(()->{Method mode=owner.getDeclaredMethod("setPaymentInputMode",boolean.class);mode.setAccessible(true);mode.invoke(activity,false);});Thread.sleep(300);
+  tap("number");challengeIme();
+  for(String digit:new String[]{"1","2","3","⌫"}){main(()->{Button b=button((View)field("paymentKeyboardPanel").get(activity),digit);check(b!=null,"Regular payment dedicated key missing");b.performClick();});Thread.sleep(90);}
+  check("\"12\"".equals(js("document.getElementById('number').value")),"Regular payment native digit/delete events failed");
+  challengeIme();screenshot("payment-regular.png");
+ }
  static void fit()throws Exception{
   // Android 13's bundled Chromium reports unzoomed DOMRects; recent Chromium
   // reports zoomed rects. Calibrate a known width before comparing visible bounds.
@@ -53,10 +86,14 @@ final class PaymentWebKeyboardTest {
    @Override public void onPageStarted(WebView w,String u,android.graphics.Bitmap b){original.onPageStarted(w,u,b);}
    @Override public void onPageFinished(WebView w,String u){original.onPageFinished(w,u);}
   });web.loadUrl("https://www.matara.pro/nedarimplus/online/?fixture=1");});
-  Thread.sleep(2000);fit();checkIme();screenshot("payment-form.png");
+  Thread.sleep(2000);proveImeAvailable();fit();checkIme();
+  check("true".equals(js("getComputedStyle(document.getElementById('PayModeGpayBt')).display==='none'&&getComputedStyle(document.getElementById('PayModeCardBt')).display!=='none'")),"Google Pay visible or ordinary card option hidden");
+  js("document.getElementById('PayModeGpayBt').style.display='flex'");
+  check("\"none\"".equals(js("getComputedStyle(document.getElementById('PayModeGpayBt')).display")),"Provider update re-enabled Google Pay");
+  screenshot("payment-form.png");
   tap("name");key("ש");key("HE");key("Aa");key("A");key("B");key("⌫");key("C");
   check("\"שAC\"".equals(js("document.getElementById('name').value")),"Hebrew/uppercase/delete insertion failed");
-  fit();checkIme();screenshot("payment-keyboard.png");key("Go");
+  fit();challengeIme();screenshot("payment-keyboard.png");key("Go");
   tap("email");key("a");key("@");key("b");key(".");key("c");key("Go");
   check("\"a@b.c\"".equals(js("document.getElementById('email').value")),"Email entry failed");
   tap("number");key("1");key("2");key("3");key("4");key("5");
@@ -72,5 +109,6 @@ final class PaymentWebKeyboardTest {
   tap("name");key("ש");key("Go");
   main(()->activity.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));Thread.sleep(1200);fit();
   main(()->{Method m=owner.getDeclaredMethod("showCart");m.setAccessible(true);m.invoke(activity);check(field("directPaymentPage").get(activity)==null,"Payment WebView survived leaving checkout");check(dialog()==null,"Keyboard survived leaving checkout");});
+  regularPayment();
  }
 }

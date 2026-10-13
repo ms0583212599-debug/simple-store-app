@@ -17,6 +17,11 @@ def replace(old, new):
         raise SystemExit('Payment keyboard source anchor missing or ambiguous: ' + old[:100])
     s = s.replace(old, new, 1)
 
+# Window-level exclusion blocks Chromium/Samsung requests before the IME can flash.
+# This does not disable the installed keyboard or change device-owner policy.
+replace('        getWindow().setStatusBarColor(Color.WHITE);',
+        '        getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM);\n        getWindow().setStatusBarColor(Color.WHITE);')
+replace('paymentWebView=new WebView(this);', 'paymentWebView=new NoImePaymentWebView();')
 replace('WebView pay=new WebView(this);', 'PaymentPageWebView pay=new PaymentPageWebView();directPaymentPage=pay;')
 replace('onPageStarted(WebView v,String u,android.graphics.Bitmap icon){failed=false;', 'onPageStarted(WebView v,String u,android.graphics.Bitmap icon){pay.started();failed=false;')
 start=s.index('            @Override public void onPageFinished(WebView v,String u)',s.index('private void openNedarimDirectPaymentPage'))

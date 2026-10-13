@@ -5,6 +5,10 @@
   let target=null;
   function editable(e){return e instanceof HTMLInputElement && !e.disabled && !e.readOnly &&
     ['text','tel','email','password','number','search','url'].includes(e.type) || e instanceof HTMLTextAreaElement && !e.disabled && !e.readOnly;}
+  // Apply before the first focus, including provider fields inserted asynchronously.
+  function suppressIme(){for(const e of document.querySelectorAll('input,textarea'))if(editable(e)&&e.getAttribute('inputmode')!=='none')e.setAttribute('inputmode','none');}
+  suppressIme();
+  new MutationObserver(suppressIme).observe(document.documentElement,{subtree:true,childList:true});
   function open(e){
     if(!editable(e))return;
     target=e;e.setAttribute('inputmode','none');
