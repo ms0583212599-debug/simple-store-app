@@ -53,6 +53,14 @@ s=s.replace('content.addView(exitPay,new LinearLayout.LayoutParams(-1,-2));',
 # A viewport meta tag helps responsive pages; CSS does not alter payment values.
 s=s.replace('            @Override public void onPageFinished(WebView v,String u){if(!failed)loadStatus.setVisibility(View.GONE);}',
 '''            @Override public void onPageFinished(WebView v,String u){if(!failed){loadStatus.setVisibility(View.GONE);v.evaluateJavascript("(function(){var m=document.querySelector('meta[name=viewport]');if(!m){m=document.createElement('meta');m.name='viewport';document.head.appendChild(m);}m.content='width=device-width,initial-scale=1,maximum-scale=1';document.documentElement.style.maxWidth='100%';document.body.style.maxWidth='100%';})()",null);}}''',1)
+# Keep WebView's layout viewport matched to the available tablet width.
+# Do not alter native top controls, transaction parameters or payment verification.
+s=s.replace('        pay.getSettings().setDomStorageEnabled(true);',
+'''        pay.getSettings().setDomStorageEnabled(true);
+        pay.getSettings().setUseWideViewPort(true);
+        pay.getSettings().setLoadWithOverviewMode(true);
+        pay.getSettings().setBuiltInZoomControls(false);
+        pay.getSettings().setDisplayZoomControls(false);''',1)
 anchor='        WebView pay=new WebView(this);'
 s=s.replace(anchor,'''        if(customerOnlineActive){Button verify=button("בדוק תשלום שבוצע",green,Color.WHITE);verify.setOnClickListener(v->verifyCustomerOnlinePayment());content.addView(verify,new LinearLayout.LayoutParams(-1,dp(48)));}
 '''+anchor,1)
