@@ -24,13 +24,16 @@ final class PaymentWebKeyboardTest {
   int[] loc=new int[2];float[] density={1};main(()->{web.requestFocus();web.getLocationOnScreen(loc);density[0]=web.getResources().getDisplayMetrics().density;});
   float x=loc[0]+(float)xy.getDouble(0)*density[0],y=loc[1]+(float)xy.getDouble(1)*density[0];long t=SystemClock.uptimeMillis();
   System.out.println("Fixture tap: "+id+" x="+x+" y="+y+" local="+xy);
-  MotionEvent down=MotionEvent.obtain(t,t,MotionEvent.ACTION_DOWN,x,y,0);down.setSource(android.view.InputDevice.SOURCE_TOUCHSCREEN);inst.sendPointerSync(down);Thread.sleep(80);MotionEvent up=MotionEvent.obtain(t,SystemClock.uptimeMillis(),MotionEvent.ACTION_UP,x,y,0);up.setSource(android.view.InputDevice.SOURCE_TOUCHSCREEN);inst.sendPointerSync(up);Thread.sleep(650);
+  android.os.ParcelFileDescriptor fd=inst.getUiAutomation().executeShellCommand("input touchscreen tap "+Math.round(x)+" "+Math.round(y));
+  try(java.io.InputStream stream=new android.os.ParcelFileDescriptor.AutoCloseInputStream(fd)){while(stream.read()!=-1){}}
+  Thread.sleep(700);
   screenshot("payment-tap.png");
   System.out.println("Fixture focus: "+js("JSON.stringify({active:document.activeElement.id,keyboard:typeof window.__storePaymentKey,bridge:typeof StorePaymentKeyboard,error:window.fixtureError||'',width:innerWidth,dpr:devicePixelRatio,events:window.fixtureEvents})"));
   if(!id.equals(new JSONArray("["+js("document.activeElement.id")+"]").getString(0))&&!"amount".equals(id)){
     js("document.getElementById("+JSONObject.quote(id)+").focus()");Thread.sleep(400);
     System.out.println("Fixture programmatic focus: "+js("JSON.stringify({active:document.activeElement.id,error:window.fixtureError||''})"));
     main(()->{System.out.println("Fixture native dialog: "+(dialog()!=null));});
+    main(()->System.out.println("Fixture window focus="+activity.hasWindowFocus()+" web focus="+web.hasFocus()+" attached="+web.isAttachedToWindow()));
     throw new AssertionError("Native tap did not focus requested fixture field");
   }
  }
