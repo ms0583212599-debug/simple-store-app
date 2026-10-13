@@ -52,7 +52,7 @@ s=s.replace('content.addView(exitPay,new LinearLayout.LayoutParams(-1,-2));',
 # Scale only the embedded payment page, never the native navigation or controls.
 # A viewport meta tag helps responsive pages; CSS does not alter payment values.
 s=s.replace('            @Override public void onPageFinished(WebView v,String u){if(!failed)loadStatus.setVisibility(View.GONE);}',
-'''            @Override public void onPageFinished(WebView v,String u){if(!failed){loadStatus.setVisibility(View.GONE);v.evaluateJavascript("(function(){var m=document.querySelector('meta[name=viewport]');if(!m){m=document.createElement('meta');m.name='viewport';document.head.appendChild(m);}m.content='width=device-width,initial-scale=1';document.documentElement.style.maxWidth='100%';document.body.style.maxWidth='100%';})()",null);}}''',1)
+'''            @Override public void onPageFinished(WebView v,String u){if(!failed&&u!=null&&u.startsWith("https://www.matara.pro/")){loadStatus.setVisibility(View.GONE);v.evaluateJavascript("(function(){var m=document.querySelector('meta[name=viewport]');if(!m){m=document.createElement('meta');m.name='viewport';document.head.appendChild(m);}m.content='width=device-width,initial-scale=1';document.documentElement.style.maxWidth='100%';document.body.style.maxWidth='100%';})()",null);}}''',1)
 # Keep WebView's layout viewport matched to the available tablet width.
 # Do not alter native top controls, transaction parameters or payment verification.
 s=s.replace('        pay.getSettings().setDomStorageEnabled(true);',
