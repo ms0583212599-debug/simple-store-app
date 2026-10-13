@@ -1,0 +1,15 @@
+name: Verify Nedarim online receipt matching
+on:
+  pull_request:
+    paths: ['supabase/functions/verify-nedarim-online-sale/**', '.github/workflows/verify-nedarim-online.yml']
+  push:
+    branches: [main]
+    paths: ['supabase/functions/verify-nedarim-online-sale/**', '.github/workflows/verify-nedarim-online.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node supabase/functions/verify-nedarim-online-sale/match.test.mjs
