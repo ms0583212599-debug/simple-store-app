@@ -34,6 +34,8 @@ public final class PaymentSettingsInstrumentation extends Instrumentation {
    Field pending=field(c,"nedarimSettingsActionPending");AtomicInteger continued=new AtomicInteger();
    final Throwable[] error={null};
    runOnMainSync(()->{try{
+    // Isolate UI tests from the delayed auto-updater's offline error dialog.
+    ((android.os.Handler)field(c,"main").get(activity)).removeCallbacksAndMessages(null);
     // Invalidate the launch request so it cannot overwrite a newer action.
     Field revision=field(c,"nedarimSettingsRevision");revision.setInt(activity,revision.getInt(activity)+1);
     apply.invoke(activity,row("1111111","synthetic-old","old-group",false));
