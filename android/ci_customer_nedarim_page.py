@@ -47,8 +47,10 @@ s=s.replace('content.setPadding(dp(12),dp(8),dp(12),dp(12));',
             'content.setPadding(dp(4),dp(2),dp(4),dp(2));',1)
 s=s.replace('content.addView(loadStatus,new LinearLayout.LayoutParams(-1,-2));',
             'content.addView(loadStatus,new LinearLayout.LayoutParams(-1,-2));',1)
+# The shell already has a native back action. Remove the duplicate bottom
+# exit button so the payment form receives more usable height.
 s=s.replace('content.addView(exitPay,new LinearLayout.LayoutParams(-1,-2));',
-            'content.addView(exitPay,new LinearLayout.LayoutParams(-1,dp(36)));',1)
+            'exitPay.setVisibility(View.GONE);',1)
 # Scale only the embedded payment page, never the native navigation or controls.
 # A viewport meta tag helps responsive pages; CSS does not alter payment values.
 s=s.replace('            @Override public void onPageFinished(WebView v,String u){if(!failed)loadStatus.setVisibility(View.GONE);}',
@@ -112,7 +114,7 @@ required_fragments=[
     'pay.getSettings().setLoadWithOverviewMode(true);',
     'm.content=\'width=device-width,initial-scale=1\'',
     'content.setPadding(dp(4),dp(2),dp(4),dp(2));',
-    'content.addView(exitPay,new LinearLayout.LayoutParams(-1,dp(36)));',
+    'exitPay.setVisibility(View.GONE);',
     'private void verifyCustomerOnlinePayment()',
     'if(isCustomerNedarimReturn(u)){verifyCustomerOnlinePayment();return true;}',
 ]
