@@ -14,6 +14,7 @@ begin
  if current_status<>'pending' then raise exception 'Sale is not pending'; end if;
  if exists(select 1 from public.sales where payment_reference=p_payment_reference and id<>p_sale_id) then raise exception 'Receipt already used'; end if;
  perform public.finalize_paid_sale(p_sale_id,p_payment_reference);
+ update public.sales set nedarim_verified=true,nedarim_verified_at=now(),nedarim_verification_source='online_exact_order_marker' where id=p_sale_id;
 end;
 $$;
 revoke all on function public.finalize_nedarim_online_sale(uuid,text) from public,anon,authenticated;

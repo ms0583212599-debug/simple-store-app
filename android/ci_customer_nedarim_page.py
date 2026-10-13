@@ -20,7 +20,13 @@ start=s.index('    private void showPayment(){');end=s.index('    private void c
 pay=s[start:end];anchor='        paymentWebView.loadDataWithBaseURL('
 i=pay.index(anchor)
 pay=pay[:i]+'''        customerOnlineActive=false;customerOnlineOpening=false;customerOnlineEpoch++;
-        if(showCustomerPaymentPage){Button online=button("תשלום דרך נדרים פלוס",Color.WHITE,blue);online.setOnClickListener(v->openCustomerNedarimPage());body.addView(online,new LinearLayout.LayoutParams(-1,dp(48)));}
+        if(showCustomerPaymentPage){
+            Button online=button("תשלום דרך נדרים פלוס",Color.WHITE,blue);online.setTextSize(13);online.setPadding(dp(4),dp(2),dp(4),dp(2));online.setOnClickListener(v->openCustomerNedarimPage());
+            int position=body.indexOfChild(chargeButton);body.removeView(chargeButton);
+            LinearLayout choices=new LinearLayout(this);choices.addView(chargeButton,new LinearLayout.LayoutParams(0,dp(48),1));
+            LinearLayout.LayoutParams option=new LinearLayout.LayoutParams(0,dp(48),1);option.setMargins(dp(6),0,0,0);choices.addView(online,option);
+            body.addView(choices,position,new LinearLayout.LayoutParams(-1,dp(48)));
+        }
 '''+pay[i:];s=s[:start]+pay+s[end:]
 s=s.replace('    private void chargeCard(){','    private void chargeCard(){\n        if(customerOnlineOpening||customerOnlineActive)return;',1)
 # Extract the URL builder so the real request can be verified without network.
