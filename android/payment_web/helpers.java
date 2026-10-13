@@ -47,10 +47,10 @@
                 PaymentKeyboardInput target=new PaymentKeyboardInput(page,mode);paymentKeyboardInput=target;
                 showAppKeyboard(target);hideSystemKeyboardHard();
                 Object tag=target.getTag();
-                if(tag instanceof AlertDialog){AlertDialog dialog=(AlertDialog)tag;android.view.Window w=dialog.getWindow();if(w!=null)w.getDecorView().post(()->{
+                if(tag instanceof AlertDialog){AlertDialog dialog=(AlertDialog)tag;android.view.Window w=dialog.getWindow();if(w!=null){w.getDecorView().setSystemUiVisibility(MainActivity.this.getWindow().getDecorView().getSystemUiVisibility());Runnable resize=()->{
                     if(page!=directPaymentPage||!dialog.isShowing())return;
-                    int height=w.getDecorView().getHeight();LinearLayout.LayoutParams lp=(LinearLayout.LayoutParams)page.getLayoutParams();lp.bottomMargin=height;page.setLayoutParams(lp);
-                });}
+                    int height=w.getDecorView().getHeight();LinearLayout.LayoutParams lp=(LinearLayout.LayoutParams)page.getLayoutParams();if(height>0&&lp.bottomMargin!=height){lp.bottomMargin=height;page.setLayoutParams(lp);}
+                };w.getDecorView().addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->resize.run());w.getDecorView().post(resize);}}
             });
         }
     }

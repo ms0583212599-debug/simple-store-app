@@ -19,8 +19,9 @@ final class PaymentWebKeyboardTest {
  static Button button(View v,String label){if(v instanceof Button&&label.contentEquals(((Button)v).getText()))return (Button)v;if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int i=0;i<g.getChildCount();i++){Button b=button(g.getChildAt(i),label);if(b!=null)return b;}}return null;}
  static AlertDialog dialog()throws Exception{Object target=field("paymentKeyboardInput").get(activity);return target==null?null:(AlertDialog)((EditText)target).getTag();}
  static void key(String label)throws Exception{main(()->{AlertDialog d=dialog();check(d!=null&&d.isShowing(),"Dedicated keyboard missing before key "+label);Button b=button(d.getWindow().getDecorView(),label);check(b!=null,"Key missing: "+label);b.performClick();});Thread.sleep(100);}
+ static final String VISUAL_SCALE="var probe=document.createElement('div');probe.style.cssText='position:absolute;width:100px;height:0;pointer-events:none';document.body.appendChild(probe);var factor=100*parseFloat(document.body.style.zoom||1)/probe.getBoundingClientRect().width;probe.remove();";
  static void tap(String id)throws Exception{
-  JSONArray xy=new JSONArray(js("(function(){var r=document.getElementById("+JSONObject.quote(id)+").getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2]})()"));
+  JSONArray xy=new JSONArray(js("(function(){"+VISUAL_SCALE+"var r=document.getElementById("+JSONObject.quote(id)+").getBoundingClientRect();return [factor*(r.left+r.width/2),factor*(r.top+r.height/2)]})()"));
   int[] loc=new int[2];float[] density={1};main(()->{web.requestFocus();web.getLocationOnScreen(loc);density[0]=web.getResources().getDisplayMetrics().density;});
   float x=loc[0]+(float)xy.getDouble(0)*density[0],y=loc[1]+(float)xy.getDouble(1)*density[0];long t=SystemClock.uptimeMillis();
   System.out.println("Fixture tap: "+id+" x="+x+" y="+y+" local="+xy);
@@ -37,7 +38,13 @@ final class PaymentWebKeyboardTest {
   }
  }
  static void checkIme()throws Exception{main(()->{check(!web.onCheckIsTextEditor(),"WebView advertises system editor");check(web.onCreateInputConnection(new android.view.inputmethod.EditorInfo())==null,"System IME connection created");WindowInsets insets=activity.getWindow().getDecorView().getRootWindowInsets();check(insets==null||!insets.isVisible(WindowInsets.Type.ime()),"Tablet IME became visible");});}
- static void fit()throws Exception{String metrics=js("JSON.stringify({bottom:document.getElementById('footer').getBoundingClientRect().bottom,right:document.getElementById('MainDiv').getBoundingClientRect().right,height:innerHeight,width:innerWidth,zoom:document.body.style.zoom})");System.out.println("Fixture bounds "+metrics);check("true".equals(js("(function(){return document.getElementById('footer').getBoundingClientRect().bottom<=innerHeight+3&&document.getElementById('MainDiv').getBoundingClientRect().right<=innerWidth+3})()")),"Payment form does not fit viewport: "+metrics);}
+ static void fit()throws Exception{
+  // Android 13's bundled Chromium reports unzoomed DOMRects; recent Chromium
+  // reports zoomed rects. Calibrate a known width before comparing visible bounds.
+  String metrics=js("(function(){"+VISUAL_SCALE+"return {bottom:factor*document.getElementById('footer').getBoundingClientRect().bottom,right:factor*document.getElementById('MainDiv').getBoundingClientRect().right,height:innerHeight,width:innerWidth,zoom:document.body.style.zoom,factor:factor}})()");
+  JSONObject m=new JSONObject(metrics);System.out.println("Fixture bounds "+metrics);
+  check(m.getDouble("bottom")<=m.getDouble("height")+3&&m.getDouble("right")<=m.getDouble("width")+3,"Payment form does not fit viewport: "+metrics);
+ }
  static void screenshot(String path)throws Exception{java.io.FileOutputStream out=new java.io.FileOutputStream(new java.io.File(inst.getTargetContext().getCacheDir(),path));inst.getUiAutomation().takeScreenshot().compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);out.close();}
  static void run(Instrumentation i,Activity a,Class<?> c)throws Exception{
   inst=i;activity=a;owner=c;
