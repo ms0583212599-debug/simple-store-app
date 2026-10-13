@@ -15,7 +15,12 @@ ADB=(adb -s "$SERIAL")
 "${ADB[@]}" shell svc data disable
 "${ADB[@]}" shell wm size 1920x1200
 "${ADB[@]}" shell wm density 320
-"${ADB[@]}" install target-apk/app-debug.apk
+"${ADB[@]}" install updates/simple-store-tablet.apk
+# Verify an ordinary in-place update preserves private data on this disposable emulator.
+"${ADB[@]}" shell "run-as com.simplestore.tablet sh -c 'mkdir -p files; echo preserved > files/update-fixture.txt'"
+"${ADB[@]}" install -r target-apk/app-debug.apk
+test "$("${ADB[@]}" shell run-as com.simplestore.tablet cat files/update-fixture.txt | tr -d '\r\n')" = preserved
+echo 'In-place signed update preserved private fixture data.'
 "${ADB[@]}" install -t keyboard-test.apk
 capture() {
   for shot in payment-form.png payment-keyboard.png payment-tap.png; do

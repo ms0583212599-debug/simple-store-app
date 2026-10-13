@@ -10,7 +10,7 @@ import org.json.*;
 
 /** Offline synthetic DOM. No actual customer, card or transaction data. */
 final class PaymentWebKeyboardTest {
- static Instrumentation inst;static Activity activity;static Class<?> owner;static WebView web;
+ static Instrumentation inst;static Activity activity;static Class<?> owner;static WebView web;static int touchCount=0;
  interface Work {void run()throws Exception;}
  static void main(Work work)throws Exception{Throwable[] e={null};inst.runOnMainSync(()->{try{work.run();}catch(Throwable t){e[0]=t;}});if(e[0]!=null)throw new Exception(e[0]);}
  static void check(boolean value,String message){if(!value)throw new AssertionError(message);}
@@ -24,9 +24,13 @@ final class PaymentWebKeyboardTest {
   int[] loc=new int[2];float[] density={1};main(()->{web.requestFocus();web.getLocationOnScreen(loc);density[0]=web.getResources().getDisplayMetrics().density;});
   float x=loc[0]+(float)xy.getDouble(0)*density[0],y=loc[1]+(float)xy.getDouble(1)*density[0];long t=SystemClock.uptimeMillis();
   System.out.println("Fixture tap: "+id+" x="+x+" y="+y+" local="+xy);
-  android.os.ParcelFileDescriptor fd=inst.getUiAutomation().executeShellCommand("input touchscreen tap "+Math.round(x)+" "+Math.round(y));
-  try(java.io.InputStream stream=new android.os.ParcelFileDescriptor.AutoCloseInputStream(fd)){while(stream.read()!=-1){}}
+  // Dispatch a native MotionEvent through the Activity's view tree. This avoids
+  // the emulator's physical-input transform after wm size overrides.
+  main(()->{long now=SystemClock.uptimeMillis();MotionEvent e=MotionEvent.obtain(now,now,MotionEvent.ACTION_DOWN,x,y,0);e.setSource(android.view.InputDevice.SOURCE_TOUCHSCREEN);activity.dispatchTouchEvent(e);e.recycle();});
+  Thread.sleep(80);
+  main(()->{long now=SystemClock.uptimeMillis();MotionEvent e=MotionEvent.obtain(now-80,now,MotionEvent.ACTION_UP,x,y,0);e.setSource(android.view.InputDevice.SOURCE_TOUCHSCREEN);activity.dispatchTouchEvent(e);e.recycle();});
   Thread.sleep(700);
+  System.out.println("Fixture native touch events="+touchCount);
   screenshot("payment-tap.png");
   System.out.println("Fixture focus: "+js("JSON.stringify({active:document.activeElement.id,keyboard:typeof window.__storePaymentKey,bridge:typeof StorePaymentKeyboard,error:window.fixtureError||'',width:innerWidth,dpr:devicePixelRatio,events:window.fixtureEvents})"));
   if(!id.equals(new JSONArray("["+js("document.activeElement.id")+"]").getString(0))&&!"amount".equals(id)){
@@ -42,7 +46,7 @@ final class PaymentWebKeyboardTest {
  static void screenshot(String path)throws Exception{java.io.FileOutputStream out=new java.io.FileOutputStream(new java.io.File(inst.getTargetContext().getCacheDir(),path));inst.getUiAutomation().takeScreenshot().compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);out.close();}
  static void run(Instrumentation i,Activity a,Class<?> c)throws Exception{
   inst=i;activity=a;owner=c;
-  main(()->{web=(WebView)field("directPaymentPage").get(activity);WebViewClient original=web.getWebViewClient();web.stopLoading();web.setWebViewClient(new WebViewClient(){
+  main(()->{web=(WebView)field("directPaymentPage").get(activity);WebViewClient original=web.getWebViewClient();web.stopLoading();web.setOnTouchListener((v,e)->{touchCount++;return false;});web.setWebViewClient(new WebViewClient(){
    @Override public WebResourceResponse shouldInterceptRequest(WebView w,WebResourceRequest r){try{return new WebResourceResponse("text/html","UTF-8",inst.getContext().getAssets().open("payment-fixture.html"));}catch(Exception e){throw new RuntimeException(e);}}
    @Override public void onPageStarted(WebView w,String u,android.graphics.Bitmap b){original.onPageStarted(w,u,b);}
    @Override public void onPageFinished(WebView w,String u){original.onPageFinished(w,u);}
