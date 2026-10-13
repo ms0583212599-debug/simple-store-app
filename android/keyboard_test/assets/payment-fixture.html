@@ -1,0 +1,8 @@
+<!doctype html><html dir="rtl"><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+body{margin:0}#MainDiv{width:600px;margin:20px auto;padding:20px;background:white}.SpanDiv{display:inline-block;width:45%;margin:18px 0}input{height:40px;width:90%;font-size:20px}#footer{height:90px}#WelcomLogo{height:158px;width:100px}#submit{height:60px}
+</style></head><body><div id="MainDiv"><div id="PaymentDiv"><div>עברית / English</div><div><div style="min-height:158px"><img id="WelcomLogo" alt="fixture"></div><div id="MosadName">Synthetic fixture — no payment service</div></div><hr><div id="FormDiv">
+<div class="SpanDiv">שם<input id="name" type="text" maxlength="50"></div><div class="SpanDiv">מייל<input id="email" type="email"></div>
+<div class="SpanDiv">מספר בדיקה<input id="number" type="tel" maxlength="4"></div><div class="SpanDiv">סכום נעול<input id="amount" type="tel" readonly value="1.25"></div>
+<div id="PaiementData"><div class="SpanDiv">בדיקה<input id="other" type="text"></div></div>
+<button id="submit" onclick="window.submitted=true">כפתור בדיקה בלבד</button></div><div id="footer">סוף הטופס</div></div></div>
+<script>window.inputs=0;window.keys=0;window.changes=0;document.addEventListener('input',()=>inputs++);document.addEventListener('keyup',()=>keys++);document.addEventListener('change',()=>changes++);</script></body></html>

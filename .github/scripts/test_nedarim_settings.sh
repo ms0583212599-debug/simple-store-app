@@ -13,7 +13,13 @@ ADB=(adb -s "$SERIAL")
 "${ADB[@]}" shell ip6tables -I OUTPUT -p tcp --dport 80 -j REJECT
 "${ADB[@]}" shell svc wifi disable
 "${ADB[@]}" shell svc data disable
+"${ADB[@]}" shell wm size 1920x1200
+"${ADB[@]}" shell wm density 320
 "${ADB[@]}" install target-apk/app-debug.apk
 "${ADB[@]}" install -t keyboard-test.apk
 timeout 120 "${ADB[@]}" shell am instrument -w com.simplestore.keyboardtest/.PaymentSettingsInstrumentation | tee keyboard-result.txt
 grep -F 'keyboard_result=PASS:' keyboard-result.txt
+
+for shot in payment-form.png payment-keyboard.png; do
+  "${ADB[@]}" exec-out run-as com.simplestore.tablet cat "cache/$shot" > "$shot"
+done

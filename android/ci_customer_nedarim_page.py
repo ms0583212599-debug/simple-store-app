@@ -46,7 +46,7 @@ layout_anchors=[
     'content.setPadding(dp(12),dp(8),dp(12),dp(12));',
     'content.addView(exitPay,new LinearLayout.LayoutParams(-1,-2));',
     '            @Override public void onPageFinished(WebView v,String u){if(!failed)loadStatus.setVisibility(View.GONE);}',
-    '        pay.getSettings().setDomStorageEnabled(true);',
+    'pay.getSettings().setDomStorageEnabled(true);',
 ]
 missing_layout_anchors=[item for item in layout_anchors if item not in s]
 if missing_layout_anchors:
@@ -67,8 +67,8 @@ s=s.replace('            @Override public void onPageFinished(WebView v,String u
 '''            @Override public void onPageFinished(WebView v,String u){if(!failed){loadStatus.setVisibility(View.GONE);if(u!=null&&"https".equalsIgnoreCase(android.net.Uri.parse(u).getScheme())&&"www.matara.pro".equalsIgnoreCase(android.net.Uri.parse(u).getHost()))v.evaluateJavascript("(function(){var m=document.querySelector('meta[name=viewport]');if(!m){m=document.createElement('meta');m.name='viewport';document.head.appendChild(m);}m.content='width=device-width,initial-scale=1';document.documentElement.style.maxWidth='100%';document.body.style.maxWidth='100%';})()",null);}}''',1)
 # Keep WebView's layout viewport matched to the available tablet width.
 # Do not alter native top controls, transaction parameters or payment verification.
-s=s.replace('        pay.getSettings().setDomStorageEnabled(true);',
-'''        pay.getSettings().setDomStorageEnabled(true);
+s=s.replace('pay.getSettings().setDomStorageEnabled(true);',
+'''pay.getSettings().setDomStorageEnabled(true);
         pay.getSettings().setUseWideViewPort(true);
         pay.getSettings().setLoadWithOverviewMode(true);
         pay.getSettings().setBuiltInZoomControls(false);

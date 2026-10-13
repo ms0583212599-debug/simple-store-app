@@ -178,6 +178,8 @@ jobs:
         run: python3 android/ci_nedarim_live_settings.py
       - name: Add customer Nedarim option
         run: python3 android/ci_customer_nedarim_page.py
+      - name: Fit Nedarim page and attach dedicated keyboard
+        run: python3 android/ci_nedarim_tablet_keyboard.py
       - name: Validate production Android invariants
         run: python3 android/ci_validate_release.py
       - name: Choose Android version
