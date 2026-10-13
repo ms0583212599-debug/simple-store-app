@@ -106,5 +106,17 @@ helper=r'''    private boolean customerOnlineActive=false,customerOnlineOpening=
 
 '''
 s=s.replace('    private void loadData(Runnable done){',helper+'    private void loadData(Runnable done){',1)
+# Fail the build if payment layout changes upstream and the safety patches no longer apply.
+required_fragments=[
+    'pay.getSettings().setUseWideViewPort(true);',
+    'pay.getSettings().setLoadWithOverviewMode(true);',
+    'm.content=\'width=device-width,initial-scale=1\'',
+    'content.setPadding(dp(4),dp(2),dp(4),dp(2));',
+    'content.addView(exitPay,new LinearLayout.LayoutParams(-1,dp(36)));',
+    'private void verifyCustomerOnlinePayment()',
+    'if(isCustomerNedarimReturn(u)){verifyCustomerOnlinePayment();return true;}',
+]
+missing=[item for item in required_fragments if item not in s]
+if missing: raise SystemExit('Nedarim payment generator patch missing: '+repr(missing))
 p.write_text(s)
 print('Customer Nedarim page and protected shared visibility control applied')
