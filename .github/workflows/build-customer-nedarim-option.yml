@@ -5,6 +5,7 @@ on:
     branches:
       - fix/customer-nedarim-option
       - fix/nedarim-tablet-complete
+      - fix/payment-no-system-ime
     paths:
       - 'android/**'
       - 'sales-report.js'

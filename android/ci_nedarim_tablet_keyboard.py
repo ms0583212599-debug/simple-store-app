@@ -17,6 +17,19 @@ def replace(old, new):
         raise SystemExit('Payment keyboard source anchor missing or ambiguous: ' + old[:100])
     s = s.replace(old, new, 1)
 
+# Window-level exclusion blocks Chromium/Samsung requests before the IME can flash.
+# This does not disable the installed keyboard or change device-owner policy.
+replace('        getWindow().setStatusBarColor(Color.WHITE);',
+        '        getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM);\n        getWindow().setStatusBarColor(Color.WHITE);')
+replace('paymentWebView=new WebView(this);', 'paymentWebView=new NoImePaymentWebView();')
+# In a short landscape viewport the old fixed header + bottom keypad left no
+# room for card fields. Put the same keypad beside the form in that case.
+replace('    private void showPayment(){', '    private void showPayment(){\n        final boolean sidePaymentKeyboard=getResources().getConfiguration().orientation==android.content.res.Configuration.ORIENTATION_LANDSCAPE && getResources().getConfiguration().screenHeightDp<700;')
+replace('body.setPadding(dp(24),dp(2),dp(24),0);root.addView(body,new LinearLayout.LayoutParams(-1,0,1));',
+        'body.setPadding(dp(24),dp(2),dp(24),0);LinearLayout paymentColumns=new LinearLayout(this);paymentColumns.setOrientation(LinearLayout.HORIZONTAL);if(sidePaymentKeyboard){root.addView(paymentColumns,new LinearLayout.LayoutParams(-1,0,1));paymentColumns.addView(body,new LinearLayout.LayoutParams(0,-1,1));}else root.addView(body,new LinearLayout.LayoutParams(-1,0,1));')
+replace('body.addView(choice,choiceLp);', 'body.addView(choice,choiceLp);if(sidePaymentKeyboard)choice.setVisibility(View.GONE);')
+replace('paymentKeyboardPanel=buildPaymentNumericKeyboard();root.addView(paymentKeyboardPanel,new LinearLayout.LayoutParams(-1,dp(215)));',
+        'paymentKeyboardPanel=buildPaymentNumericKeyboard();if(sidePaymentKeyboard){paymentKeyboardPanel.setGravity(Gravity.CENTER_VERTICAL);paymentColumns.addView(paymentKeyboardPanel,new LinearLayout.LayoutParams(dp(280),-1));}else root.addView(paymentKeyboardPanel,new LinearLayout.LayoutParams(-1,dp(215)));')
 replace('WebView pay=new WebView(this);', 'PaymentPageWebView pay=new PaymentPageWebView();directPaymentPage=pay;')
 replace('onPageStarted(WebView v,String u,android.graphics.Bitmap icon){failed=false;', 'onPageStarted(WebView v,String u,android.graphics.Bitmap icon){pay.started();failed=false;')
 start=s.index('            @Override public void onPageFinished(WebView v,String u)',s.index('private void openNedarimDirectPaymentPage'))

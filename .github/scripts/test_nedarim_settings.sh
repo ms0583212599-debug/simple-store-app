@@ -23,7 +23,7 @@ test "$("${ADB[@]}" shell run-as com.simplestore.tablet cat files/update-fixture
 echo 'In-place signed update preserved private fixture data.'
 "${ADB[@]}" install -t keyboard-test.apk
 capture() {
-  for shot in payment-form.png payment-keyboard.png payment-tap.png; do
+  for shot in payment-form.png payment-keyboard.png payment-tap.png payment-regular.png; do
     "${ADB[@]}" exec-out run-as com.simplestore.tablet cat "cache/$shot" > "$shot" || true
   done
   "${ADB[@]}" logcat -d -s System.out:I chromium:E AndroidRuntime:E > payment-diagnostics.txt
