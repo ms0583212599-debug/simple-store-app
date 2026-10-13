@@ -30,6 +30,9 @@ replace('body.setPadding(dp(24),dp(2),dp(24),0);root.addView(body,new LinearLayo
 replace('body.addView(choice,choiceLp);', 'body.addView(choice,choiceLp);if(sidePaymentKeyboard)choice.setVisibility(View.GONE);')
 replace('paymentKeyboardPanel=buildPaymentNumericKeyboard();root.addView(paymentKeyboardPanel,new LinearLayout.LayoutParams(-1,dp(215)));',
         'paymentKeyboardPanel=buildPaymentNumericKeyboard();if(sidePaymentKeyboard){paymentKeyboardPanel.setGravity(Gravity.CENTER_VERTICAL);paymentColumns.addView(paymentKeyboardPanel,new LinearLayout.LayoutParams(dp(280),-1));}else root.addView(paymentKeyboardPanel,new LinearLayout.LayoutParams(-1,dp(215)));')
+# Loading text is hidden, while real network errors and retry remain available.
+replace('TextView loadStatus=text("טוען דף תשלום נדרים פלוס...",16,false);', 'TextView loadStatus=text("",16,false);loadStatus.setVisibility(View.GONE);')
+replace('loadStatus.setVisibility(View.VISIBLE);loadStatus.setText("טוען דף תשלום נדרים פלוס...");', 'loadStatus.setVisibility(View.GONE);')
 replace('WebView pay=new WebView(this);', 'PaymentPageWebView pay=new PaymentPageWebView();directPaymentPage=pay;')
 replace('onPageStarted(WebView v,String u,android.graphics.Bitmap icon){failed=false;', 'onPageStarted(WebView v,String u,android.graphics.Bitmap icon){pay.started();failed=false;')
 start=s.index('            @Override public void onPageFinished(WebView v,String u)',s.index('private void openNedarimDirectPaymentPage'))

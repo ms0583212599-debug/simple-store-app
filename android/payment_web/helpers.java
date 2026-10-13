@@ -17,6 +17,7 @@
         if(target!=null){Object tag=target.getTag();if(tag instanceof AlertDialog)((AlertDialog)tag).dismiss();}
     }
     private void closeDirectPaymentPage(){
+        stopCustomerOnlinePolling();
         dismissPaymentKeyboard();
         if(directPaymentPage!=null){PaymentPageWebView old=directPaymentPage;directPaymentPage=null;old.nonce="";old.stopLoading();old.removeJavascriptInterface("StorePaymentKeyboard");if(old.getParent() instanceof android.view.ViewGroup)((android.view.ViewGroup)old.getParent()).removeView(old);old.destroy();}
     }
@@ -30,13 +31,14 @@
     private void paymentKeyboardDismissed(PaymentKeyboardInput target){
         sendPaymentKeyboardKey(target,"done","");
         if(paymentKeyboardInput==target)paymentKeyboardInput=null;
-        if(target.page==directPaymentPage&&target.page.getLayoutParams() instanceof LinearLayout.LayoutParams){
-            LinearLayout.LayoutParams lp=(LinearLayout.LayoutParams)target.page.getLayoutParams();lp.bottomMargin=0;target.page.setLayoutParams(lp);
-        }
+
     }
     private final class PaymentKeyboardBridge{
         final PaymentPageWebView page;
         PaymentKeyboardBridge(PaymentPageWebView page){this.page=page;}
+        @android.webkit.JavascriptInterface public void close(String nonce){
+            main.post(()->{if(page==directPaymentPage&&page.isAttachedToWindow()&&page.nonce.equals(nonce)&&isPaymentKeyboardOrigin(page.getUrl()))dismissPaymentKeyboard();});
+        }
         @android.webkit.JavascriptInterface public void open(String nonce,String mode){
             main.post(()->{
                 if(page!=directPaymentPage||!page.isAttachedToWindow()||!page.nonce.equals(nonce)||!isPaymentKeyboardOrigin(page.getUrl()))return;
@@ -48,10 +50,7 @@
                 PaymentKeyboardInput target=new PaymentKeyboardInput(page,mode);paymentKeyboardInput=target;
                 showAppKeyboard(target);hideSystemKeyboardHard();
                 Object tag=target.getTag();
-                if(tag instanceof AlertDialog){AlertDialog dialog=(AlertDialog)tag;android.view.Window w=dialog.getWindow();if(w!=null){preparePaymentKeyboardWindow(w);w.getDecorView().setSystemUiVisibility(MainActivity.this.getWindow().getDecorView().getSystemUiVisibility());Runnable resize=()->{
-                    if(page!=directPaymentPage||!dialog.isShowing())return;
-                    int height=w.getDecorView().getHeight();LinearLayout.LayoutParams lp=(LinearLayout.LayoutParams)page.getLayoutParams();if(height>0&&lp.bottomMargin!=height){lp.bottomMargin=height;page.setLayoutParams(lp);}
-                };w.getDecorView().addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->resize.run());w.getDecorView().post(resize);}}
+                if(tag instanceof AlertDialog){AlertDialog dialog=(AlertDialog)tag;android.view.Window w=dialog.getWindow();if(w!=null){preparePaymentKeyboardWindow(w);w.getDecorView().setSystemUiVisibility(MainActivity.this.getWindow().getDecorView().getSystemUiVisibility());}}
             });
         }
     }

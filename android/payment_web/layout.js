@@ -1,12 +1,12 @@
 (function(){
   'use strict';
-  if(window.__storeFitPayment){window.__storeFitPayment();return;}
+  if(document.getElementById('store-tablet-fit'))return;
   const meta=document.querySelector('meta[name=viewport]')||document.head.appendChild(document.createElement('meta'));
   meta.name='viewport';meta.content='width=device-width,initial-scale=1';
   const css=document.createElement('style');css.id='store-tablet-fit';
   css.textContent=`
-    #PayModeGpayBt{display:none!important;visibility:hidden!important;pointer-events:none!important}
-    html{margin:0!important;min-height:0!important}body{margin:0!important;min-height:0!important}
+    #PayModeGpayBt,#PayModeCardBt{display:none!important;visibility:hidden!important;pointer-events:none!important}
+    html{margin:0!important;min-height:0!important;overflow-y:auto!important}body{margin:0!important;min-height:0!important;zoom:1!important}
     #MainDiv{width:98%!important;max-width:1000px!important;margin:2px auto!important;padding:4px 0!important;box-sizing:border-box}
     #PaymentDiv>div:first-child{z-index:2}
     #WelcomLogo{max-height:48px!important}#MosadName{margin-top:2px!important}
@@ -21,27 +21,7 @@
   document.head.appendChild(css);
   const logo=document.getElementById('WelcomLogo');
   if(logo&&logo.parentElement)logo.parentElement.style.minHeight='0';
-  let scheduled=false;
-  function fit(){
-    scheduled=false;
-    const body=document.body;
-    if(!body)return;
-    body.style.zoom='1';
-    // Measure visible content without the viewport's artificial minimum height.
-    let bottom=0,right=0;
-    for(const child of body.children){
-      const style=getComputedStyle(child);
-      if(style.display==='none'||style.position==='fixed'||style.position==='absolute')continue;
-      const r=child.getBoundingClientRect();bottom=Math.max(bottom,r.bottom+window.scrollY);right=Math.max(right,r.right);
-    }
-    const scale=Math.min(1,(innerWidth-4)/Math.max(right,1),(innerHeight-4)/Math.max(bottom,1));
-    body.style.zoom=String(Math.max(.25,scale));
-    window.scrollTo(0,0);
-  }
-  function schedule(){if(!scheduled){scheduled=true;requestAnimationFrame(fit);}}
-  window.__storeFitPayment=schedule;
-  // Provider loading, validation messages and orientation can change the height.
-  new MutationObserver(records=>{if(records.some(r=>r.target!==document.body))schedule();}).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['style','class','hidden']});
-  document.addEventListener('load',schedule,true);window.addEventListener('resize',schedule);
-  schedule();setTimeout(schedule,400);setTimeout(schedule,1200);
+  // Preserve readable text and natural document height. Extra card fields scroll
+  // instead of shrinking the entire form or resetting the user's scroll position.
+  document.body.style.zoom='1';
 })();

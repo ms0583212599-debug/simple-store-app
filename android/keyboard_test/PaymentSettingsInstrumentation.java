@@ -88,7 +88,8 @@ public final class PaymentSettingsInstrumentation extends Instrumentation {
     field(c,"customerOnlineActive").setBoolean(activity,true);
     field(c,"saleToken").set(activity,"fixture-order-123456789");
     method(c,"openNedarimDirectPaymentPage",double.class).invoke(activity,1.25);
-    check(button(activity.getWindow().getDecorView(),"בדוק תשלום שבוצע")!=null,"Customer verification missing");
+    check(button(activity.getWindow().getDecorView(),"בדוק תשלום שבוצע")==null,"Manual verification button still occupies the page");
+    check(field(c,"customerOnlinePoll").get(activity)!=null,"Automatic verification was not scheduled");
     android.webkit.WebView direct=web(activity.getWindow().getDecorView());
     android.net.Uri address=android.net.Uri.parse((String)method(c,"buildNedarimDirectUrl",double.class).invoke(activity,1.25));
     check("SimpleStore:fixture-order-123456789".equals(address.getQueryParameter("comment")),"Unique order marker missing");

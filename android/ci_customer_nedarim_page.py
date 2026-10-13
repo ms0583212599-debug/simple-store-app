@@ -74,8 +74,8 @@ s=s.replace('pay.getSettings().setDomStorageEnabled(true);',
         pay.getSettings().setBuiltInZoomControls(false);
         pay.getSettings().setDisplayZoomControls(false);''',1)
 anchor='        WebView pay=new WebView(this);'
-s=s.replace(anchor,'''        if(customerOnlineActive){Button verify=button("בדוק תשלום שבוצע",green,Color.WHITE);verify.setOnClickListener(v->verifyCustomerOnlinePayment());content.addView(verify,new LinearLayout.LayoutParams(-1,dp(48)));}
-'''+anchor,1)
+# Verification runs automatically, so it no longer consumes a full button row.
+s=s.replace('pay.loadUrl(target);', 'pay.loadUrl(target);scheduleCustomerOnlineCheck();',1)
 s=s.replace('android.net.Uri u=r.getUrl();if(allowed(u))return false;','android.net.Uri u=r.getUrl();if(isCustomerNedarimReturn(u)){verifyCustomerOnlinePayment();return true;}if(allowed(u))return false;',1)
 s=s.replace('try{if(allowed(android.net.Uri.parse(u)))return false;}','try{if(isCustomerNedarimReturn(android.net.Uri.parse(u))){verifyCustomerOnlinePayment();return true;}if(allowed(android.net.Uri.parse(u)))return false;}',1)
 helper=r'''    private boolean customerOnlineActive=false,customerOnlineOpening=false,customerOnlineVerifying=false;
@@ -102,18 +102,59 @@ helper=r'''    private boolean customerOnlineActive=false,customerOnlineOpening=
             });
         }catch(Exception e){main.post(()->{customerOnlineOpening=false;Toast.makeText(this,"לא ניתן לפתוח כעת את התשלום בנדרים פלוס. יש לבדוק את החיבור וההגדרות בניהול.",Toast.LENGTH_LONG).show();});}});
     }
+    private Runnable customerOnlinePoll;
+    private int customerOnlinePollGeneration=0,customerOnlineFailures=0;
+    private boolean customerOnlinePaused=false;
+    private void stopCustomerOnlinePolling(){
+        if(customerOnlinePoll!=null)main.removeCallbacks(customerOnlinePoll);
+        customerOnlinePoll=null;customerOnlinePollGeneration++;customerOnlineVerifying=false;
+    }
+    private boolean canCheckCustomerOnlinePayment(){
+        return customerOnlineActive&&!customerOnlinePaused&&!saleToken.isEmpty()&&directPaymentPage!=null&&directPaymentPage.isAttachedToWindow()&&!isFinishing();
+    }
+    private void scheduleCustomerOnlineCheck(){
+        if(customerOnlinePoll!=null)main.removeCallbacks(customerOnlinePoll);
+        customerOnlinePoll=null;
+        if(!canCheckCustomerOnlinePayment()||customerOnlineVerifying)return;
+        customerOnlinePoll=()->{customerOnlinePoll=null;verifyCustomerOnlinePayment();};
+        main.postDelayed(customerOnlinePoll,customerOnlineFailures>0?10000:5000);
+    }
+    @Override protected void onPause(){
+        customerOnlinePaused=true;stopCustomerOnlinePolling();dismissPaymentKeyboard();super.onPause();
+    }
+    @Override protected void onResume(){
+        super.onResume();customerOnlinePaused=false;scheduleCustomerOnlineCheck();
+    }
+    @Override protected void onDestroy(){
+        closeDirectPaymentPage();super.onDestroy();
+    }
+    private boolean isCurrentCustomerOnlineCheck(int generation,String token){
+        return generation==customerOnlinePollGeneration&&canCheckCustomerOnlinePayment()&&token.equals(saleToken);
+    }
+    private boolean acceptCustomerOnlineResult(int generation,String token,String status){
+        if(!isCurrentCustomerOnlineCheck(generation,token))return false;
+        customerOnlineVerifying=false;customerOnlineFailures=0;
+        if(!"paid".equals(status)){scheduleCustomerOnlineCheck();return false;}
+        customerOnlineActive=false;stopCustomerOnlinePolling();return true;
+    }
     private void verifyCustomerOnlinePayment(){
-        if(!customerOnlineActive||customerOnlineVerifying||saleToken.isEmpty())return;
-        customerOnlineVerifying=true;final String expectedToken=saleToken;
-        Toast.makeText(this,"בודק אישור תשלום בנדרים פלוס...",Toast.LENGTH_SHORT).show();
+        if(!canCheckCustomerOnlinePayment()||customerOnlineVerifying)return;
+        if(customerOnlinePoll!=null)main.removeCallbacks(customerOnlinePoll);
+        customerOnlinePoll=null;customerOnlineVerifying=true;
+        final String expectedToken=saleToken,expectedInstitution=customerOnlineInstitution;
+        final long baseline=customerOnlineBaseline;final int generation=customerOnlinePollGeneration;
         io.execute(()->{try{
-            JSONObject body=new JSONObject();body.put("saleToken",expectedToken);body.put("baseline",customerOnlineBaseline);body.put("mosad",customerOnlineInstitution);
+            JSONObject body=new JSONObject();body.put("saleToken",expectedToken);body.put("baseline",baseline);body.put("mosad",expectedInstitution);
             JSONObject result=new JSONObject(requestRaw("POST",ONLINE_VERIFY,body,false));
-            main.post(()->{customerOnlineVerifying=false;if(!customerOnlineActive||!expectedToken.equals(saleToken))return;
-                if("paid".equals(result.optString("status"))){customerOnlineActive=false;finishSuccessfulPayment();}
-                else Toast.makeText(this,"טרם התקבל אישור תשלום. אין לשלם שוב אם נדרים אישר את החיוב; יש לפנות לניהול.",Toast.LENGTH_LONG).show();
+            main.post(()->{
+                if(acceptCustomerOnlineResult(generation,expectedToken,result.optString("status"))){closeDirectPaymentPage();finishSuccessfulPayment();}
             });
-        }catch(Exception e){main.post(()->{customerOnlineVerifying=false;Toast.makeText(this,"אימות התשלום לא הושלם. אם בוצע חיוב, אין לשלם שוב ויש לפנות לניהול.",Toast.LENGTH_LONG).show();});}});
+        }catch(Exception e){main.post(()->{
+            if(!isCurrentCustomerOnlineCheck(generation,expectedToken))return;
+            customerOnlineVerifying=false;customerOnlineFailures++;
+            if(customerOnlineFailures==3)Toast.makeText(this,"אין כרגע אישור תשלום מהשרת. אם בוצע חיוב, אין לשלם שוב; הבדיקה תימשך אוטומטית.",Toast.LENGTH_LONG).show();
+            scheduleCustomerOnlineCheck();
+        });}});
     }
 
 '''
