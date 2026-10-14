@@ -30,6 +30,8 @@ Deno.serve(async(req)=>{
   if(ue||used?.length)return reply({error:'receipt_used'},409);
   const {error:fin}=await sb.rpc('finalize_nedarim_online_sale',{p_sale_id:sale.id,p_payment_reference:reference});
   if(fin)return reply({error:'finalize'},503);
+  const last4=String(matches[0]?.LastNum??'').trim();if(/^\d{4}$/.test(last4))await sb.from('sales').update({card_last4:last4}).eq('id',sale.id);
   return reply({status:'paid'});
  }catch{return reply({error:'verification_unavailable'},503);}
 });
+

@@ -16,3 +16,4 @@ export async function readHistory(settings,start=0,fetcher=fetch){
  }
  throw new Error('history_limit');
 }
+
