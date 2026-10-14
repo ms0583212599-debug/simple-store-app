@@ -23,6 +23,9 @@ public final class PaymentSettingsInstrumentation extends Instrumentation {
   if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int i=0;i<g.getChildCount();i++)if(hasInput(g.getChildAt(i),value))return true;}
   return false;
  }
+ private static android.widget.Spinner findSpinner(View v){if(v instanceof android.widget.Spinner)return (android.widget.Spinner)v;if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int i=0;i<g.getChildCount();i++){android.widget.Spinner x=findSpinner(g.getChildAt(i));if(x!=null)return x;}}return null;}
+ private static int countInputs(View v){if(v instanceof EditText)return 1;int n=0;if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int i=0;i<g.getChildCount();i++)n+=countInputs(g.getChildAt(i));}return n;}
+ private static boolean hasText(View v,String text){if(v instanceof android.widget.TextView&&text.contentEquals(((android.widget.TextView)v).getText()))return true;if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int i=0;i<g.getChildCount();i++)if(hasText(g.getChildAt(i),text))return true;}return false;}
  @Override public void onCreate(Bundle args){super.onCreate(args);start();}
  @Override public void onStart(){
   Bundle result=new Bundle();
@@ -102,8 +105,24 @@ public final class PaymentSettingsInstrumentation extends Instrumentation {
    }catch(Throwable t){error[0]=t;}});
    if(error[0]!=null)throw error[0];
    PaymentWebKeyboardTest.run(this,activity,c);
+   runOnMainSync(()->{try{
+    method(c,"showSpecialSaleNative").invoke(activity);
+    android.widget.Spinner pricing=findSpinner(activity.getWindow().getDecorView());
+    check(pricing!=null&&pricing.getCount()==4,"Four special sale pricing modes missing");
+    check("מחיר רגיל".equals(pricing.getItemAtPosition(0).toString()),"Regular pricing is not default");
+    check(button(activity.getWindow().getDecorView(),"+ הוסף מוצר")!=null,"Multi-product sale missing");
+    button(activity.getWindow().getDecorView(),"+ הוסף מוצר").performClick();
+    check(countInputs(activity.getWindow().getDecorView())>=5,"Second sale product row missing");
+    method(c,"buildShell",String.class,Runnable.class,boolean.class).invoke(activity,"בדיקת רכישות",(Runnable)()->{},false);
+    org.json.JSONArray fixture=new org.json.JSONArray().put(new JSONObject().put("id","fixture").put("purchase_date","2026-10-14").put("total_cost",12.5).put("notes","הערה גלויה ללא פתיחת רכישה"));
+    method(c,"renderPurchaseHistory",org.json.JSONArray.class,org.json.JSONArray.class).invoke(activity,fixture,new org.json.JSONArray());
+    check(hasText(activity.getWindow().getDecorView(),"הערות: הערה גלויה ללא פתיחת רכישה"),"Purchase notes hidden when collapsed");
+    android.widget.LinearLayout tableRow=(android.widget.LinearLayout)method(c,"compactAdminRow",String[].class,float[].class,boolean.class,int.class).invoke(activity,new String[]{"14/10/26","18 ₪","1"},new float[]{2,1,1},false,0);
+    check(tableRow.getChildCount()==3,"Compact table columns missing");
+   }catch(Throwable t){error[0]=t;}});
+   if(error[0]!=null)throw error[0];
    runOnMainSync(()->activity.finish());
-   result.putString("keyboard_result","PASS: dedicated web keyboard, native IME block, bounded form,  website account replacement, editor, visibility, cleared group, atomic validation, duplicate guard, offline checkout block, visible direct page, navigation restrictions, customer visibility toggle, exact order URL and return guards");
+   result.putString("keyboard_result","PASS: store admin four pricing modes, multi-product form, visible purchase notes, compact report columns, dedicated web keyboard, native IME block, bounded form,  website account replacement, editor, visibility, cleared group, atomic validation, duplicate guard, offline checkout block, visible direct page, navigation restrictions, customer visibility toggle, exact order URL and return guards");
    finish(Activity.RESULT_OK,result);
   }catch(Throwable t){result.putString("keyboard_result","FAIL: "+t.getClass().getSimpleName()+": "+t.getMessage());finish(Activity.RESULT_CANCELED,result);}
  }
