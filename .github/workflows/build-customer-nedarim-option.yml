@@ -9,6 +9,7 @@ on:
       - fix/payment-overlay-auto-status
       - feat/store-admin-updates
       - feat/store-management-next
+      - feat/financial-summary
     paths:
       - 'android/**'
       - 'sales-report.js'
@@ -16,6 +17,7 @@ on:
       - 'app-part2.js'
       - 'nedarim-sales-reports-web.js'
       - 'tests/**'
+      - 'financial-summary.js'
       - 'styles.css'
       - '.github/scripts/ci_home_sales.py'
       - '.github/workflows/build-customer-nedarim-option.yml'
@@ -180,6 +182,8 @@ jobs:
         run: python3 android/ci_store_admin_updates.py
       - name: Shared store management updates
         run: python3 android/ci_management_updates.py
+      - name: Financial summary
+        run: python3 android/ci_financial_summary.py
       - name: Validate production Android invariants
         run: python3 android/ci_validate_release.py
       - name: Choose Android version
