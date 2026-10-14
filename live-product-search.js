@@ -54,7 +54,7 @@
     d.innerHTML = '<div class="product-imgbox">'+
       (product.image_url ? '<img src="'+escText(product.image_url)+'">' : '<span class="msg">ללא תמונה</span>')+
       '</div><h3>'+escText(product.name)+'</h3>'+
-      '<div class="price">'+moneyText(product.price)+' ₪</div>'+
+      '<div class="price">'+moneyText(product.price)+' ₪</div>'+quantityPromotionHtml(product)+
       '<div class="stock">במלאי: '+Number(product.stock_quantity || 0)+'</div>'+
       '<button class="blue buybtn" '+(Number(product.stock_quantity || 0) <= 0 ? 'disabled' : '')+'>הוסף לסל</button>';
     var btn = d.querySelector('button');
