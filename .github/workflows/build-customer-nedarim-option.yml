@@ -11,6 +11,10 @@ on:
     paths:
       - 'android/**'
       - 'sales-report.js'
+      - 'special-sales.js'
+      - 'app-part2.js'
+      - 'nedarim-sales-reports-web.js'
+      - 'tests/**'
       - 'styles.css'
       - '.github/scripts/ci_home_sales.py'
       - '.github/workflows/build-customer-nedarim-option.yml'
@@ -335,3 +339,22 @@ jobs:
             keyboard-result.txt
             payment-*.png
             payment-diagnostics.txt
+
+  web-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated browser test runner
+        run: |
+          npm install --prefix "$RUNNER_TEMP/admin-ui" --no-save playwright@1.51.1
+          "$RUNNER_TEMP/admin-ui/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Check admin flows with synthetic data
+        run: NODE_PATH="$RUNNER_TEMP/admin-ui/node_modules" node tests/admin-ui.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: store-admin-web-results
+          path: /tmp/admin-*.png
