@@ -8,6 +8,7 @@ on:
       - fix/payment-no-system-ime
       - fix/payment-overlay-auto-status
       - feat/store-admin-updates
+      - feat/store-management-next
     paths:
       - 'android/**'
       - 'sales-report.js'
@@ -177,6 +178,8 @@ jobs:
         run: python3 android/ci_nedarim_tablet_keyboard.py
       - name: Apply store admin updates
         run: python3 android/ci_store_admin_updates.py
+      - name: Shared store management updates
+        run: python3 android/ci_management_updates.py
       - name: Validate production Android invariants
         run: python3 android/ci_validate_release.py
       - name: Choose Android version
