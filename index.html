@@ -32,9 +32,9 @@ async function vendpayLoad(){
   const data=await vendpayRequest('GET'),root=document.getElementById('vendpayCustomers');root.replaceChildren();
   if(!data.tenants?.length){root.textContent='עדיין לא נוספו לקוחות';vendpayMessage('');return;}
   const table=document.createElement('table'),head=document.createElement('tr');
-  ['שם לקוח','שלוחה','מצב'].forEach(t=>{const th=document.createElement('th');th.textContent=t;head.append(th);});table.append(head);
-  data.tenants.forEach(t=>{const tr=document.createElement('tr');tr.dataset.vpSearch=(String(t.display_name)+' '+String(t.extension)).toLocaleLowerCase('he');[t.display_name,t.extension,t.is_active?'פעיל':'לא פעיל'].forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.append(td);});table.append(tr);});
-  root.append(table);vendpayFilterRows();vendpayMessage('');
+  ['שם לקוח','שלוחה','מצב','פעולות'].forEach(t=>{const th=document.createElement('th');th.textContent=t;head.append(th);});table.append(head);
+  data.tenants.forEach(t=>{const tr=document.createElement('tr');tr.dataset.vpSearch=(String(t.display_name)+' '+String(t.extension)).toLocaleLowerCase('he');[t.display_name,t.extension,t.is_active?'פעיל':'לא פעיל'].forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.append(td);});const td=document.createElement('td'),copy=document.createElement('button');copy.className='light';copy.type='button';copy.textContent='העתק שלוחה';copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(String(t.extension));vendpayMessage('מספר השלוחה הועתק');}catch{vendpayMessage('לא ניתן להעתיק אוטומטית');}});td.append(copy);tr.append(td);table.append(tr);});
+  root.append(table);vendpayFilterRows();vendpayMessage('נמצאו '+data.tenants.length+' לקוחות');
  }catch(e){vendpayMessage(e.message||'טעינה נכשלה');throw e;}
 }
 async function vendpayCreate(){
