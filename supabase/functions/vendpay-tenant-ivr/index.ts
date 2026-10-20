@@ -1,3 +1,4 @@
+import {withAudit} from './audit.ts';
 import {createClient} from 'npm:@supabase/supabase-js@2.118.0';
 const BASE='https://vendpay24.com/VendPayDeltaHeb';
 const env=(k:string)=>Deno.env.get(k)||'';
@@ -44,4 +45,4 @@ export async function handler(req:Request){
  return reply(ok?'פקודת הפתיחה נשלחה':'תוצאת הבקשה לא ודאית בדקו את הדלת');
  }catch{return reply('לא ניתן להשלים כעת את הפעולה');}
 }
-Deno.serve(handler);
+Deno.serve(withAudit(handler,'vendpay-tenant-ivr'));

@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';import {stripTypeScriptTypes} from 'node:module';
+let stored,fail=false,called=0;
+const ctx={crypto,TextEncoder,Uint8Array,Request,Response,URL,URLSearchParams,AbortSignal,console,Deno:{env:{get:()=> 'fixture'}},fetch:async(url,opt)=>{stored=JSON.parse(opt.body);if(fail)throw Error('offline');return new Response('',{status:201})}};
+vm.runInNewContext(stripTypeScriptTypes(fs.readFileSync('supabase/functions/vendpay-operation-audit/audit.ts','utf8').replace('export function','function')),ctx);
+const run=ctx.withAudit(async()=>{called++;return new Response('id_list_message=t-פרטי משתמש סודיים',{headers:{'X-Edit-Result':'confirmed'}})},'vendpay-admin-edit');
+const req=()=>new Request('https://example.invalid',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({admin_key:'never-store-secret',ApiPhone:'0501234567',ApiCallId:'call-secret',ApiDID:'did-secret',fname:'never-store-name'})});
+let r=await run(req());assert.equal(r.status,200);assert.equal(called,1);assert.equal(stored.action,'edit');assert.equal(stored.result,'confirmed');const serialized=JSON.stringify(stored);for(const s of ['never-store','0501234567','call-secret','did-secret','פרטי'])assert.ok(!serialized.includes(s));assert.equal(stored.call_hash.length,64);
+fail=true;r=await run(req());assert.equal(r.status,200);assert.equal(called,2);
+const door=ctx.withAudit(async()=>new Response('id_list_message=t-פקודת הפתיחה נשלחה'),'vendpay-tenant-ivr');fail=false;await door(new Request('https://example.invalid?action=open'));assert.equal(stored.result,'command_sent');
+console.log('PASS: metadata-only audit, no secrets/PII/bodies, response unchanged, audit failure never replays action, door sent is not physical confirmation');

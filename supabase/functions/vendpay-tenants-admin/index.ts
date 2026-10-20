@@ -342,6 +342,25 @@ Deno.serve(async (req: Request) => {
     return reply({extension:t.extension,health_config:common+"check",open_config:common+"open",create_config:members+"create",edit_config:members+"edit"});
   }
 
+  if(req.method === "GET" && action === "operation_log") {
+    const params=new URL(req.url).searchParams;
+    const tenant=params.get("tenant_id"),kind=params.get("kind"),since=params.get("since"),until=params.get("until");
+    if(tenant&&!/^[0-9a-f-]{36}$/i.test(tenant))return reply({error:"Invalid customer"},400);
+    for(const date of [since,until])if(date&&(!/^\d{4}-\d{2}-\d{2}T/.test(date)||!Number.isFinite(Date.parse(date))))return reply({error:"Invalid date"},400);
+    if(kind&&!['open','create','edit','check','health','request'].includes(kind))return reply({error:"Invalid action"},400);
+    let q=admin.from("vendpay_operation_log").select("id,created_at,tenant_id,source,action,result,http_status,duration_ms,call_hash").order("created_at",{ascending:false}).order("id",{ascending:false}).limit(200);
+    let a=admin.from("vendpay_tenant_audit").select("id,created_at,tenant_id,action,result").order("created_at",{ascending:false}).limit(200);
+    if(tenant){q=q.eq("tenant_id",tenant);a=a.eq("tenant_id",tenant);}
+    if(kind)q=q.eq("action",kind);
+    if(since){q=q.gte("created_at",since);a=a.gte("created_at",since);}
+    if(until){q=q.lte("created_at",until);a=a.lte("created_at",until);}
+    const [logs,settings]=await Promise.all([q,kind?Promise.resolve({data:[],error:null}):a]);
+    if(logs.error||settings.error)return reply({error:"Unable to load operation log"},500);
+    headers["Cache-Control"]="no-store";
+    const events=[...(logs.data||[]),...(settings.data||[]).map((x:any)=>({...x,source:"management",http_status:null,duration_ms:null,call_hash:null}))].sort((a:any,b:any)=>b.created_at.localeCompare(a.created_at)).slice(0,200);
+    return reply({events,limit:200});
+  }
+
   if (req.method === "GET") {
     const { data, error } = await admin
       .from("vendpay_tenants")

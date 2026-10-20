@@ -26,3 +26,11 @@ Deployed `vendpay-tenant-members` v1 and owner API v17. New owner-only configura
 - Owner copies each configuration into a separate Yemot administrator extension protected by its entry code. The extension field in the site is a label, not automatic provisioning in Yemot.
 - Validation: existing auth/routing tests and new member-flow mock integration test passed; real AES/HMAC, simultaneous tenant isolation with equal card/call/user IDs, group validation, explicit final consent, replay protection, unchanged balance and automatic expiry covered. Live endpoint rejects a wrong key with HTTP 401. Deployed sources are checked against the release.
 - No real subscriber was created/changed during automated testing. Real phone onboarding/editing of the new tenant route still needs the owner's call; do not claim that physical end-to-end test completed.
+
+## Operation journal — 2026-10-20
+
+- `vendpay_operation_log` stores allowlisted metadata only: time, tenant (if known), source, action, result, HTTP status, duration, one-way call correlation hash. No bodies, passwords, keys, phone numbers or member names.
+- Audit wrapper attached to original door/create/edit and tenant door/member endpoints. Runtime background task avoids delaying IVR; 2-second timeout and failure isolation prevent retries or changed action outcomes.
+- Owner-authorized `operation_log` API merges the operation journal with existing management audit, supports tenant/action/ISO date filters, returns latest 200 matches, no-store. Website provides an Israel-time journal view and clears it on logout.
+- Door success means command sent only. Prompt entries represent individual IVR steps, not completed mutations.
+- Live read-only door health request persisted as `health`, HTTP 200. No door opened and no member modified by this verification. Earlier calls are not backfilled as new events.

@@ -10,6 +10,7 @@ for(const id of ids){const key=await crypto.subtle.importKey('raw',await crypto.
 const client={from(table){let id;return {select(){return this},eq(k,v){id=v;return this},async maybeSingle(){return {data:table==='vendpay_tenants'?{id,is_active:active}:credentials.get(id)}}}}};
 const fakeFetch=async(url,options={})=>{
  const u=new URL(url),method=options.method||'GET';
+ if(u.pathname.endsWith('/vendpay_operation_log'))return new Response(null,{status:201});
  if(u.pathname.includes('/rest/v1/')){
   const tenant=u.searchParams.get('tenant_id')?.slice(3);assert.ok(ids.includes(tenant),'every database access scoped to tenant');
   const table=u.pathname.split('/').at(-1);const key=table+'|'+tenant;let rows=records.get(key)||[];

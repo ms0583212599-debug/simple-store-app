@@ -1,3 +1,4 @@
+import {withAudit} from './audit.ts';
 import {createClient} from 'npm:@supabase/supabase-js@2.118.0';
 import {makeHandler as createHandler} from './create.ts';
 import {makeHandler as editHandler} from './edit-handler.ts';
@@ -43,4 +44,4 @@ export async function handler(req:Request){
  return await (action==='create'?createHandler(context):editHandler(context))(delegated);
  }catch{return reply('לא ניתן להשלים כעת את הפעולה אם אישרתם שמירה בדקו באתר לפני ניסיון נוסף');}
 }
-Deno.serve(handler);
+Deno.serve(withAudit(handler,'vendpay-tenant-members'));
