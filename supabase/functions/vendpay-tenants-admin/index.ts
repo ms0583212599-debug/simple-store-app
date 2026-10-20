@@ -242,6 +242,8 @@ Deno.serve(async (req: Request) => {
           (safeCategory !== "unknown" ? "_" + safeCategory : "");
       }
     } catch {
+      connected = false;
+      terminals = [];
       reason = "network_error";
     }
 
