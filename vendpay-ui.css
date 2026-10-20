@@ -1,0 +1,111 @@
+/* VendPay-only presentation. All selectors stay inside its dialog. */
+#vendpayPanel {
+  --vp-ink: #243c43;
+  --vp-muted: #61757b;
+  --vp-line: #dce7e7;
+  --vp-accent: #236a67;
+  background: rgba(26, 45, 50, .35);
+  backdrop-filter: blur(5px);
+  padding: 24px;
+  color: var(--vp-ink);
+  font-family: Arial, sans-serif;
+  line-height: 1.65;
+}
+#vendpayPanel *, #vendpayPanel *::before, #vendpayPanel *::after { box-sizing: border-box; }
+#vendpayPanel > .modal-card {
+  width: min(1180px, 96vw) !important;
+  max-width: 1180px !important;
+  max-height: 92dvh !important;
+  padding: 0 30px 22px;
+  background: #f6f9f8;
+  border: 1px solid #e1e9e8;
+  border-radius: 24px;
+  box-shadow: 0 24px 80px rgba(23, 45, 50, .16);
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #c0d2d1 transparent;
+}
+#vendpayPanel > .modal-card > .bar {
+  margin: 0 -30px 24px;
+  padding: 25px 30px;
+  border-bottom: 1px solid var(--vp-line);
+  background: #fff;
+  gap: 20px;
+  align-items: center;
+}
+#vendpayPanel .vp-eyebrow { color: var(--vp-accent); font-size: 12px; font-weight: 700; }
+#vendpayPanel h2 { font-size: 28px; font-weight: 700; letter-spacing: -.6px; margin: 2px 0; color: var(--vp-ink); }
+#vendpayPanel .vp-heading p { margin: 4px 0 0; color: var(--vp-muted); font-size: 14px; }
+#vendpayPanel h3 { color: var(--vp-ink); font-size: 18px; margin: 0 0 14px; font-weight: 700; }
+#vendpayPanel .card { background: #fff; border: 1px solid var(--vp-line); border-radius: 18px; box-shadow: none; padding: 24px; margin-bottom: 20px; }
+#vendpayPanel #vendpayWorkspace { padding: 0; background: transparent; border: 0; }
+#vendpayPanel .vp-workspace-toolbar { flex-wrap: wrap; gap: 14px; margin-bottom: 22px; }
+#vendpayPanel .vp-workspace-toolbar h3 { margin: 0; }
+#vendpayPanel .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+#vendpayPanel button {
+  min-height: 44px; padding: 10px 17px; border-radius: 10px;
+  border: 1px solid transparent; box-shadow: none;
+  font: inherit; font-size: 14px; font-weight: 600; line-height: 1.4;
+  cursor: pointer; transition: background .16s, border-color .16s;
+  white-space: normal;
+}
+#vendpayPanel button.blue, #vendpayPanel button.green { background: var(--vp-accent); color: #fff; }
+#vendpayPanel button.blue:hover, #vendpayPanel button.green:hover { background: #1a5553; }
+#vendpayPanel button.light { background: #fff; border-color: #d5e2e1; color: #38575d; }
+#vendpayPanel button.light:hover { background: #edf4f3; border-color: #a9c5c2; }
+#vendpayPanel button.red { color: #9a454b; background: #fcf1f1; border-color: #efdada; }
+#vendpayPanel button.red:hover { background: #f8e6e7; }
+#vendpayPanel button:disabled { opacity: .5; cursor: wait; }
+#vendpayPanel :is(input:not([type=hidden]), select, textarea) {
+  display: block; width: 100%; max-width: 100%; min-height: 46px;
+  border: 1px solid #cfdddd; border-radius: 10px; background: #fff;
+  color: var(--vp-ink); padding: 11px 13px; margin: 6px 0 16px;
+  font: inherit; font-size: 16px; box-shadow: none;
+}
+#vendpayPanel input::placeholder, #vendpayPanel textarea::placeholder { color: #7a8c90; }
+#vendpayPanel label { display: block; color: #425d63; font-size: 13px; font-weight: 600; margin-top: 12px; }
+#vendpayPanel :is(button, input, select, textarea, summary):focus-visible { outline: 3px solid #8fc4be; outline-offset: 3px; }
+#vendpayPanel textarea { resize: vertical; line-height: 1.75; }
+#vendpayPanel .msg { color: var(--vp-muted); font-size: 14px; line-height: 1.8; overflow-wrap: anywhere; }
+#vendpayPanel #vendpayLogin { max-width: 470px; margin: 34px auto; padding: 32px; }
+#vendpayPanel #vendpayLogin button { width: 100%; margin-top: 8px; }
+#vendpayPanel .vp-customer-section { display: grid; grid-template-columns: minmax(240px, .8fr) minmax(0, 1.5fr); gap: 20px; margin: 20px 0; align-items: start; }
+#vendpayPanel :is(.vp-new-customer, .vp-customer-list) { min-width: 0; padding: 24px; background: #fff; border: 1px solid var(--vp-line); border-radius: 18px; }
+#vendpayPanel .vp-new-customer > button { width: 100%; }
+#vendpayPanel :is(#vendpayCustomers, #vpLogRows) { border-radius: 12px; scrollbar-width: thin; }
+#vendpayPanel table { width: 100%; border-collapse: collapse; font-size: 14px; background: #fff; }
+#vendpayPanel th { background: #edf4f3; color: #4c696d; font-size: 12px; font-weight: 700; white-space: nowrap; }
+#vendpayPanel :is(th, td) { text-align: right; padding: 14px 12px; border: 0; border-bottom: 1px solid #e6eeed; vertical-align: middle; }
+#vendpayPanel td { color: var(--vp-ink); }
+#vendpayPanel tr:hover td { background: #f8fbfa; }
+#vendpayPanel td button { margin: 3px; min-width: 92px; }
+#vendpayPanel :is(#vpVoicePanel, #vpLogPanel) { border-top: 3px solid #a6ccc6; }
+#vendpayPanel #vpVoiceRows { display: grid; gap: 12px; margin-top: 20px; }
+#vendpayPanel #vpVoiceRows .card { margin: 0; padding: 18px 20px; border-radius: 12px; }
+#vendpayPanel details > summary { cursor: pointer; color: #355b61; font-size: 15px; font-weight: 600; padding: 4px 0; overflow-wrap: anywhere; }
+#vendpayPanel details[open] > summary { margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--vp-line); }
+#vendpayPanel #vpCredentialsEditor { padding: 16px 20px; background: #f6f9f8; border: 1px solid var(--vp-line); border-radius: 12px; margin: 18px 0; }
+#vendpayPanel .vp-activation { background: #f7faf9; margin-top: 24px; margin-bottom: 0; }
+#vendpayPanel .vp-activation > button { margin: 4px 0 4px 6px; }
+#vendpayPanel #vpConfigPanel { border-top: 1px solid var(--vp-line); margin-top: 22px; padding-top: 16px; }
+#vendpayPanel #vpConfigPanel textarea { background: #eef4f3; color: #334e54; font-family: monospace; font-size: 13px; text-align: left; }
+#vendpayPanel :is(#vendpayMessage, #vpSavedConnection, #vpVoiceStatus):not(:empty) { padding: 12px 16px; border-radius: 10px; background: #eaf3f1; border: 1px solid #d6e7e3; color: #345e58; font-size: 14px; }
+#vendpayPanel #vendpayMessage:empty { display: none; }
+@media (max-width: 900px) {
+  #vendpayPanel .vp-customer-section { grid-template-columns: 1fr; }
+  #vendpayPanel .vp-workspace-toolbar .actions { width: 100%; }
+}
+@media (max-width: 600px) {
+  #vendpayPanel { padding: 8px; }
+  #vendpayPanel > .modal-card { width: 100% !important; max-height: 96dvh !important; border-radius: 16px; padding: 0 14px 14px; }
+  #vendpayPanel > .modal-card > .bar { margin: 0 -14px 18px; padding: 20px 16px; flex-direction: column; align-items: stretch; gap: 14px; }
+  #vendpayPanel h2 { font-size: 24px; }
+  #vendpayPanel :is(.card, .vp-new-customer, .vp-customer-list) { padding: 18px; }
+  #vendpayPanel #vendpayLogin { padding: 22px; margin: 16px auto; }
+  #vendpayPanel .actions > button { flex: 1 1 130px; }
+  #vendpayPanel #vpVoiceRows .card { padding: 14px; }
+  #vendpayPanel .vp-activation > button { width: 100%; margin: 5px 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #vendpayPanel button { transition: none; }
+}
