@@ -1,3 +1,5 @@
+import {catalog} from './voice-catalog.ts';
+import {validateText} from './voice.ts';
 
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 
@@ -313,6 +315,26 @@ Deno.serve(async (req: Request) => {
     if(statusError)return reply({error:"Credentials saved but status update failed"},500);
     await admin.from("vendpay_tenant_audit").insert({tenant_id:tenantId,action:"save_credentials",result:"pending"});
     return reply({saved:true,status:"pending"});
+  }
+
+
+  const voiceAction = new URL(req.url).searchParams.get("action");
+  if(req.method === "GET" && voiceAction === "voice_messages") {
+    const {data,error}=await admin.from("vendpay_voice_overrides").select("message_id,text,updated_at");
+    if(error)return reply({error:"Unable to load voice messages"},500);
+    const saved=new Map((data||[]).map((r:any)=>[r.message_id,r]));
+    headers["Cache-Control"]="no-store";
+    return reply({messages:catalog.map(e=>({...e,override:saved.get(e.id)||null})),scope:"all_customers"});
+  }
+  if(req.method === "POST" && voiceAction === "voice_save") {
+    let input:any;try{input=await req.json();}catch{return reply({error:"Invalid JSON"},400);}
+    const ids=input?.ids;if(!Array.isArray(ids)||!ids.length||ids.length>100||new Set(ids).size!==ids.length)return reply({error:"Invalid messages"},400);
+    const selected=ids.map(id=>catalog.find(e=>e.id===id));if(selected.some(e=>!e))return reply({error:"Unknown message"},400);
+    if(input.reset!==true&&selected.some(e=>!validateText(e,input.text)))return reply({error:"יש לשמור את כל המשתנים פעם אחת ולהימנע מנקודה סימני שווה אמפרסנד וסוגריים זוויתיים"},400);
+    const result=input.reset===true?await admin.from("vendpay_voice_overrides").delete().in("message_id",ids):await admin.from("vendpay_voice_overrides").upsert(selected.map(e=>({message_id:e!.id,source:e!.source,text:input.text,updated_at:new Date().toISOString()})),{onConflict:"message_id"});
+    if(result.error)return reply({error:"Unable to save message"},500);
+    await admin.from("vendpay_operation_log").insert({tenant_id:null,source:"vendpay-tenants-admin",action:"voice_messages",result:input.reset===true?"reset":"saved",http_status:200,duration_ms:0});
+    headers["Cache-Control"]="no-store";return reply({saved:true});
   }
 
   const action = new URL(req.url).searchParams.get("action");

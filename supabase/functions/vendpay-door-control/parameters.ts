@@ -29,3 +29,4 @@ export function uniqueValue(params: URLSearchParams, key: string): string | null
   const values = params.getAll(key);
   return values.length === 1 ? values[0] : null;
 }
+

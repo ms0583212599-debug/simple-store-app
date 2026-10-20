@@ -1,5 +1,5 @@
 import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';import {stripTypeScriptTypes} from 'node:module';
-const ctx={URLSearchParams};vm.runInNewContext(stripTypeScriptTypes(fs.readFileSync('supabase/functions/vendpay-tenant-members/summary.ts','utf8').replaceAll('export ','')),ctx);
+const ctx={URLSearchParams,voice:(_id,p)=>p.join('')};vm.runInNewContext(stripTypeScriptTypes(fs.readFileSync('supabase/functions/vendpay-tenant-members/summary.ts','utf8').replace(/import \{voice\} from [^;]+;/g,'').replaceAll('export ','')),ctx);
 const groups=[{id:12,title:'מנוי רגיל'},{id:25,title:'מנוי מורחב'},{id:33,title:'אחראי'},{id:44,title:'מנוי רגיל הוראת קבע'}];
 const users=[
  {id:1,is_active:1,date_start:'2026-01-01',date_end:'2026-10-21',restrict_id:12},

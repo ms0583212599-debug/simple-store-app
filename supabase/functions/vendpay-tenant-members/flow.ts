@@ -1,3 +1,4 @@
+import {voice} from './voice.ts';
 // Pure IVR building blocks. No HTTP calls, writes, or deployment.
 // Source: https://f2.freeivr.co.il/topic/56
 function read(text: string, options: string[]) {
@@ -18,25 +19,25 @@ export function cleanName(value: string) {
 export function collectNames(p: URLSearchParams): {reply: string}|{fname:string,lname:string} {
   for(let attempt=0;attempt<3;attempt++) {
     const names: string[]=[];
-    for(const [field,label] of [['fname','השם הפרטי'],['lname','שם המשפחה']]) {
+    for(const [field,label] of [['fname',voice('v_c69ff5e11dfe44f4c58f',["השם הפרטי"])],['lname',voice('v_d59a66e6d70020a444f7',["שם המשפחה"])]]) {
       const key=`admin_${attempt}_${field}`;
       const spoken=one(p,key);
-      if(!spoken) return {reply:read(`אמרו את ${label} בקול ברור או הקישו אחת להזנת אותיות`,[key,'','voice','he-IL','','1'])};
+      if(!spoken) return {reply:read(voice('v_c96935a3048e42b3eaf1',["אמרו את ",String(label)," בקול ברור או הקישו אחת להזנת אותיות"]),[key,'','voice','he-IL','','1'])};
       let value=spoken;
       if(spoken.startsWith('Digits-')) {
         const typed=one(p,key+'_typed');
-        if(!typed) return {reply:read(`הקלידו את ${label}`,[key+'_typed','','60','1','30','HebrewKeyboard'])};
+        if(!typed) return {reply:read(voice('v_5d1ba81cb5be82601b72',["הקלידו את ",String(label),""]),[key+'_typed','','60','1','30','HebrewKeyboard'])};
         value=typed;
       }
       names.push(cleanName(value));
     }
     const confirmKey=`admin_${attempt}_names_ok`;
     const confirmed=one(p,confirmKey);
-    if(!confirmed) return {reply:read(`השם שנקלט הוא ${names.join(' ')} לאישור הקישו אחת לתיקון הקישו שתיים`,[confirmKey,'','1','1','10','NO','','','','12','','','','','no'])};
+    if(!confirmed) return {reply:read(voice('v_b955e4fb65bfd76c7346',["השם שנקלט הוא ",String(names.join(' '))," לאישור הקישו אחת לתיקון הקישו שתיים"]),[confirmKey,'','1','1','10','NO','','','','12','','','','','no'])};
     if(confirmed==='1') return {fname:names[0],lname:names[1]};
     if(confirmed!=='2') throw new Error('invalid_confirmation');
   }
-  return {reply:'id_list_message=t-לא אושר שם המשתמש אנא נסו שוב בשיחה חדשה'};
+  return {reply:"id_list_message=t-"+voice('v_c50dcad8eedce2f129ff',["לא אושר שם המשתמש אנא נסו שוב בשיחה חדשה"])};
 }
 export function shekelsToAgorot(value: string): number {
   // Yemot Price input translates asterisk into decimal point.
@@ -50,6 +51,7 @@ export function validDate(value:string) {
   if(!Number.isFinite(date.getTime()) || date.toISOString().slice(0,10)!==value) throw new Error('invalid_date');
   return value;
 }
+
 
 
 

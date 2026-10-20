@@ -1,3 +1,4 @@
+import {AsyncLocalStorage} from 'node:async_hooks';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -10,6 +11,7 @@ for(const id of ids){const key=await crypto.subtle.importKey('raw',await crypto.
 const client={from(table){let id;return {select(){return this},eq(k,v){id=v;return this},async maybeSingle(){return {data:table==='vendpay_tenants'?{id,is_active:active}:credentials.get(id)}}}}};
 const fakeFetch=async(url,options={})=>{
  const u=new URL(url),method=options.method||'GET';
+ if(u.pathname.endsWith('/vendpay_voice_overrides'))return Response.json([{message_id:'v_0b572e50673ee2ff6c07',text:'בחשבון יש {ערך_1} לקוחות'}]);
  if(u.pathname.endsWith('/vendpay_operation_log'))return new Response(null,{status:201});
  if(u.pathname.includes('/rest/v1/')){
   const tenant=u.searchParams.get('tenant_id')?.slice(3);assert.ok(ids.includes(tenant),'every database access scoped to tenant');
@@ -34,9 +36,9 @@ const fakeFetch=async(url,options={})=>{
  else{assert.equal(method,'PUT');assert.equal(p.cash_delta,2000);assert.equal(p.cash_do_mode,2);const row=users.get(tenant).find(x=>x.id===p.id);Object.assign(row,p,{card_value:p.cash_delta});}
  return Response.json({ok:true});
 };
-const context=vm.createContext({crypto,TextEncoder,TextDecoder,Uint8Array,Response,Request,URL,URLSearchParams,AbortSignal,atob,btoa,console,fetch:fakeFetch,Deno:{env:{get:k=>k==='VENDPAY_TENANT_ENCRYPTION_KEY'?secret:k==='SUPABASE_URL'?'https://fixture.invalid':'test'},serve:()=>{}}});
-const cache=new Map();async function module(name){if(cache.has(name))return cache.get(name);let m;if(name.startsWith('npm:')){m=new vm.SyntheticModule(['createClient'],function(){this.setExport('createClient',()=>client)},{context});}else{m=new vm.SourceTextModule(stripTypeScriptTypes(fs.readFileSync(root+name,'utf8')),{context,identifier:name});}cache.set(name,m);await m.link(s=>module(s.replace('./','')));return m;}
-const main=await module('index.ts');await main.evaluate();const {handler,managementKey,groupList}=main.namespace;
+const context=vm.createContext({crypto,TextEncoder,TextDecoder,Uint8Array,Response,Request,Headers,URL,URLSearchParams,AbortSignal,atob,btoa,console,fetch:fakeFetch,Deno:{env:{get:k=>k==='VENDPAY_TENANT_ENCRYPTION_KEY'?secret:k==='SUPABASE_URL'?'https://fixture.invalid':'test'},serve:()=>{}}});
+const cache=new Map();async function module(name){if(cache.has(name))return cache.get(name);let m;if(name==='node:async_hooks'){m=new vm.SyntheticModule(['AsyncLocalStorage'],function(){this.setExport('AsyncLocalStorage',AsyncLocalStorage)},{context});}else if(name.startsWith('npm:')){m=new vm.SyntheticModule(['createClient'],function(){this.setExport('createClient',()=>client)},{context});}else{m=new vm.SourceTextModule(stripTypeScriptTypes(fs.readFileSync(root+name,'utf8')),{context,identifier:name});}cache.set(name,m);return m;}
+const main=await module('index.ts');await main.link(s=>module(s.replace('./','')));await main.evaluate();const {handler,managementKey,groupList}=main.namespace;
 const keys=new Map();for(const id of ids)keys.set(id,await managementKey(id));
 const req=(id,action,extra={})=>new Request('https://fixture.invalid',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({tenant_id:id,tenant_key:keys.get(id),action,ApiCallId:'same-call',ApiDID:'test',...extra})});
 assert.equal((await handler(req(ids[0],'create',{tenant_key:keys.get(ids[1])}))).status,401);assert.equal(authCalls,0);
@@ -63,3 +65,5 @@ const writesBeforeSummary=writes;
 r=await handler(req(ids[0],'summary'));assert.match(await r.text(),/summary_0/);
 r=await handler(req(ids[0],'summary',{summary_0:'1'}));assert.match(await r.text(),/מספר הלקוחות הכולל 1/);assert.equal(writes,writesBeforeSummary);
 console.log('PASS tenant summary authenticated read only, no writes');
+
+const wrapped=cache.get('voice.ts').namespace.withVoice(handler,'vendpay-tenant-members');r=await wrapped(req(ids[0],'summary',{summary_0:'1'}));assert.match(await r.text(),/בחשבון יש 1 לקוחות/);assert.equal(writes,writesBeforeSummary);console.log('PASS authenticated summary uses saved voice override without data writes');

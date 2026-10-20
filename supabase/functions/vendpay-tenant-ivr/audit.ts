@@ -29,3 +29,4 @@ export function withAudit(handler:(req:Request)=>Promise<Response>,source:string
  const pending=record();const runtime=(globalThis as any).EdgeRuntime;if(runtime?.waitUntil)runtime.waitUntil(pending);else await pending;
  return response;
 };}
+

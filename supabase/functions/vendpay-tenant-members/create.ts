@@ -1,3 +1,4 @@
+import {voice} from './voice.ts';
 import {wizard,value,InputError} from './wizard.ts';
 import type {MemberContext} from './context.ts';
 export function makeHandler(ctx:MemberContext){
@@ -41,23 +42,23 @@ async function handler(req:Request):Promise<Response> {
  const raw=await req.text();if(raw.length>16384)return reply('Request too large','size',413);
  p=new URLSearchParams(raw);
  
- if(p.getAll('hangup').includes('yes'))return say('השיחה הסתיימה','hangup');
- if(value(p,'action')==='health')return say('חיבור שלוחת הניהול תקין','health');
+ if(p.getAll('hangup').includes('yes'))return say(voice('v_7b3558b00ca73c655fb6',["השיחה הסתיימה"]),'hangup');
+ if(value(p,'action')==='health')return say(voice('v_f21605f7e3bbeff495d7',["חיבור שלוחת הניהול תקין"]),'health');
  const call=value(p,'ApiCallId'),did=value(p,'ApiDID');
- if(!call||!did||call.length>200||did.length>30)return say('חסרים פרטי שיחה','missing_call');
+ if(!call||!did||call.length>200||did.length>30)return say(voice('v_890027d6442d3ce9057c',["חסרים פרטי שיחה"]),'missing_call');
  const result=wizard(p,new Date(),ctx.groups);
  if('reply' in result){
   // No write before explicit final confirmation.
   return reply(result.reply,'prompt');
  }
- if(result.cancelled)return say('ההוספה בוטלה לא נשמר משתמש','cancelled');
- if(!ctx.active)return say('הפרטים נקלטו אך השמירה עדיין לא הופעלה','disabled');
+ if(result.cancelled)return say(voice('v_4ce8cfc9b5a27787fc15',["ההוספה בוטלה לא נשמר משתמש"]),'cancelled');
+ if(!ctx.active)return say(voice('v_0ae0262b0910bd8cf73d',["הפרטים נקלטו אך השמירה עדיין לא הופעלה"]),'disabled');
  const payload=result.payload;
  const callHash=await digest(ctx.tenant+'|'+did+'|'+call),cardHash=await digest(String(payload.card_number)),payloadHash=await digest(JSON.stringify(payload));
  let previous=(await rows(await db('GET','?call_hash=eq.'+callHash+'&select=*')))[0];
- if(previous&&previous.payload_hash!==payloadHash)return say('כבר התקבלה פעולה אחרת בשיחה זו התחילו שיחה חדשה','changed_payload');
- if(previous?.status==='confirmed')return say('המשתמש נוסף בהצלחה','confirmed');
- if(previous&&['existing','rejected'].includes(previous.status))return say('השמירה לא בוצעה יש לבדוק את מספר הכרטיס באתר','rejected');
+ if(previous&&previous.payload_hash!==payloadHash)return say(voice('v_470363102a207415bcc6',["כבר התקבלה פעולה אחרת בשיחה זו התחילו שיחה חדשה"]),'changed_payload');
+ if(previous?.status==='confirmed')return say(voice('v_49b373f077f49dac2cd5',["המשתמש נוסף בהצלחה"]),'confirmed');
+ if(previous&&['existing','rejected'].includes(previous.status))return say(voice('v_b827f5c28694a196fe84',["השמירה לא בוצעה יש לבדוק את מספר הכרטיס באתר"]),'rejected');
  const checked=await authenticatedCheck();
  const checkBody=await checked.response.text();
  if(!checked.response.ok||/^\s*</.test(checkBody))throw new Error('auth_check_failed');
@@ -65,34 +66,35 @@ async function handler(req:Request):Promise<Response> {
  let users=await list(token);
  const cardUsers=users.filter(u=>String(u.card_number)===String(payload.card_number));
  if(previous){
-  if(cardUsers.length===1&&matches(cardUsers[0],payload)){await mark(callHash,'confirmed');return say('המשתמש נוסף בהצלחה','confirmed');}
-  return say('תוצאת ניסיון השמירה הקודם עדיין לא ודאית בדקו באתר לפני ניסיון נוסף','uncertain');
+  if(cardUsers.length===1&&matches(cardUsers[0],payload)){await mark(callHash,'confirmed');return say(voice('v_49b373f077f49dac2cd5',["המשתמש נוסף בהצלחה"]),'confirmed');}
+  return say(voice('v_62e4ff3004ff91d25b20',["תוצאת ניסיון השמירה הקודם עדיין לא ודאית בדקו באתר לפני ניסיון נוסף"]),'uncertain');
  }
- if(cardUsers.length)return say('מספר הכרטיס כבר קיים לא נוסף משתמש','card_exists');
+ if(cardUsers.length)return say(voice('v_5694a013be9337affb01',["מספר הכרטיס כבר קיים לא נוסף משתמש"]),'card_exists');
  const since=new Date(Date.now()-60000).toISOString();
- if((await rows(await db('GET','?select=call_hash&created_at=gte.'+encodeURIComponent(since)+'&limit=6'))).length>=5)return say('בוצעו מספר פעולות בזמן קצר נסו שוב בעוד דקה','rate_limited');
+ if((await rows(await db('GET','?select=call_hash&created_at=gte.'+encodeURIComponent(since)+'&limit=6'))).length>=5)return say(voice('v_9e625eac8b6dcb29e1c2',["בוצעו מספר פעולות בזמן קצר נסו שוב בעוד דקה"]),'rate_limited');
  const claim=await db('POST','',{call_hash:callHash,card_hash:cardHash,payload_hash:payloadHash,status:'reserved'});
- if(claim.status===409)return say('הפעולה כבר בטיפול או שמספר הכרטיס כבר נשלח לבדיקה בדקו באתר','duplicate');
+ if(claim.status===409)return say(voice('v_05fe30c7591ecdc7952d',["הפעולה כבר בטיפול או שמספר הכרטיס כבר נשלח לבדיקה בדקו באתר"]),'duplicate');
  await rows(claim);
  // Persist BEFORE sending. Never retry the POST, including after timeout or 401.
  await mark(callHash,'sent');
  let response:Response;
- try {response=await fetch(USER_URL,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(payload),redirect:'manual',signal:AbortSignal.timeout(8000)});}catch{await mark(callHash,'uncertain');return say('לא ניתן לאמת כרגע את השמירה בדקו באתר לפני ניסיון נוסף','uncertain');}
+ try {response=await fetch(USER_URL,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(payload),redirect:'manual',signal:AbortSignal.timeout(8000)});}catch{await mark(callHash,'uncertain');return say(voice('v_c24435c511a03e063e98',["לא ניתן לאמת כרגע את השמירה בדקו באתר לפני ניסיון נוסף"]),'uncertain');}
  const body=await response.text();let data:any;try{data=body?JSON.parse(body):null;}catch{}
  if(!response.ok||data?.success===false||data?.ok===false||data?.error||data?.status==='error'||/^\s*</.test(body)){
- await mark(callHash,'uncertain');return say('לא התקבל אישור תקין לשמירה בדקו באתר לפני ניסיון נוסף','upstream_error');
+ await mark(callHash,'uncertain');return say(voice('v_0c09695ebde3250cb4b6',["לא התקבל אישור תקין לשמירה בדקו באתר לפני ניסיון נוסף"]),'upstream_error');
  }
- try{users=await list(token);}catch{await mark(callHash,'uncertain');return say('בקשת השמירה נשלחה אך לא ניתן לאמת שנשמרה בדקו באתר','uncertain');}
+ try{users=await list(token);}catch{await mark(callHash,'uncertain');return say(voice('v_bec7d41ae298dbc0e25e',["בקשת השמירה נשלחה אך לא ניתן לאמת שנשמרה בדקו באתר"]),'uncertain');}
  const saved=users.filter(u=>String(u.card_number)===String(payload.card_number));
- if(saved.length===1&&matches(saved[0],payload)){await mark(callHash,'confirmed');return say('המשתמש נוסף בהצלחה','confirmed');}
- await mark(callHash,'uncertain');return say('בקשת השמירה נשלחה אך הפרטים עדיין לא אומתו בדקו באתר','uncertain');
+ if(saved.length===1&&matches(saved[0],payload)){await mark(callHash,'confirmed');return say(voice('v_49b373f077f49dac2cd5',["המשתמש נוסף בהצלחה"]),'confirmed');}
+ await mark(callHash,'uncertain');return say(voice('v_7b8ff4729f41c21d146c',["בקשת השמירה נשלחה אך הפרטים עדיין לא אומתו בדקו באתר"]),'uncertain');
  }catch(error){
  if(error instanceof InputError)return say(error.message,'invalid_input');
  // No caller data, credentials, request bodies or upstream response bodies in logs.
  console.log(JSON.stringify({event:'vendpay_admin_error',kind:error instanceof Error&&/^[a-z_]+$/.test(error.message)?error.message:'operation_failed'}));
- return say('לא ניתן להשלים כרגע את הפעולה אם אישרתם שמירה בדקו באתר לפני ניסיון נוסף','error');
+ return say(voice('v_2686e55f3b0ee6a7911a',["לא ניתן להשלים כרגע את הפעולה אם אישרתם שמירה בדקו באתר לפני ניסיון נוסף"]),'error');
  }
 }
 return handler;
 }
+
 

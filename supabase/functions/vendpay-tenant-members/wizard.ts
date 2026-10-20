@@ -1,3 +1,4 @@
+import {voice} from './voice.ts';
 import {requestDate,CalendarInputError} from './calendar.ts';
 
 import { collectNames, shekelsToAgorot, validDate } from './flow.ts';
@@ -12,7 +13,7 @@ export function value(
 
   if (a.length > 1) {
     throw new InputError(
-      'התקבל ערך כפול אנא התחילו שיחה חדשה'
+      voice('v_33ea84c2bf65b4a83c9c',["התקבל ערך כפול אנא התחילו שיחה חדשה"])
     );
   }
 
@@ -34,7 +35,7 @@ function ask(
 function dateInput(v: string) {
   if (!/^\d{8}$/.test(v)) {
     throw new InputError(
-      'תאריך לא תקין התחילו מחדש'
+      voice('v_fdbc1a8aa9a97d95d915',["תאריך לא תקין התחילו מחדש"])
     );
   }
 
@@ -46,7 +47,7 @@ function dateInput(v: string) {
     );
   } catch {
     throw new InputError(
-      'תאריך לא תקין התחילו מחדש'
+      voice('v_fdbc1a8aa9a97d95d915',["תאריך לא תקין התחילו מחדש"])
     );
   }
 }
@@ -59,7 +60,7 @@ function textInput(v: string) {
     /[&=\r\n<>]/.test(v)
   ) {
     throw new InputError(
-      'טקסט לא תקין התחילו מחדש'
+      voice('v_cb459045019d9f0d84d8',["טקסט לא תקין התחילו מחדש"])
     );
   }
 
@@ -72,7 +73,7 @@ function integer(v: string, zero = true) {
     (!zero && v === '0')
   ) {
     throw new InputError(
-      'מספר לא תקין התחילו מחדש'
+      voice('v_3b71a7a4570790dc034a',["מספר לא תקין התחילו מחדש"])
     );
   }
 
@@ -97,7 +98,7 @@ function legacyWizard(
     names = collectNames(p);
   } catch {
     throw new InputError(
-      'השם לא תקין אנא התחילו מחדש והשתמשו בהקשת אותיות'
+      voice('v_1c22e4f3ecfa66baac02',["השם לא תקין אנא התחילו מחדש והשתמשו בהקשת אותיות"])
     );
   }
 
@@ -107,19 +108,19 @@ function legacyWizard(
   const fields = [
     [
       'pel',
-      'הקישו מספר טלפון נייד של המשתמש לסיום סולמית',
+      voice('v_45324cebccb9ed19f61a',["הקישו מספר טלפון נייד של המשתמש לסיום סולמית"]),
       'Digits',
       '10'
     ],
     [
       'card_number',
-      'הקישו את מספר הכרטיס לסיום סולמית',
+      voice('v_235a1353c79c50864bab',["הקישו את מספר הכרטיס לסיום סולמית"]),
       'Digits',
       '15'
     ],
     [
       'amount',
-      'הקישו יתרה התחלתית בשקלים לאגורות הקישו כוכבית ליתרה אפס הקישו אפס',
+      voice('v_868700bd793235ad940a',["הקישו יתרה התחלתית בשקלים לאגורות הקישו כוכבית ליתרה אפס הקישו אפס"]),
       'Price',
       '10'
     ]
@@ -138,7 +139,7 @@ function legacyWizard(
     return {
       reply: ask(
         'restrict_id',
-        'בחרו קבוצה '+Object.entries(GROUPS).map(([id,title])=>title+' '+id).join(' '),
+        voice('v_ab0574d184e3e0b504e5',["בחרו קבוצה "])+Object.entries(GROUPS).map(([id,title])=>title+' '+id).join(' '),
         'Number',
         '10',
         '1'
@@ -150,7 +151,7 @@ function legacyWizard(
 
   if (!Object.prototype.hasOwnProperty.call(GROUPS, group)) {
     throw new InputError(
-      'מספר הקבוצה אינו קיים או שהקבוצה אינה פעילה התחילו מחדש'
+      voice('v_cbbf6063c51118b137ad',["מספר הקבוצה אינו קיים או שהקבוצה אינה פעילה התחילו מחדש"])
     );
   }
 
@@ -159,7 +160,7 @@ function legacyWizard(
     return {
       reply: ask(
         'date_end',
-        'הקישו תאריך סיום בשמונה ספרות יום חודש ושנה',
+        voice('v_fecc9cc0fed290b2484a',["הקישו תאריך סיום בשמונה ספרות יום חודש ושנה"]),
         'Digits',
         '8',
         '8'
@@ -172,7 +173,7 @@ function legacyWizard(
     return {
       reply: ask(
         'extras',
-        'להזנת פרטים נוספים הקישו אחת לדילוג הקישו שתיים',
+        voice('v_55eab56336c692e44089',["להזנת פרטים נוספים הקישו אחת לדילוג הקישו שתיים"]),
         'NO',
         '1'
       )
@@ -183,7 +184,7 @@ function legacyWizard(
 
   if (!/^0\d{8,9}$/.test(mobile)) {
     throw new InputError(
-      'מספר הטלפון אינו תקין אנא התחילו מחדש'
+      voice('v_8f62e0a9ae1cff2952e2',["מספר הטלפון אינו תקין אנא התחילו מחדש"])
     );
   }
 
@@ -215,14 +216,14 @@ function legacyWizard(
     );
   } catch {
     throw new InputError(
-      'הסכום אינו תקין אנא התחילו מחדש'
+      voice('v_f742fe8ff40f32fe9a87',["הסכום אינו תקין אנא התחילו מחדש"])
     );
   }
 
   const extras = value(p, 'extras');
 
   if (!['1', '2'].includes(extras!)) {
-    throw new InputError('בחירה לא תקינה');
+    throw new InputError(voice('v_02c70316c3f5d2669e96',["בחירה לא תקינה"]));
   }
 
   const out: Record<string, unknown> = {
@@ -270,79 +271,79 @@ function legacyWizard(
     const optional = [
       [
         'tel',
-        'הקישו טלפון נוסף או אפס לדילוג',
+        voice('v_16e005cc8edc8dba1ac4',["הקישו טלפון נוסף או אפס לדילוג"]),
         'Digits',
         '10'
       ],
       [
         'email',
-        'הזינו כתובת מייל או אפס לדילוג',
+        voice('v_bdcf676df58294593a47',["הזינו כתובת מייל או אפס לדילוג"]),
         'EmailKeyboard',
         '100'
       ],
       [
         'passport',
-        'הקישו מספר זהות או אפס לדילוג',
+        voice('v_35d86c7f7a034a7e7688',["הקישו מספר זהות או אפס לדילוג"]),
         'Digits',
         '15'
       ],
       [
         'address',
-        'הקלידו כתובת או אפס לדילוג',
+        voice('v_67a2077e19ed688cb904',["הקלידו כתובת או אפס לדילוג"]),
         'HebrewKeyboard',
         '100'
       ],
       [
         'city',
-        'הקלידו עיר או אפס לדילוג',
+        voice('v_f6c5ff309582310706d3',["הקלידו עיר או אפס לדילוג"]),
         'HebrewKeyboard',
         '60'
       ],
       [
         'zip',
-        'הקישו מיקוד או אפס לדילוג',
+        voice('v_e67f5a9b7eeceb35afcb',["הקישו מיקוד או אפס לדילוג"]),
         'Digits',
         '10'
       ],
       [
         'date_start',
-        'לתאריך התחלה היום הקישו אפס או הקישו יום חודש ושנה בשמונה ספרות',
+        voice('v_42350f79e8638e36505f',["לתאריך התחלה היום הקישו אפס או הקישו יום חודש ושנה בשמונה ספרות"]),
         'Digits',
         '8'
       ],
       [
         'date_birth',
-        'הקישו תאריך לידה בשמונה ספרות או אפס לדילוג',
+        voice('v_e25ca337cca2b99b4d89',["הקישו תאריך לידה בשמונה ספרות או אפס לדילוג"]),
         'Digits',
         '8'
       ],
       [
         'parent_id',
-        'הקישו מזהה משתמש אב או אפס ללא שיוך',
+        voice('v_52ad006d902328973ada',["הקישו מזהה משתמש אב או אפס ללא שיוך"]),
         'Number',
         '15'
       ],
       [
         'is_active',
-        'למשתמש פעיל הקישו אחת למשתמש לא פעיל הקישו אפס',
+        voice('v_d5a643338d224aa2dc6a',["למשתמש פעיל הקישו אחת למשתמש לא פעיל הקישו אפס"]),
         'NO',
         '1'
       ],
       [
         'note1',
-        'הקלידו הערה ראשונה או אפס לדילוג',
+        voice('v_fbea643356149163cc49',["הקלידו הערה ראשונה או אפס לדילוג"]),
         'HebrewKeyboard',
         '120'
       ],
       [
         'note2',
-        'הקלידו הערה שנייה או אפס לדילוג',
+        voice('v_caa33af4c68f639b0533',["הקלידו הערה שנייה או אפס לדילוג"]),
         'HebrewKeyboard',
         '120'
       ],
       [
         'note3',
-        'הקלידו הערה שלישית או אפס לדילוג',
+        voice('v_447d45227e909b333b1f',["הקלידו הערה שלישית או אפס לדילוג"]),
         'HebrewKeyboard',
         '120'
       ]
@@ -367,7 +368,7 @@ function legacyWizard(
         out[k] = integer(v);
       } else if (k === 'is_active') {
         if (!['0', '1'].includes(v)) {
-          throw new InputError('סטטוס לא תקין');
+          throw new InputError(voice('v_e989a9c1f263c7762e98',["סטטוס לא תקין"]));
         }
         out[k] = Number(v);
       } else {
@@ -382,7 +383,7 @@ function legacyWizard(
       )
     ) {
       throw new InputError(
-        'כתובת מייל לא תקינה'
+        voice('v_a23d07248661f5385730',["כתובת מייל לא תקינה"])
       );
     }
 
@@ -391,7 +392,7 @@ function legacyWizard(
       !/^0\d{8,9}$/.test(String(out.tel))
     ) {
       throw new InputError(
-        'מספר הטלפון הנוסף לא תקין'
+        voice('v_e832fa2d4d5e99b5189e',["מספר הטלפון הנוסף לא תקין"])
       );
     }
   }
@@ -401,7 +402,7 @@ function legacyWizard(
     String(out.date_start)
   ) {
     throw new InputError(
-      'תאריך הסיום מוקדם מתאריך ההתחלה'
+      voice('v_1cb5cb119c0e5f29ad0d',["תאריך הסיום מוקדם מתאריך ההתחלה"])
     );
   }
 
@@ -409,11 +410,11 @@ function legacyWizard(
   const confirm = value(p, 'save_confirm');
 
   if (confirm === undefined) {
-    return { reply: ask('save_confirm', 'לשמירה הקישו אחת לביטול הקישו שתיים', 'NO', '1') };
+    return { reply: ask('save_confirm', voice('v_bc43be93a89fc9ccb9ff',["לשמירה הקישו אחת לביטול הקישו שתיים"]), 'NO', '1') };
   }
 
   if (!['1', '2'].includes(confirm)) {
-    throw new InputError('בחירה לא תקינה');
+    throw new InputError(voice('v_02c70316c3f5d2669e96',["בחירה לא תקינה"]));
   }
 
   return {
@@ -428,7 +429,7 @@ function legacyWizard(
 // Preserve existing Gregorian values in in-progress calls. New prompts default to Hebrew.
 export function wizard(p:URLSearchParams,now=new Date(),groups:Record<string,string>) {
  const working=new URLSearchParams(p);
- const labels:Record<string,string>={date_end:'תאריך סיום',date_start:'תאריך התחלה',date_birth:'תאריך לידה'};
+ const labels:Record<string,string>={date_end:voice('v_a3c311877b67c1debff8',["תאריך סיום"]),date_start:voice('v_e89047c12b069abb539a',["תאריך התחלה"]),date_birth:voice('v_61f85283024752cf57e1',["תאריך לידה"])};
  for(let n=0;n<4;n++){
   const result=legacyWizard(working,now,groups);
   if(!('reply' in result))return result;
@@ -438,11 +439,12 @@ export function wizard(p:URLSearchParams,now=new Date(),groups:Record<string,str
   const part=(t:string)=>todayParts.find(x=>x.type===t)?.value;
   const today=part('year')+'-'+part('month')+'-'+part('day');
   let date;
-  try{date=requestDate(p,key,labels[key],key==='date_birth'?{value:null,label:'ללא תאריך לידה'}:key==='date_start'?{value:today,label:'לתאריך של היום'}:undefined);}
+  try{date=requestDate(p,key,labels[key],key==='date_birth'?{value:null,label:voice('v_05b62c42dd9de9e19efa',["ללא תאריך לידה"])}:key==='date_start'?{value:today,label:voice('v_17d64588b6ce7a70eecd',["לתאריך של היום"])}:undefined);}
   catch(e){if(e instanceof CalendarInputError)throw new InputError(e.message);throw e;}
   if('reply'in date)return date;
   working.set(key,date.iso?date.iso.slice(8,10)+date.iso.slice(5,7)+date.iso.slice(0,4):'0');
  }
- throw new InputError('לא ניתן להשלים את קליטת התאריכים');
+ throw new InputError(voice('v_8e106a0cd957070a08e2',["לא ניתן להשלים את קליטת התאריכים"]));
 }
+
 

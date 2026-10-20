@@ -1,3 +1,5 @@
+import {withVoice} from './voice.ts';
+import {voice} from './voice.ts';
 import {withAudit} from './audit.ts';
 import {authenticatedCheck} from './auth.ts';
 import {wizard,value,InputError} from './wizard.ts';
@@ -38,26 +40,26 @@ export async function handler(req:Request):Promise<Response> {
  const raw=await req.text();if(raw.length>16384)return reply('Request too large','size',413);
  p=new URLSearchParams(raw);
  const expected=env('VENDPAY_ADMIN_KEY');const provided=value(p,'admin_key')||'';
- if(expected.length<32)return say('שלוחת הניהול טרם הוגדרה','unconfigured');
+ if(expected.length<32)return say(voice('v_f1b15a18565fc8825b31',["שלוחת הניהול טרם הוגדרה"]),'unconfigured');
  if(provided.length>256||!equal(expected,provided))return reply('Unauthorized','unauthorized',401);
- if(p.getAll('hangup').includes('yes'))return say('השיחה הסתיימה','hangup');
- if(value(p,'action')==='health')return say('חיבור שלוחת הניהול תקין','health');
+ if(p.getAll('hangup').includes('yes'))return say(voice('v_f1ed2d8ab1f5c1c08829',["השיחה הסתיימה"]),'hangup');
+ if(value(p,'action')==='health')return say(voice('v_143aec2ab939e32773f1',["חיבור שלוחת הניהול תקין"]),'health');
  const call=value(p,'ApiCallId'),did=value(p,'ApiDID');
- if(!call||!did||call.length>200||did.length>30)return say('חסרים פרטי שיחה','missing_call');
+ if(!call||!did||call.length>200||did.length>30)return say(voice('v_a1281ad15857f62d361f',["חסרים פרטי שיחה"]),'missing_call');
  const result=wizard(p);
  if('reply' in result){
   // Restore the previously audible safe stopping point, before final confirmation.
   // Confirmation is a test only; no VendPay write in this deployment.
   return reply(result.reply,'prompt');
  }
- if(result.cancelled)return say('ההוספה בוטלה לא נשמר משתמש','cancelled');
- if(env('VENDPAY_ADMIN_ENABLED')!=='true')return say('הפרטים נקלטו אך השמירה עדיין לא הופעלה','disabled');
+ if(result.cancelled)return say(voice('v_2e3376239924bac0f563',["ההוספה בוטלה לא נשמר משתמש"]),'cancelled');
+ if(env('VENDPAY_ADMIN_ENABLED')!=='true')return say(voice('v_847eb2db91c5df96e438',["הפרטים נקלטו אך השמירה עדיין לא הופעלה"]),'disabled');
  const payload=result.payload;
  const callHash=await digest(did+'|'+call),cardHash=await digest(String(payload.card_number)),payloadHash=await digest(JSON.stringify(payload));
  let previous=(await rows(await db('GET','?call_hash=eq.'+callHash+'&select=*')))[0];
- if(previous&&previous.payload_hash!==payloadHash)return say('כבר התקבלה פעולה אחרת בשיחה זו התחילו שיחה חדשה','changed_payload');
- if(previous?.status==='confirmed')return say('המשתמש נוסף בהצלחה','confirmed');
- if(previous&&['existing','rejected'].includes(previous.status))return say('השמירה לא בוצעה יש לבדוק את מספר הכרטיס באתר','rejected');
+ if(previous&&previous.payload_hash!==payloadHash)return say(voice('v_d35828a0e437446fc893',["כבר התקבלה פעולה אחרת בשיחה זו התחילו שיחה חדשה"]),'changed_payload');
+ if(previous?.status==='confirmed')return say(voice('v_a563d99982af3c075f5a',["המשתמש נוסף בהצלחה"]),'confirmed');
+ if(previous&&['existing','rejected'].includes(previous.status))return say(voice('v_5df2aacb5685b42b6bbb',["השמירה לא בוצעה יש לבדוק את מספר הכרטיס באתר"]),'rejected');
  const checked=await authenticatedCheck();
  const checkBody=await checked.response.text();
  if(!checked.response.ok||/^\s*</.test(checkBody))throw new Error('auth_check_failed');
@@ -65,33 +67,34 @@ export async function handler(req:Request):Promise<Response> {
  let users=await list(token);
  const cardUsers=users.filter(u=>String(u.card_number)===String(payload.card_number));
  if(previous){
-  if(cardUsers.length===1&&matches(cardUsers[0],payload)){await mark(callHash,'confirmed');return say('המשתמש נוסף בהצלחה','confirmed');}
-  return say('תוצאת ניסיון השמירה הקודם עדיין לא ודאית בדקו באתר לפני ניסיון נוסף','uncertain');
+  if(cardUsers.length===1&&matches(cardUsers[0],payload)){await mark(callHash,'confirmed');return say(voice('v_a563d99982af3c075f5a',["המשתמש נוסף בהצלחה"]),'confirmed');}
+  return say(voice('v_4eb70b004a5d85ce3dbe',["תוצאת ניסיון השמירה הקודם עדיין לא ודאית בדקו באתר לפני ניסיון נוסף"]),'uncertain');
  }
- if(cardUsers.length)return say('מספר הכרטיס כבר קיים לא נוסף משתמש','card_exists');
+ if(cardUsers.length)return say(voice('v_bc433eb85d793cbd4088',["מספר הכרטיס כבר קיים לא נוסף משתמש"]),'card_exists');
  const since=new Date(Date.now()-60000).toISOString();
- if((await rows(await db('GET','?select=call_hash&created_at=gte.'+encodeURIComponent(since)+'&limit=6'))).length>=5)return say('בוצעו מספר פעולות בזמן קצר נסו שוב בעוד דקה','rate_limited');
+ if((await rows(await db('GET','?select=call_hash&created_at=gte.'+encodeURIComponent(since)+'&limit=6'))).length>=5)return say(voice('v_ce6e461852c5fe8944c1',["בוצעו מספר פעולות בזמן קצר נסו שוב בעוד דקה"]),'rate_limited');
  const claim=await db('POST','',{call_hash:callHash,card_hash:cardHash,payload_hash:payloadHash,status:'reserved'});
- if(claim.status===409)return say('הפעולה כבר בטיפול או שמספר הכרטיס כבר נשלח לבדיקה בדקו באתר','duplicate');
+ if(claim.status===409)return say(voice('v_27e9fa31e55b7346c598',["הפעולה כבר בטיפול או שמספר הכרטיס כבר נשלח לבדיקה בדקו באתר"]),'duplicate');
  await rows(claim);
  // Persist BEFORE sending. Never retry the POST, including after timeout or 401.
  await mark(callHash,'sent');
  let response:Response;
- try {response=await fetch(USER_URL,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(payload),redirect:'manual',signal:AbortSignal.timeout(8000)});}catch{await mark(callHash,'uncertain');return say('לא ניתן לאמת כרגע את השמירה בדקו באתר לפני ניסיון נוסף','uncertain');}
+ try {response=await fetch(USER_URL,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(payload),redirect:'manual',signal:AbortSignal.timeout(8000)});}catch{await mark(callHash,'uncertain');return say(voice('v_4081e722510d3d3e8c36',["לא ניתן לאמת כרגע את השמירה בדקו באתר לפני ניסיון נוסף"]),'uncertain');}
  const body=await response.text();let data:any;try{data=body?JSON.parse(body):null;}catch{}
  if(!response.ok||data?.success===false||data?.ok===false||data?.error||data?.status==='error'||/^\s*</.test(body)){
- await mark(callHash,'uncertain');return say('לא התקבל אישור תקין לשמירה בדקו באתר לפני ניסיון נוסף','upstream_error');
+ await mark(callHash,'uncertain');return say(voice('v_ecbb01d7d9795687033f',["לא התקבל אישור תקין לשמירה בדקו באתר לפני ניסיון נוסף"]),'upstream_error');
  }
- try{users=await list(token);}catch{await mark(callHash,'uncertain');return say('בקשת השמירה נשלחה אך לא ניתן לאמת שנשמרה בדקו באתר','uncertain');}
+ try{users=await list(token);}catch{await mark(callHash,'uncertain');return say(voice('v_5f4752de11135d229868',["בקשת השמירה נשלחה אך לא ניתן לאמת שנשמרה בדקו באתר"]),'uncertain');}
  const saved=users.filter(u=>String(u.card_number)===String(payload.card_number));
- if(saved.length===1&&matches(saved[0],payload)){await mark(callHash,'confirmed');return say('המשתמש נוסף בהצלחה','confirmed');}
- await mark(callHash,'uncertain');return say('בקשת השמירה נשלחה אך הפרטים עדיין לא אומתו בדקו באתר','uncertain');
+ if(saved.length===1&&matches(saved[0],payload)){await mark(callHash,'confirmed');return say(voice('v_a563d99982af3c075f5a',["המשתמש נוסף בהצלחה"]),'confirmed');}
+ await mark(callHash,'uncertain');return say(voice('v_f92f8c7ee7b040ff701c',["בקשת השמירה נשלחה אך הפרטים עדיין לא אומתו בדקו באתר"]),'uncertain');
  }catch(error){
  if(error instanceof InputError)return say(error.message,'invalid_input');
  // No caller data, credentials, request bodies or upstream response bodies in logs.
  console.log(JSON.stringify({event:'vendpay_admin_error',kind:error instanceof Error&&/^[a-z_]+$/.test(error.message)?error.message:'operation_failed'}));
- return say('לא ניתן להשלים כרגע את הפעולה אם אישרתם שמירה בדקו באתר לפני ניסיון נוסף','error');
+ return say(voice('v_2b74474c8a08ae8a6ca4',["לא ניתן להשלים כרגע את הפעולה אם אישרתם שמירה בדקו באתר לפני ניסיון נוסף"]),'error');
  }
 }
-Deno.serve(withAudit(handler,'vendpay-admin-users'));
+Deno.serve(withVoice(withAudit(handler,'vendpay-admin-users'),'vendpay-admin-users'));
+
 

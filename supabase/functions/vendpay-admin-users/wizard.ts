@@ -1,3 +1,4 @@
+import {voice} from './voice.ts';
 import {requestDate,CalendarInputError} from './calendar.ts';
 
 import { collectNames, shekelsToAgorot, validDate } from './flow.ts';
@@ -12,7 +13,7 @@ export function value(
 
   if (a.length > 1) {
     throw new InputError(
-      'התקבל ערך כפול אנא התחילו שיחה חדשה'
+      voice('v_6a64bbda51d988042e64',["התקבל ערך כפול אנא התחילו שיחה חדשה"])
     );
   }
 
@@ -34,7 +35,7 @@ function ask(
 function dateInput(v: string) {
   if (!/^\d{8}$/.test(v)) {
     throw new InputError(
-      'תאריך לא תקין התחילו מחדש'
+      voice('v_f0aed45b462381ccc8c2',["תאריך לא תקין התחילו מחדש"])
     );
   }
 
@@ -46,7 +47,7 @@ function dateInput(v: string) {
     );
   } catch {
     throw new InputError(
-      'תאריך לא תקין התחילו מחדש'
+      voice('v_f0aed45b462381ccc8c2',["תאריך לא תקין התחילו מחדש"])
     );
   }
 }
@@ -59,7 +60,7 @@ function textInput(v: string) {
     /[&=\r\n<>]/.test(v)
   ) {
     throw new InputError(
-      'טקסט לא תקין התחילו מחדש'
+      voice('v_b30a0f4e92f998c4a2a4',["טקסט לא תקין התחילו מחדש"])
     );
   }
 
@@ -72,7 +73,7 @@ function integer(v: string, zero = true) {
     (!zero && v === '0')
   ) {
     throw new InputError(
-      'מספר לא תקין התחילו מחדש'
+      voice('v_37077d38dd83e329bd36',["מספר לא תקין התחילו מחדש"])
     );
   }
 
@@ -82,14 +83,14 @@ function integer(v: string, zero = true) {
 // קבוצות פעילות לפי מספר מזהה אמיתי ב-VendPay24
 // קבוצה 6 אינה פעילה. קבוצה 0 אינה קיימת.
 const GROUPS: Record<string, string> = {
-  '1': 'מנוי רגיל',
-  '2': 'ערך',
-  '3': 'אחראי',
-  '4': 'מנוי מורחב',
-  '5': 'מנוי סופרים',
-  '7': 'בחורים',
-  '8': 'מנוי ללא הגבלות',
-  '9': 'מנוי רגיל הוראת קבע'
+  '1': voice('v_5f50418a4759bb343718',["מנוי רגיל"]),
+  '2': voice('v_d9e9348fdf5014a36772',["ערך"]),
+  '3': voice('v_797c4a96058c51c64c3f',["אחראי"]),
+  '4': voice('v_8c34a19461365c07f82f',["מנוי מורחב"]),
+  '5': voice('v_ae69859809ac2ccbdfcb',["מנוי סופרים"]),
+  '7': voice('v_384f31f7413109876090',["בחורים"]),
+  '8': voice('v_bfeabc35131a15a5bbc9',["מנוי ללא הגבלות"]),
+  '9': voice('v_6aa6320ee7e716f09627',["מנוי רגיל הוראת קבע"])
 };
 
 function legacyWizard(
@@ -109,7 +110,7 @@ function legacyWizard(
     names = collectNames(p);
   } catch {
     throw new InputError(
-      'השם לא תקין אנא התחילו מחדש והשתמשו בהקשת אותיות'
+      voice('v_b0865124a19c8bc3c55a',["השם לא תקין אנא התחילו מחדש והשתמשו בהקשת אותיות"])
     );
   }
 
@@ -119,19 +120,19 @@ function legacyWizard(
   const fields = [
     [
       'pel',
-      'הקישו מספר טלפון נייד של המשתמש לסיום סולמית',
+      voice('v_91eff6a2b7dc07119c2e',["הקישו מספר טלפון נייד של המשתמש לסיום סולמית"]),
       'Digits',
       '10'
     ],
     [
       'card_number',
-      'הקישו את מספר הכרטיס לסיום סולמית',
+      voice('v_34fcc4348644fa60149f',["הקישו את מספר הכרטיס לסיום סולמית"]),
       'Digits',
       '15'
     ],
     [
       'amount',
-      'הקישו יתרה התחלתית בשקלים לאגורות הקישו כוכבית ליתרה אפס הקישו אפס',
+      voice('v_778fcd099270de3554cd',["הקישו יתרה התחלתית בשקלים לאגורות הקישו כוכבית ליתרה אפס הקישו אפס"]),
       'Price',
       '10'
     ]
@@ -150,7 +151,7 @@ function legacyWizard(
     return {
       reply: ask(
         'restrict_id',
-        'הקישו את מספר הקבוצה מאחת עד תשע',
+        voice('v_b5abdcf2b7b5523d13a7',["הקישו את מספר הקבוצה מאחת עד תשע"]),
         'Number',
         '1',
         '1'
@@ -162,7 +163,7 @@ function legacyWizard(
 
   if (!Object.prototype.hasOwnProperty.call(GROUPS, group)) {
     throw new InputError(
-      'מספר הקבוצה אינו קיים או שהקבוצה אינה פעילה התחילו מחדש'
+      voice('v_d5c12eb7e213de4b9e29',["מספר הקבוצה אינו קיים או שהקבוצה אינה פעילה התחילו מחדש"])
     );
   }
 
@@ -171,7 +172,7 @@ function legacyWizard(
     return {
       reply: ask(
         'date_end',
-        'הקישו תאריך סיום בשמונה ספרות יום חודש ושנה',
+        voice('v_ce437fa93ccd03410155',["הקישו תאריך סיום בשמונה ספרות יום חודש ושנה"]),
         'Digits',
         '8',
         '8'
@@ -184,7 +185,7 @@ function legacyWizard(
     return {
       reply: ask(
         'extras',
-        'להזנת פרטים נוספים הקישו אחת לדילוג הקישו שתיים',
+        voice('v_49976ea8f03da093b035',["להזנת פרטים נוספים הקישו אחת לדילוג הקישו שתיים"]),
         'NO',
         '1'
       )
@@ -195,7 +196,7 @@ function legacyWizard(
 
   if (!/^0\d{8,9}$/.test(mobile)) {
     throw new InputError(
-      'מספר הטלפון אינו תקין אנא התחילו מחדש'
+      voice('v_18f4e188970b127a4494',["מספר הטלפון אינו תקין אנא התחילו מחדש"])
     );
   }
 
@@ -227,14 +228,14 @@ function legacyWizard(
     );
   } catch {
     throw new InputError(
-      'הסכום אינו תקין אנא התחילו מחדש'
+      voice('v_42ae43650070467f4f7e',["הסכום אינו תקין אנא התחילו מחדש"])
     );
   }
 
   const extras = value(p, 'extras');
 
   if (!['1', '2'].includes(extras!)) {
-    throw new InputError('בחירה לא תקינה');
+    throw new InputError(voice('v_e9edd802771538dfee82',["בחירה לא תקינה"]));
   }
 
   const out: Record<string, unknown> = {
@@ -282,79 +283,79 @@ function legacyWizard(
     const optional = [
       [
         'tel',
-        'הקישו טלפון נוסף או אפס לדילוג',
+        voice('v_0062760e97c9eecfc6d9',["הקישו טלפון נוסף או אפס לדילוג"]),
         'Digits',
         '10'
       ],
       [
         'email',
-        'הזינו כתובת מייל או אפס לדילוג',
+        voice('v_e1a0f7c055e81f7c7c47',["הזינו כתובת מייל או אפס לדילוג"]),
         'EmailKeyboard',
         '100'
       ],
       [
         'passport',
-        'הקישו מספר זהות או אפס לדילוג',
+        voice('v_2a0a6d44828a4e111743',["הקישו מספר זהות או אפס לדילוג"]),
         'Digits',
         '15'
       ],
       [
         'address',
-        'הקלידו כתובת או אפס לדילוג',
+        voice('v_af319f5d2d76b324eab3',["הקלידו כתובת או אפס לדילוג"]),
         'HebrewKeyboard',
         '100'
       ],
       [
         'city',
-        'הקלידו עיר או אפס לדילוג',
+        voice('v_5a6dbb7323be2dc95038',["הקלידו עיר או אפס לדילוג"]),
         'HebrewKeyboard',
         '60'
       ],
       [
         'zip',
-        'הקישו מיקוד או אפס לדילוג',
+        voice('v_5a28c19a1a96489c8071',["הקישו מיקוד או אפס לדילוג"]),
         'Digits',
         '10'
       ],
       [
         'date_start',
-        'לתאריך התחלה היום הקישו אפס או הקישו יום חודש ושנה בשמונה ספרות',
+        voice('v_43560a1bbbd816a151ec',["לתאריך התחלה היום הקישו אפס או הקישו יום חודש ושנה בשמונה ספרות"]),
         'Digits',
         '8'
       ],
       [
         'date_birth',
-        'הקישו תאריך לידה בשמונה ספרות או אפס לדילוג',
+        voice('v_f2286cce223b4fbf89ec',["הקישו תאריך לידה בשמונה ספרות או אפס לדילוג"]),
         'Digits',
         '8'
       ],
       [
         'parent_id',
-        'הקישו מזהה משתמש אב או אפס ללא שיוך',
+        voice('v_d135bee5c3707c917c54',["הקישו מזהה משתמש אב או אפס ללא שיוך"]),
         'Number',
         '15'
       ],
       [
         'is_active',
-        'למשתמש פעיל הקישו אחת למשתמש לא פעיל הקישו אפס',
+        voice('v_7f6b19b3d1b761fc8b53',["למשתמש פעיל הקישו אחת למשתמש לא פעיל הקישו אפס"]),
         'NO',
         '1'
       ],
       [
         'note1',
-        'הקלידו הערה ראשונה או אפס לדילוג',
+        voice('v_de8aead93f52c7684188',["הקלידו הערה ראשונה או אפס לדילוג"]),
         'HebrewKeyboard',
         '120'
       ],
       [
         'note2',
-        'הקלידו הערה שנייה או אפס לדילוג',
+        voice('v_517621aba18bb568a237',["הקלידו הערה שנייה או אפס לדילוג"]),
         'HebrewKeyboard',
         '120'
       ],
       [
         'note3',
-        'הקלידו הערה שלישית או אפס לדילוג',
+        voice('v_e87a4551cf93bc097f27',["הקלידו הערה שלישית או אפס לדילוג"]),
         'HebrewKeyboard',
         '120'
       ]
@@ -379,7 +380,7 @@ function legacyWizard(
         out[k] = integer(v);
       } else if (k === 'is_active') {
         if (!['0', '1'].includes(v)) {
-          throw new InputError('סטטוס לא תקין');
+          throw new InputError(voice('v_7a1b544c0491a6f9a892',["סטטוס לא תקין"]));
         }
         out[k] = Number(v);
       } else {
@@ -394,7 +395,7 @@ function legacyWizard(
       )
     ) {
       throw new InputError(
-        'כתובת מייל לא תקינה'
+        voice('v_c434c862be7bf1d54738',["כתובת מייל לא תקינה"])
       );
     }
 
@@ -403,7 +404,7 @@ function legacyWizard(
       !/^0\d{8,9}$/.test(String(out.tel))
     ) {
       throw new InputError(
-        'מספר הטלפון הנוסף לא תקין'
+        voice('v_9d960addd27a45137c5a',["מספר הטלפון הנוסף לא תקין"])
       );
     }
   }
@@ -413,7 +414,7 @@ function legacyWizard(
     String(out.date_start)
   ) {
     throw new InputError(
-      'תאריך הסיום מוקדם מתאריך ההתחלה'
+      voice('v_b762f6fd1aad22fb533a',["תאריך הסיום מוקדם מתאריך ההתחלה"])
     );
   }
 
@@ -421,11 +422,11 @@ function legacyWizard(
   const confirm = value(p, 'save_confirm');
 
   if (confirm === undefined) {
-    return { reply: ask('save_confirm', 'לשמירה הקישו אחת לביטול הקישו שתיים', 'NO', '1') };
+    return { reply: ask('save_confirm', voice('v_a14c7b6c45364865063e',["לשמירה הקישו אחת לביטול הקישו שתיים"]), 'NO', '1') };
   }
 
   if (!['1', '2'].includes(confirm)) {
-    throw new InputError('בחירה לא תקינה');
+    throw new InputError(voice('v_e9edd802771538dfee82',["בחירה לא תקינה"]));
   }
 
   return {
@@ -440,7 +441,7 @@ function legacyWizard(
 // Preserve existing Gregorian values in in-progress calls. New prompts default to Hebrew.
 export function wizard(p:URLSearchParams,now=new Date()) {
  const working=new URLSearchParams(p);
- const labels:Record<string,string>={date_end:'תאריך סיום',date_start:'תאריך התחלה',date_birth:'תאריך לידה'};
+ const labels:Record<string,string>={date_end:voice('v_377f83dc55bf3faa82f4',["תאריך סיום"]),date_start:voice('v_78d917df78d7cc20f8ac',["תאריך התחלה"]),date_birth:voice('v_e55e59652b5ccba4ae11',["תאריך לידה"])};
  for(let n=0;n<4;n++){
   const result=legacyWizard(working,now);
   if(!('reply' in result))return result;
@@ -450,10 +451,11 @@ export function wizard(p:URLSearchParams,now=new Date()) {
   const part=(t:string)=>todayParts.find(x=>x.type===t)?.value;
   const today=part('year')+'-'+part('month')+'-'+part('day');
   let date;
-  try{date=requestDate(p,key,labels[key],key==='date_birth'?{value:null,label:'ללא תאריך לידה'}:key==='date_start'?{value:today,label:'לתאריך של היום'}:undefined);}
+  try{date=requestDate(p,key,labels[key],key==='date_birth'?{value:null,label:voice('v_3e43c75a3782702391e7',["ללא תאריך לידה"])}:key==='date_start'?{value:today,label:voice('v_fd36bdaeeedf1e4d68b6',["לתאריך של היום"])}:undefined);}
   catch(e){if(e instanceof CalendarInputError)throw new InputError(e.message);throw e;}
   if('reply'in date)return date;
   working.set(key,date.iso?date.iso.slice(8,10)+date.iso.slice(5,7)+date.iso.slice(0,4):'0');
  }
- throw new InputError('לא ניתן להשלים את קליטת התאריכים');
+ throw new InputError(voice('v_26f7e94faba18c5de27b',["לא ניתן להשלים את קליטת התאריכים"]));
 }
+

@@ -1,3 +1,5 @@
+import {withVoice} from './voice.ts';
+import {voice} from './voice.ts';
 import {withAudit} from './audit.ts';
 import {createClient} from 'npm:@supabase/supabase-js@2.118.0';
 import {zoneHandler} from './zones.ts';
@@ -10,30 +12,30 @@ function one(p:URLSearchParams,k:string){const v=p.getAll(k);if(v.length>1)throw
 export async function handler(req:Request){
  const reply=(message:string,status=200)=>new Response('id_list_message=t-'+message,{status,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}});
  try{
- if(req.method!=='POST')return reply('נדרשת בקשת פוסט',405);
- if(!(req.headers.get('content-type')||'').startsWith('application/x-www-form-urlencoded'))return reply('בקשה לא תקינה',415);
- const raw=await req.text();if(raw.length>16000)return reply('בקשה ארוכה מדי',413);
+ if(req.method!=='POST')return reply(voice('v_33d9b2a30a1962fd6915',["נדרשת בקשת פוסט"]),405);
+ if(!(req.headers.get('content-type')||'').startsWith('application/x-www-form-urlencoded'))return reply(voice('v_a37aad20d246424c8276',["בקשה לא תקינה"]),415);
+ const raw=await req.text();if(raw.length>16000)return reply(voice('v_705c3c8a522e296f6e90',["בקשה ארוכה מדי"]),413);
  const p=new URLSearchParams(raw),tenant=one(p,'tenant_id'),key=one(p,'tenant_key'),action=one(p,'action');
- if(!/^[0-9a-f-]{36}$/i.test(tenant)||!key||key.length>128||await hash(key)!==await hash(await managementKey(tenant)))return reply('אין הרשאה',401);
+ if(!/^[0-9a-f-]{36}$/i.test(tenant)||!key||key.length>128||await hash(key)!==await hash(await managementKey(tenant)))return reply(voice('v_3b6190aa40ec927c416e',["אין הרשאה"]),401);
  const db=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'),{auth:{persistSession:false}});
  const {data:t,error:te}=await db.from('vendpay_tenants').select('id,is_active,terminal_id').eq('id',tenant).maybeSingle();
- if(te||!t||!t.is_active)return reply('שלוחת הלקוח אינה פעילה');
- if(p.getAll('hangup').includes('yes'))return reply('השיחה הסתיימה');
- if(action==='health')return reply('חיבור שלוחת ניהול הלקוח תקין');
- if(!['price_zones','mode_zones'].includes(action))return reply('פעולה לא נתמכת');
- const call=one(p,'ApiCallId'),did=one(p,'ApiDID');if(!call||call.length>200||!did||did.length>30)return reply('חסרים פרטי שיחה');
+ if(te||!t||!t.is_active)return reply(voice('v_62907909c5dadffcddef',["שלוחת הלקוח אינה פעילה"]));
+ if(p.getAll('hangup').includes('yes'))return reply(voice('v_7f04a4029dba89d77ad1',["השיחה הסתיימה"]));
+ if(action==='health')return reply(voice('v_aee173e629c63d19758d',["חיבור שלוחת ניהול הלקוח תקין"]));
+ if(!['price_zones','mode_zones'].includes(action))return reply(voice('v_bd604dc6b37f97e636bc',["פעולה לא נתמכת"]));
+ const call=one(p,'ApiCallId'),did=one(p,'ApiDID');if(!call||call.length>200||!did||did.length>30)return reply(voice('v_16a3f8d03a9b2601f52d',["חסרים פרטי שיחה"]));
  const {data:c,error:ce}=await db.from('vendpay_tenant_credentials').select('ciphertext,iv').eq('tenant_id',tenant).maybeSingle();if(ce||!c)throw Error('credentials');
  const secret=env('VENDPAY_TENANT_ENCRYPTION_KEY');const rawKey=/^[0-9a-f]{64}$/i.test(secret)?Uint8Array.from(secret.match(/../g)!,h=>parseInt(h,16)):new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(secret)));
  const aes=await crypto.subtle.importKey('raw',rawKey,'AES-GCM',false,['decrypt']);const decode=(v:string)=>Uint8Array.from(atob(v),ch=>ch.charCodeAt(0));
  const credentials=JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:decode(c.iv)},aes,decode(c.ciphertext))));
- if(typeof credentials.username!=='string'||typeof credentials.password!=='string'||typeof credentials.code!=='string')return reply('יש לעדכן את פרטי התחברות הלקוח');
+ if(typeof credentials.username!=='string'||typeof credentials.password!=='string'||typeof credentials.code!=='string')return reply(voice('v_50aadc8970c6f511cf08',["יש לעדכן את פרטי התחברות הלקוח"]));
  const auth=await fetch(BASE+'/authenticate?lang=heb&apiloc=VendPayDeltaHeb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:credentials.username,password:credentials.password,code:credentials.code,rememberMe:credentials.rememberMe??false,role:credentials.role??''}),redirect:'manual',signal:AbortSignal.timeout(5000)});
- if(!auth.ok)return reply('לא הצלחנו להתחבר לחשבון הלקוח');const data=await auth.json();if(typeof data.token!=='string'||data.token.length<20||/\s/.test(data.token))return reply('לא התקבל אישור התחברות');
+ if(!auth.ok)return reply(voice('v_ba168b3e26f419d2cd73',["לא הצלחנו להתחבר לחשבון הלקוח"]));const data=await auth.json();if(typeof data.token!=='string'||data.token.length<20||/\s/.test(data.token))return reply(voice('v_7b11e69eb977f924e75c',["לא התקבל אישור התחברות"]));
  const headers={Authorization:'Bearer '+data.token,Accept:'application/json'};
- if(!Number.isSafeInteger(t.terminal_id)||t.terminal_id<=0)return reply('לא נבחר מסוף ללקוח');
+ if(!Number.isSafeInteger(t.terminal_id)||t.terminal_id<=0)return reply(voice('v_d26829ab499f4958ae10',["לא נבחר מסוף ללקוח"]));
  const delegated=new Request(req.url,{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:raw});
  return await zoneHandler(delegated,{tenant,terminal:t.terminal_id,kind:action,token:data.token});
- }catch{return reply('לא ניתן להשלים כעת את הפעולה אם אישרתם שמירה בדקו באתר לפני ניסיון נוסף');}
+ }catch{return reply(voice('v_512d799712f03a302352',["לא ניתן להשלים כעת את הפעולה אם אישרתם שמירה בדקו באתר לפני ניסיון נוסף"]));}
 }
-Deno.serve(withAudit(handler,'vendpay-tenant-zones'));
+Deno.serve(withVoice(withAudit(handler,'vendpay-tenant-zones'),'vendpay-tenant-zones'));
 

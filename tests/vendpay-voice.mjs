@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';import {AsyncLocalStorage} from 'node:async_hooks';import {stripTypeScriptTypes} from 'node:module';
+const root='supabase/functions/vendpay-voice/';let rows=[],fail=false,requests=0;
+const context=vm.createContext({Response,Request,Headers,AbortSignal,console,Deno:{env:{get:k=>k==='SUPABASE_URL'?'https://fixture.invalid':'secret'}},fetch:async(url,opt)=>{requests++;assert.ok(url.includes('vendpay_voice_overrides'));assert.equal(opt.headers.apikey,'secret');if(fail)throw Error('unavailable');return Response.json(rows);}});
+const cache=new Map();function mod(name){if(cache.has(name))return cache.get(name);const m=name==='node:async_hooks'?new vm.SyntheticModule(['AsyncLocalStorage'],function(){this.setExport('AsyncLocalStorage',AsyncLocalStorage)},{context}):new vm.SourceTextModule(stripTypeScriptTypes(fs.readFileSync(root+name,'utf8')),{context});cache.set(name,m);return m;}
+const m=mod('voice.ts');await m.link(s=>mod(s.replace('./','')));await m.evaluate();const {voice,render,validateText,withVoice}=m.namespace;const catalog=mod('voice-catalog.ts').namespace.catalog;
+const entry=catalog.find(e=>e.source==='vendpay-tenant-members'&&e.text==='מספר הלקוחות הכולל {ערך_1}');assert.ok(entry);
+assert.ok(validateText(entry,'בחשבון יש {ערך_1} לקוחות'));
+for(const text of ['אחר','{ערך_1} {ערך_1}','{ערך_2}','{ערך_1}.t-בדיקה','{ערך_1}&go_to_folder=/','{ערך_1}=bad','{ערך_1}\n'])assert.ok(!validateText(entry,text));
+rows=[{message_id:entry.id,text:'בחשבון יש {ערך_1} לקוחות'}];
+const handler=withVoice(async req=>{const n=new URL(req.url).searchParams.get('n');const original=voice(entry.id,['מספר הלקוחות הכולל ',n,'']);assert.equal(original,'מספר הלקוחות הכולל '+n,'business logic sees unchanged text');await new Promise(r=>setTimeout(r,n==='1'?15:1));return new Response('read=t-'+original+' להמשך הקישו אחת=summary_1,,1,1,30,Digits',{headers:{'Content-Type':'text/plain','X-Admin-Result':'summary'}});},entry.source);
+const results=await Promise.all([1,2].map(n=>handler(new Request('https://fixture.invalid/?n='+n))));
+assert.equal(await results[0].text(),'read=t-בחשבון יש 1 לקוחות להמשך הקישו אחת=summary_1,,1,1,30,Digits');assert.match(await results[1].text(),/יש 2 לקוחות/);assert.equal(results[0].headers.get('X-Admin-Result'),'summary');
+fail=true;assert.match(await (await handler(new Request('https://fixture.invalid/?n=3'))).text(),/מספר הלקוחות הכולל 3/);fail=false;
+assert.equal(render('read=t-מספר הלקוחות הכולל 8=x,,1,1,30,Digits','other',rows,[{id:entry.id,original:'מספר הלקוחות הכולל 8',values:['8']}]),'read=t-מספר הלקוחות הכולל 8=x,,1,1,30,Digits');
+rows=[];assert.match(await (await handler(new Request('https://fixture.invalid/?n=4'))).text(),/מספר הלקוחות הכולל 4/);
+const menu=catalog.find(e=>e.source===entry.source&&e.text.startsWith('לכל הלקוחות הקישו אחת'));assert.ok(menu);voice(menu.id,[menu.text]);const body='read=t-'+menu.text+'=summary_0,,1,1,30,Digits';assert.equal(render(body,entry.source,[{message_id:menu.id,text:'לסיכום הקישו אחת'}],[]),'read=t-לסיכום הקישו אחת=summary_0,,1,1,30,Digits');
+const original=fs.readFileSync('supabase/functions/vendpay-tenants-admin/index.ts','utf8').replace(/^import .*;\n/gm,'');let adminHandler,writes=0;
+let user='outsider';const db={auth:{getUser:async()=>({data:{user:{id:user}}})},from(){return {select:async()=>({data:[]}),upsert:async()=>{writes++;return {}},delete(){return {in:async()=>{writes++;return {}}}},insert:async()=>({})}}};
+vm.runInNewContext(stripTypeScriptTypes(original),{Response,URL,crypto,TextEncoder,TextDecoder,Uint8Array,console,catalog,validateText,createClient:()=>db,Deno:{env:{get:()=>''},serve:f=>adminHandler=f}});
+const request=(action,payload)=>new Request('https://test.invalid/?action='+action,{method:payload?'POST':'GET',headers:{origin:'https://simple-store-app-ms0583212599-1490s-projects.vercel.app',authorization:'Bearer fixture','content-type':'application/json'},...(payload?{body:JSON.stringify(payload)}:{})});
+assert.equal((await adminHandler(request('voice_save',{ids:[entry.id],text:'בחשבון יש {ערך_1} לקוחות'}))).status,403);assert.equal(writes,0);user='56ae10cb-f40c-4a41-8112-ab8c9f1616c8';
+assert.equal((await adminHandler(request('voice_save',{ids:[entry.id],text:'bad'}))).status,400);assert.equal(writes,0);
+assert.equal((await adminHandler(request('voice_save',{ids:[entry.id],text:'בחשבון יש {ערך_1} לקוחות'}))).status,200);assert.equal(writes,1);
+assert.equal((await adminHandler(request('voice_save',{ids:[entry.id],reset:true}))).status,200);assert.equal(writes,2);
+assert.equal((await (await adminHandler(request('voice_messages'))).json()).messages.length,catalog.length);
+console.log('PASS voice: owner authorization, variables, protocol injection rejection, unchanged business text, concurrent calls isolated, command parameters unchanged, DB failure fallback, reset and catalog');
