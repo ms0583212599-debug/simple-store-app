@@ -26,6 +26,6 @@ export function summaryReply(p:URLSearchParams,data:any,groups:any,now=new Date(
  '7':`מספר הכרטיסים הפעילים שתוקפם מסתיים בשבעת הימים הקרובים כולל היום ${c.expiring}`,
  '8':`מספר הכרטיסים הלא פעילים ${c.inactive}`,
  '9':`מספר הרשומות ללא תאריך סיום תקין ${c.unknown} רשומות אלה לא נספרות ככרטיסים בתוקף`};
- let last='';for(let i=0;i<20;i++){const a=p.getAll('summary_'+i);if(a.length>1)throw Error('duplicate');const v=a[0];if(v===undefined)return ask('summary_'+i,(last?last+' . ':'')+MENU);if(v==='0')return 'id_list_message=t-סיום הסיכום';if(!say[v])return 'id_list_message=t-בחירה לא תקינה התחילו מחדש';last=say[v];}
+ let last='';for(let i=0;i<20;i++){const a=p.getAll('summary_'+i);if(a.length>1)throw Error('duplicate');const v=a[0];if(v===undefined)return ask('summary_'+i,(last?last+' להמשך ':'')+MENU);if(v==='0')return 'id_list_message=t-סיום הסיכום';if(!say[v])return 'id_list_message=t-בחירה לא תקינה התחילו מחדש';last=say[v];}
  return 'id_list_message=t-'+last+' סיום הסיכום';
 }

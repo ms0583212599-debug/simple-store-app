@@ -15,3 +15,6 @@ const c=ctx.counts(users,groups,now);assert.equal(c.total,8);assert.equal(c.vali
 assert.equal(ctx.counts(users,[],now).regular,null);assert.throws(()=>ctx.counts([...users,users[0]],groups,now));
 let text=ctx.summaryReply(new URLSearchParams({summary_0:'1'}),users,groups,now);assert.ok(text.includes('8'));assert.ok(text.includes('summary_1'));text=ctx.summaryReply(new URLSearchParams({summary_0:'1',summary_1:'2'}),users,groups,now);assert.ok(text.includes('בתוקף היום 4'));assert.ok(text.includes('summary_2'));
 console.log('PASS summary: Israel day boundary, inclusive expiry, future start/inactive exclusion, group IDs by exact title, separate standing-order group, missing dates, seven-day window, repeated menu');
+
+for(let digit=1;digit<=9;digit++){const reply=ctx.summaryReply(new URLSearchParams({summary_0:String(digit)}),users,groups,now);assert.equal(reply.split('=').length,3);assert.ok(!reply.split('=')[1].includes('.'),'IVR text must not contain an untyped message separator');assert.ok(reply.endsWith('=summary_1,,1,1,30,Digits'));}
+console.log('PASS IVR response syntax for all nine selections');
