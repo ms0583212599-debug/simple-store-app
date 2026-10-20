@@ -34,3 +34,11 @@ Deployed `vendpay-tenant-members` v1 and owner API v17. New owner-only configura
 - Owner-authorized `operation_log` API merges the operation journal with existing management audit, supports tenant/action/ISO date filters, returns latest 200 matches, no-store. Website provides an Israel-time journal view and clears it on logout.
 - Door success means command sent only. Prompt entries represent individual IVR steps, not completed mutations.
 - Live read-only door health request persisted as `health`, HTTP 200. No door opened and no member modified by this verification. Earlier calls are not backfilled as new events.
+
+## Price/mode zones by phone — 2026-10-20
+
+`vendpay-tenant-zones` v1 and owner API v19 add separate `price_zones_config` / `mode_zones_config`. Uses a distinct per-tenant zones HMAC. Selected tenant terminal is server-bound. Preserves rows/order and other fields; supports hear/edit/add/delete, weekdays, HHMM times, prices in cents (zero represented as null like the vendor UI), dynamic modes from `/fixed/getModes/`, custom payment masks 1/2/4/8/128. Cross-midnight edits require two rows; priority stays list order.
+
+Evidence: public vendor client GET/PUT `/priceZone`, `/modeZone` with `{terminal_id,zoneData}`; higher row priority; frontend save sends directly to these endpoints. No terminal-setting update is used. Session baseline conflict detection, per-terminal/kind in-flight lock, explicit final phone confirmation, one PUT attempt, readback before reporting saved. Confirmation explicitly warns that the change may take effect immediately. Readback does not prove the physical kiosk applied the update.
+
+Private table `vendpay_zone_sessions`; remote migration of same name, SQL snapshot in docs/sql. Unit/mock integration tests cover price conversion, days/payment masks, preserving unrelated rows, confirmation/cancel/add/delete, tenant-scoped persistence, conflict, readback and no retry after timeout. Live request with invalid key rejected; authenticated real vendor reads and writes still require phone testing. No actual price or operating-mode setting was changed by tests.

@@ -339,7 +339,9 @@ Deno.serve(async (req: Request) => {
     const common="type=api\napi_link="+SUPABASE_URL+"/functions/v1/vendpay-tenant-ivr\napi_url_post=yes\napi_hangup_send=no\napi_add_0=tenant_id="+t.id+"\napi_add_1=tenant_key="+routing+"\napi_add_2=action=";
     const management=Array.from(new Uint8Array(await crypto.subtle.sign("HMAC",k,new TextEncoder().encode("vendpay-members-v1:"+t.id))),b=>b.toString(16).padStart(2,"0")).join("");
     const members=common.replace("vendpay-tenant-ivr", "vendpay-tenant-members").replace(routing,management);
-    return reply({extension:t.extension,health_config:common+"check",open_config:common+"open",create_config:members+"create",edit_config:members+"edit"});
+    const zonesKey=Array.from(new Uint8Array(await crypto.subtle.sign("HMAC",k,new TextEncoder().encode("vendpay-zones-v1:"+t.id))),b=>b.toString(16).padStart(2,"0")).join("");
+    const zones=common.replace("vendpay-tenant-ivr","vendpay-tenant-zones").replace(routing,zonesKey);
+    return reply({extension:t.extension,health_config:common+"check",open_config:common+"open",create_config:members+"create",edit_config:members+"edit",price_zones_config:zones+"price_zones",mode_zones_config:zones+"mode_zones"});
   }
 
   if(req.method === "GET" && action === "operation_log") {
@@ -347,7 +349,7 @@ Deno.serve(async (req: Request) => {
     const tenant=params.get("tenant_id"),kind=params.get("kind"),since=params.get("since"),until=params.get("until");
     if(tenant&&!/^[0-9a-f-]{36}$/i.test(tenant))return reply({error:"Invalid customer"},400);
     for(const date of [since,until])if(date&&(!/^\d{4}-\d{2}-\d{2}T/.test(date)||!Number.isFinite(Date.parse(date))))return reply({error:"Invalid date"},400);
-    if(kind&&!['open','create','edit','check','health','request'].includes(kind))return reply({error:"Invalid action"},400);
+    if(kind&&!['open','create','edit','check','health','request','price_zones','mode_zones'].includes(kind))return reply({error:"Invalid action"},400);
     let q=admin.from("vendpay_operation_log").select("id,created_at,tenant_id,source,action,result,http_status,duration_ms,call_hash").order("created_at",{ascending:false}).order("id",{ascending:false}).limit(200);
     let a=admin.from("vendpay_tenant_audit").select("id,created_at,tenant_id,action,result").order("created_at",{ascending:false}).limit(200);
     if(tenant){q=q.eq("tenant_id",tenant);a=a.eq("tenant_id",tenant);}
