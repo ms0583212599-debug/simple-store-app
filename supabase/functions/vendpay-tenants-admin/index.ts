@@ -1,5 +1,5 @@
 
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -301,17 +301,41 @@ Deno.serve(async (req: Request) => {
       tenant_id:tenantId,ciphertext:encode(encrypted),iv:encode(iv),updated_at:new Date().toISOString()
     },{onConflict:"tenant_id"});
     if(saveError)return reply({error:"Unable to save credentials"},500);
-    const {error:statusError}=await admin.from("vendpay_tenants").update({connection_status:"pending",last_checked_at:null}).eq("id",tenantId);
+    const {error:statusError}=await admin.from("vendpay_tenants").update({connection_status:"pending",last_checked_at:null,is_active:false}).eq("id",tenantId);
     if(statusError)return reply({error:"Credentials saved but status update failed"},500);
     await admin.from("vendpay_tenant_audit").insert({tenant_id:tenantId,action:"save_credentials",result:"pending"});
     return reply({saved:true,status:"pending"});
+  }
+
+  const action = new URL(req.url).searchParams.get("action");
+  if(req.method === "POST" && ["set_active","ivr_config"].includes(action || "")) {
+    let input:any;try{input=await req.json();}catch{return reply({error:"Invalid JSON"},400);}
+    if(typeof input.tenant_id!=="string" || !/^[0-9a-f-]{36}$/i.test(input.tenant_id))return reply({error:"Invalid customer"},400);
+    const {data:t,error}=await admin.from("vendpay_tenants").select("id,extension,is_active,connection_status,last_checked_at,terminal_id,gate_status").eq("id",input.tenant_id).maybeSingle();
+    if(error||!t)return reply({error:"Customer not found"},404);
+    if(action==="set_active") {
+      if(typeof input.active!=="boolean")return reply({error:"Invalid active flag"},400);
+      if(input.active && (t.connection_status!=="connected" || !t.last_checked_at || Date.now()-Date.parse(t.last_checked_at)>3600000))return reply({error:"Run connection check before activation"},409);
+      if(input.active && (!Number.isSafeInteger(input.terminal_id)||input.terminal_id<=0||!Number.isInteger(input.gate_status)||input.gate_status<0||input.gate_status>100))return reply({error:"Terminal settings required"},400);
+      const {error:e}=await admin.from("vendpay_tenants").update({is_active:input.active,...(input.active?{terminal_id:input.terminal_id,gate_status:input.gate_status}:{})}).eq("id",t.id);
+      if(e)return reply({error:"Unable to update customer"},500);
+      await admin.from("vendpay_tenant_audit").insert({tenant_id:t.id,action:input.active?"activate":"deactivate",result:"saved"});
+      return reply({saved:true,active:input.active});
+    }
+    if(!t.is_active)return reply({error:"Activate customer first"},409);
+    const secret=Deno.env.get("VENDPAY_TENANT_ENCRYPTION_KEY")||"";if(secret.length!==64)return reply({error:"Encryption key not configured"},503);
+    const k=await crypto.subtle.importKey("raw",new TextEncoder().encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+    const routing=Array.from(new Uint8Array(await crypto.subtle.sign("HMAC",k,new TextEncoder().encode("vendpay-ivr-v1:"+t.id))),b=>b.toString(16).padStart(2,"0")).join("");
+    headers["Cache-Control"]="no-store";
+    const common="type=api\napi_link="+SUPABASE_URL+"/functions/v1/vendpay-tenant-ivr\napi_url_post=yes\napi_hangup_send=no\napi_add_0=tenant_id="+t.id+"\napi_add_1=tenant_key="+routing+"\napi_add_2=action=";
+    return reply({extension:t.extension,health_config:common+"check",open_config:common+"open"});
   }
 
   if (req.method === "GET") {
     const { data, error } = await admin
       .from("vendpay_tenants")
       .select(
-        "id, display_name, extension, is_active, connection_status, last_checked_at, created_at"
+        "id, display_name, extension, is_active, connection_status, last_checked_at, terminal_id, gate_status, created_at"
       )
       .order("created_at", { ascending: false })
       .limit(100);
