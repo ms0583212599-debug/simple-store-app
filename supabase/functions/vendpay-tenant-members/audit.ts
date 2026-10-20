@@ -21,7 +21,7 @@ export function withAudit(handler:(req:Request)=>Promise<Response>,source:string
  const action=source==='vendpay-admin-users'?'create':source==='vendpay-admin-edit'?'edit':p.get('action');
  const tenant=p.get('tenant_id');const validTenant=tenant&&/^[0-9a-f-]{36}$/i.test(tenant)&&!['unauthorized','invalid_input'].includes(result)?tenant:null;
  const call=p.get('ApiCallId'),did=p.get('ApiDID');
- const row={tenant_id:validTenant,source,action:['open','create','edit','check','health'].includes(action||'')?action:'request',result,http_status:response.status,duration_ms:Math.min(Date.now()-start,2147483647),call_hash:call&&did&&call.length<=200&&did.length<=30?await digest(source+'|'+(tenant||'legacy')+'|'+did+'|'+call):null};
+ const row={tenant_id:validTenant,source,action:['open','create','edit','check','health','summary'].includes(action||'')?action:'request',result,http_status:response.status,duration_ms:Math.min(Date.now()-start,2147483647),call_hash:call&&did&&call.length<=200&&did.length<=30?await digest(source+'|'+(tenant||'legacy')+'|'+did+'|'+call):null};
  const key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')||'';
  const r=await fetch((Deno.env.get('SUPABASE_URL')||'')+'/rest/v1/vendpay_operation_log',{method:'POST',headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify(row),signal:AbortSignal.timeout(2000)});
  if(!r.ok)console.log(JSON.stringify({event:'vendpay_audit_failed',source}));await r.body?.cancel();
@@ -29,3 +29,4 @@ export function withAudit(handler:(req:Request)=>Promise<Response>,source:string
  const pending=record();const runtime=(globalThis as any).EdgeRuntime;if(runtime?.waitUntil)runtime.waitUntil(pending);else await pending;
  return response;
 };}
+

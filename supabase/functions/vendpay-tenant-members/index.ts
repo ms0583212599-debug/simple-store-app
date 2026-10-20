@@ -1,3 +1,4 @@
+import {summaryIntro,summaryReply} from './summary.ts';
 import {withAudit} from './audit.ts';
 import {createClient} from 'npm:@supabase/supabase-js@2.118.0';
 import {makeHandler as createHandler} from './create.ts';
@@ -26,8 +27,9 @@ export async function handler(req:Request){
  if(te||!t||!t.is_active)return reply('שלוחת הלקוח אינה פעילה');
  if(p.getAll('hangup').includes('yes'))return reply('השיחה הסתיימה');
  if(action==='health')return reply('חיבור שלוחת ניהול הלקוח תקין');
- if(!['create','edit'].includes(action))return reply('פעולה לא נתמכת');
+ if(!['create','edit','summary'].includes(action))return reply('פעולה לא נתמכת');
  const call=one(p,'ApiCallId'),did=one(p,'ApiDID');if(!call||call.length>200||!did||did.length>30)return reply('חסרים פרטי שיחה');
+ if(action==='summary'&&!p.has('summary_0'))return new Response(summaryIntro(),{headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store','X-Admin-Result':'prompt'}});
  const {data:c,error:ce}=await db.from('vendpay_tenant_credentials').select('ciphertext,iv').eq('tenant_id',tenant).maybeSingle();if(ce||!c)throw Error('credentials');
  const secret=env('VENDPAY_TENANT_ENCRYPTION_KEY');const rawKey=/^[0-9a-f]{64}$/i.test(secret)?Uint8Array.from(secret.match(/../g)!,h=>parseInt(h,16)):new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(secret)));
  const aes=await crypto.subtle.importKey('raw',rawKey,'AES-GCM',false,['decrypt']);const decode=(v:string)=>Uint8Array.from(atob(v),ch=>ch.charCodeAt(0));
@@ -37,7 +39,9 @@ export async function handler(req:Request){
  if(!auth.ok)return reply('לא הצלחנו להתחבר לחשבון הלקוח');const data=await auth.json();if(typeof data.token!=='string'||data.token.length<20||/\s/.test(data.token))return reply('לא התקבל אישור התחברות');
  const headers={Authorization:'Bearer '+data.token,Accept:'application/json'};
  const r=await fetch(BASE+'/restrict_group?lang=heb&apiloc=VendPayDeltaHeb',{headers,redirect:'manual',signal:AbortSignal.timeout(5000)});if(!r.ok)throw Error('group_read_failed');
- const groups=groupList(await r.json());
+ const rawGroups=await r.json();
+ if(action==='summary'){const users=await fetch(BASE+'/user?lang=heb&apiloc=VendPayDeltaHeb',{headers,redirect:'manual',signal:AbortSignal.timeout(8000)});if(!users.ok)throw Error('read');return new Response(summaryReply(p,await users.json(),rawGroups),{headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store','X-Admin-Result':'summary'}});}
+ const groups=groupList(rawGroups);
  // All account-specific data stays inside this request's closure, never shared across tenants.
  const context={tenant,active:true,groups,authenticatedCheck:async()=>({token:data.token,response:Response.json({ok:true})})};
  const delegated=new Request(req.url,{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:raw});
@@ -45,3 +49,4 @@ export async function handler(req:Request){
  }catch{return reply('לא ניתן להשלים כעת את הפעולה אם אישרתם שמירה בדקו באתר לפני ניסיון נוסף');}
 }
 Deno.serve(withAudit(handler,'vendpay-tenant-members'));
+

@@ -59,3 +59,7 @@ await handler(req(ids[0],'edit',{lookup_card:'455',edit_mode:'3',edit_save:'1'})
 unknown=true;const uncertain={...create,ApiCallId:'unknown',card_number:'999',restrict_id:'12',save_confirm:'1'};
 await handler(req(ids[0],'create',uncertain));await handler(req(ids[0],'create',uncertain));assert.equal(writes,4);
 console.log('PASS: real tenant auth/decryption; cross-tenant key denied; inactive/hangup; account groups; explicit confirmation; concurrent same IDs isolated; create/edit readback; balance preserved; next Hebrew month; replay/timeout protection; no door requests');
+const writesBeforeSummary=writes;
+r=await handler(req(ids[0],'summary'));assert.match(await r.text(),/summary_0/);
+r=await handler(req(ids[0],'summary',{summary_0:'1'}));assert.match(await r.text(),/מספר הלקוחות הכולל 1/);assert.equal(writes,writesBeforeSummary);
+console.log('PASS tenant summary authenticated read only, no writes');
