@@ -165,6 +165,7 @@ Deno.serve(async (req: Request) => {
     if (typeof credentials.code !== "string") {
       return reply({connected:false,status:"pending",reason:"credentials_need_code"});
     }
+    let terminals: {terminal_id:number;description:string}[] = [];
     let connected = false;
     let reason = "connection_failed";
 
@@ -208,9 +209,13 @@ Deno.serve(async (req: Request) => {
           connected = check.ok && !/^\s*</.test(checkBody) &&
             !/\b(unauthorized|forbidden|invalid token|token expired)\b/i.test(checkBody) &&
             !(checkData && (checkData.success === false || checkData.ok === false || checkData.error || checkData.status === "error"));
-          reason = connected
-            ? "connected"
-            : "read_only_check_failed";
+          reason = connected ? "connected" : "read_only_check_failed";
+          if(connected){
+            const terminalResponse=await fetch("https://vendpay24.com/VendPayDeltaHeb/terminal?lang=heb&apiloc=VendPayDeltaHeb",{headers:{Authorization:"Bearer "+result.token,Accept:"application/json"},redirect:"manual",signal:AbortSignal.timeout(7000)});
+            const list=terminalResponse.ok?await terminalResponse.json():null;
+            if(!Array.isArray(list)||!list.length||list.some(t=>!Number.isSafeInteger(t.terminal_id)||t.terminal_id<=0)||new Set(list.map(t=>t.terminal_id)).size!==list.length){connected=false;reason="terminal_list_unavailable";}
+            else terminals=list.map(t=>({terminal_id:t.terminal_id,description:String(t.description||"מסוף "+t.terminal_id).slice(0,120)}));
+          }
 
 
         } else {
@@ -247,7 +252,8 @@ Deno.serve(async (req: Request) => {
       .from("vendpay_tenants")
       .update({
         connection_status: status,
-        last_checked_at: checkedAt
+        last_checked_at: checkedAt,
+        discovered_terminals: terminals
       })
       .eq("id", tenantId);
 
@@ -267,7 +273,7 @@ Deno.serve(async (req: Request) => {
       connected,
       status,
       checked_at: checkedAt,
-      reason
+      reason, terminals
     });
   }
 
@@ -277,7 +283,7 @@ Deno.serve(async (req: Request) => {
     const tenantId = input?.tenant_id;
     const username = input?.username;
     const password = input?.password;
-    const code = input?.code;
+    const code = input?.code === undefined || input?.code === "" ? "3464409e" : input.code; // Public VendPay Login default, verified 2026-10-20.
     const rememberMe = input?.rememberMe ?? false;
     const role = input?.role ?? "";
     if (typeof tenantId !== "string" || !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(tenantId) ||
@@ -301,7 +307,7 @@ Deno.serve(async (req: Request) => {
       tenant_id:tenantId,ciphertext:encode(encrypted),iv:encode(iv),updated_at:new Date().toISOString()
     },{onConflict:"tenant_id"});
     if(saveError)return reply({error:"Unable to save credentials"},500);
-    const {error:statusError}=await admin.from("vendpay_tenants").update({connection_status:"pending",last_checked_at:null,is_active:false}).eq("id",tenantId);
+    const {error:statusError}=await admin.from("vendpay_tenants").update({connection_status:"pending",last_checked_at:null,is_active:false,discovered_terminals:[]}).eq("id",tenantId);
     if(statusError)return reply({error:"Credentials saved but status update failed"},500);
     await admin.from("vendpay_tenant_audit").insert({tenant_id:tenantId,action:"save_credentials",result:"pending"});
     return reply({saved:true,status:"pending"});
@@ -311,12 +317,13 @@ Deno.serve(async (req: Request) => {
   if(req.method === "POST" && ["set_active","ivr_config"].includes(action || "")) {
     let input:any;try{input=await req.json();}catch{return reply({error:"Invalid JSON"},400);}
     if(typeof input.tenant_id!=="string" || !/^[0-9a-f-]{36}$/i.test(input.tenant_id))return reply({error:"Invalid customer"},400);
-    const {data:t,error}=await admin.from("vendpay_tenants").select("id,extension,is_active,connection_status,last_checked_at,terminal_id,gate_status").eq("id",input.tenant_id).maybeSingle();
+    const {data:t,error}=await admin.from("vendpay_tenants").select("id,extension,is_active,connection_status,last_checked_at,terminal_id,gate_status,discovered_terminals").eq("id",input.tenant_id).maybeSingle();
     if(error||!t)return reply({error:"Customer not found"},404);
     if(action==="set_active") {
       if(typeof input.active!=="boolean")return reply({error:"Invalid active flag"},400);
       if(input.active && (t.connection_status!=="connected" || !t.last_checked_at || Date.now()-Date.parse(t.last_checked_at)>3600000))return reply({error:"Run connection check before activation"},409);
       if(input.active && (!Number.isSafeInteger(input.terminal_id)||input.terminal_id<=0||!Number.isInteger(input.gate_status)||input.gate_status<0||input.gate_status>100))return reply({error:"Terminal settings required"},400);
+      if(input.active && (input.gate_status!==2 || !Array.isArray(t.discovered_terminals) || !t.discovered_terminals.some((x:any)=>x.terminal_id===input.terminal_id)))return reply({error:"Select a terminal from the verified account"},400);
       const {error:e}=await admin.from("vendpay_tenants").update({is_active:input.active,...(input.active?{terminal_id:input.terminal_id,gate_status:input.gate_status}:{})}).eq("id",t.id);
       if(e)return reply({error:"Unable to update customer"},500);
       await admin.from("vendpay_tenant_audit").insert({tenant_id:t.id,action:input.active?"activate":"deactivate",result:"saved"});
@@ -335,7 +342,7 @@ Deno.serve(async (req: Request) => {
     const { data, error } = await admin
       .from("vendpay_tenants")
       .select(
-        "id, display_name, extension, is_active, connection_status, last_checked_at, terminal_id, gate_status, created_at"
+        "id, display_name, extension, is_active, connection_status, last_checked_at, terminal_id, gate_status, discovered_terminals, created_at"
       )
       .order("created_at", { ascending: false })
       .limit(100);

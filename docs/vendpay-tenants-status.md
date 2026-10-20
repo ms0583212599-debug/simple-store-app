@@ -11,3 +11,6 @@ Remote migration `vendpay_tenant_door_routing` added nullable terminal_id and ga
 Tests: node tests/vendpay-tenant-auth.mjs; node tests/vendpay-tenant-routing.mjs (all outbound requests mocked). Physical telephone test pending. The existing tenant has not been activated automatically: its terminal mapping must be entered by the owner.
 
 Remaining: tenant-specific create/edit membership functions are not connected to this router. Existing single-account membership extensions continue separately. Verify vendor authentication persistence across future token expiry. No sunset expiry semantics added.
+
+## Self-service onboarding update
+Inspected public vendor bundle /assets/index-BZhhkJbs.js on 2026-10-20: Login uses a constant default code, /terminal returns the hardware list, and openGateOnce sends gate_status=2 with terminal_id. The panel now needs username/password only, retrieves terminal_id/description from authenticated /terminal, and activation only accepts an ID from the account snapshot plus one-time-open command 2. New column discovered_terminals holds sanitized descriptions/IDs. No live door commands used in development. A fresh owner connection check is needed to populate existing accounts.
