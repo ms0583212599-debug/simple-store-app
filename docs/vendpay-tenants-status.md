@@ -14,3 +14,15 @@ Remaining: tenant-specific create/edit membership functions are not connected to
 
 ## Self-service onboarding update
 Inspected public vendor bundle /assets/index-BZhhkJbs.js on 2026-10-20: Login uses a constant default code, /terminal returns the hardware list, and openGateOnce sends gate_status=2 with terminal_id. The panel now needs username/password only, retrieves terminal_id/description from authenticated /terminal, and activation only accepts an ID from the account snapshot plus one-time-open command 2. New column discovered_terminals holds sanitized descriptions/IDs. No live door commands used in development. A fresh owner connection check is needed to populate existing accounts.
+
+## Tenant member creation and editing — 2026-10-20
+
+Deployed `vendpay-tenant-members` v1 and owner API v17. New owner-only configuration outputs `create_config` and `edit_config` use a management HMAC distinct from the door key. Original single-account create/edit/door functions are unchanged.
+
+- Reuses deployed create v21 and edit v8 flows, including spoken/keyboard names, Hebrew dates, final confirmation and next Hebrew month expiry.
+- Fetches active groups from the selected account's `/restrict_group` GET (observed in the public VendPay client). No fixed account-specific group IDs.
+- Per-request credentials, token, groups and handlers. Separate tenant-scoped create/edit tables with RLS and service-role-only grants. Migration SQL snapshot: `docs/sql/vendpay-tenant-members.sql`; remote migration `vendpay_tenant_members`.
+- POST/PUT is attempted at most once per operation; timeout and ambiguous results are not automatically replayed. Readback verifies success. Edit checks baseline changes and preserves the existing balance.
+- Owner copies each configuration into a separate Yemot administrator extension protected by its entry code. The extension field in the site is a label, not automatic provisioning in Yemot.
+- Validation: existing auth/routing tests and new member-flow mock integration test passed; real AES/HMAC, simultaneous tenant isolation with equal card/call/user IDs, group validation, explicit final consent, replay protection, unchanged balance and automatic expiry covered. Live endpoint rejects a wrong key with HTTP 401. Deployed sources are checked against the release.
+- No real subscriber was created/changed during automated testing. Real phone onboarding/editing of the new tenant route still needs the owner's call; do not claim that physical end-to-end test completed.

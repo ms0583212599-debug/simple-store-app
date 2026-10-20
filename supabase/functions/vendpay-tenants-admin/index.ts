@@ -337,7 +337,9 @@ Deno.serve(async (req: Request) => {
     const routing=Array.from(new Uint8Array(await crypto.subtle.sign("HMAC",k,new TextEncoder().encode("vendpay-ivr-v1:"+t.id))),b=>b.toString(16).padStart(2,"0")).join("");
     headers["Cache-Control"]="no-store";
     const common="type=api\napi_link="+SUPABASE_URL+"/functions/v1/vendpay-tenant-ivr\napi_url_post=yes\napi_hangup_send=no\napi_add_0=tenant_id="+t.id+"\napi_add_1=tenant_key="+routing+"\napi_add_2=action=";
-    return reply({extension:t.extension,health_config:common+"check",open_config:common+"open"});
+    const management=Array.from(new Uint8Array(await crypto.subtle.sign("HMAC",k,new TextEncoder().encode("vendpay-members-v1:"+t.id))),b=>b.toString(16).padStart(2,"0")).join("");
+    const members=common.replace("vendpay-tenant-ivr", "vendpay-tenant-members").replace(routing,management);
+    return reply({extension:t.extension,health_config:common+"check",open_config:common+"open",create_config:members+"create",edit_config:members+"edit"});
   }
 
   if (req.method === "GET") {
