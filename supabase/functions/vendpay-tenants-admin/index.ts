@@ -94,6 +94,42 @@ Deno.serve(async (req: Request) => {
   };
 
 
+
+  const categoryAction=new URL(req.url).searchParams.get("action");
+  if(categoryAction==="nedarim_rules"){
+    headers["Cache-Control"]="no-store";
+    const mosad="7014693";
+    if(req.method==="GET"){
+      const {data,error}=await admin.from("vendpay_nedarim_rules").select("rules").eq("mosad",mosad).maybeSingle();
+      return error?reply({error:"לא ניתן לטעון כללים"},500):reply({rules:data?.rules||[],automation_enabled:false});
+    }
+    if(req.method!=="POST")return reply({error:"Method not allowed"},405);
+    const raw=await req.text();if(raw.length>30000)return reply({error:"בקשה ארוכה מדי"},413);
+    let input;try{input=JSON.parse(raw);}catch{return reply({error:"בקשה לא תקינה"},400);}
+    if(!Array.isArray(input?.rules)||input.rules.length>50)return reply({error:"ניתן לשמור עד 50 כללים"},400);
+    const rules=[];
+    const categories=new Set();
+    for(const r of input.rules){
+      if(typeof r?.category!=="string"||!r.category.trim()||r.category.length>120||/[\u0000-\u001f]/.test(r.category)||typeof r.tenant_id!=="string"||!/^[0-9a-f-]{36}$/i.test(r.tenant_id)||!["open","renew","both"].includes(r.action))
+        return reply({error:"יש למלא שם קטגוריה, לקוח ופעולה בכל כלל"},400);
+      const category=r.category.normalize("NFC").trim();
+      if(categories.has(category))return reply({error:"לכל קטגוריה ניתן להגדיר כלל אחד; לשתי הפעולות בחרו את האפשרות המשולבת"},400);
+      categories.add(category);
+      rules.push({category,tenant_id:r.tenant_id,action:r.action,expiry_mode:"ivr_next_month",member_field:"Comments"});
+    }
+    if(rules.length){
+      const ids=[...new Set(rules.map(r=>r.tenant_id))];
+      const {data,error}=await admin.from("vendpay_tenants").select("id").in("id",ids);
+      if(error)return reply({error:"בדיקת הלקוחות נכשלה"},500);
+      if(data?.length!==ids.length)return reply({error:"אחד הלקוחות אינו קיים"},400);
+    }
+    const {data:connection,error:connectionError}=await admin.from("vendpay_nedarim_connections").select("mosad").eq("mosad",mosad).maybeSingle();
+    if(connectionError)return reply({error:"בדיקת החיבור נכשלה"},500);
+    if(!connection)return reply({error:"יש לשמור תחילה מפתח למוסד 7014693"},409);
+    const {error}=await admin.from("vendpay_nedarim_rules").upsert({mosad,rules,updated_at:new Date().toISOString()},{onConflict:"mosad"});
+    return error?reply({error:"שמירת הכללים נכשלה"},500):reply({saved:true,rules,automation_enabled:false});
+  }
+
   // Separate institution connection. Owner authentication above is required for every action.
   const npAction = new URL(req.url).searchParams.get("action");
   if (["nedarim_status", "nedarim_save", "nedarim_check"].includes(npAction || "")) {
