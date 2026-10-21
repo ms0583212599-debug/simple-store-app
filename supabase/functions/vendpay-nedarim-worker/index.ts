@@ -4,7 +4,7 @@ import {handler as openDoor,routingKey} from './door.ts';
 import {nextHebrewMonthStart} from './calendar.ts';
 import {listData,payload} from './edit.ts';
 import {transactionId,classify} from './policy.ts';
-const MOSAD='7014693', BASE='https://vendpay24.com/VendPayDeltaHeb';
+const BASE='https://vendpay24.com/VendPayDeltaHeb';
 const env=(k:string)=>Deno.env.get(k)||'';
 const hash=async(s:string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s))),b=>b.toString(16).padStart(2,'0')).join('');
 function checked<T extends {error:any,data:any}>(result:T):T['data']{if(result.error)throw Error('database_error');return result.data;}
@@ -15,7 +15,7 @@ async function decrypt(c:any,aad?:string){
  const decode=(s:string)=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
  return new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:decode(c.iv),...(aad?{additionalData:new TextEncoder().encode(aad)}:{})},key,decode(c.ciphertext)));
 }
-async function history(db:any,cursor:number){
+async function history(db:any,cursor:number,MOSAD:string){
  const c=checked(await db.from('vendpay_nedarim_connections').select('ciphertext,iv').eq('mosad',MOSAD).single());
  const password=await decrypt(c,'vendpay-nedarim:'+MOSAD);
  const p=new URLSearchParams({Action:'GetHistoryJson',MosadId:MOSAD,ApiPassword:password,MaxId:'1000',LastId:String(cursor)});
@@ -43,7 +43,7 @@ async function execute(db:any,event:any){
  const token=await tenantAuth(db,tenant),users=await members(token),found=users.filter(u=>String(u.card_number)===card);
  if(found.length!==1)return 'review_member';
  let renewal='not_requested';
- const call='nedarim-'+MOSAD+'-'+id,did='0733182541';
+ const call='nedarim-'+event.mosad+'-'+id,did='0733182541';
  if(action==='renew'||action==='both'){
   payload(found[0]);
   if(String(found[0].date_end||'').slice(0,10)>=event.target_date)renewal='already_valid';
@@ -65,13 +65,15 @@ async function execute(db:any,event:any){
 Deno.serve(async req=>{
  if(req.method!=='POST'||await hash(req.headers.get('x-worker-token')||'')!=='23e1f582b365ed01306845629a479f8847b95014492482948ec2446cc40afa9a')return new Response('Unauthorized',{status:401});
  const db=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'),{auth:{persistSession:false}});
- let lease:string|null=null;
+ let lease:string|null=null;let MOSAD='';
  try{
   const input=await req.json().catch(()=>({})),mode=input.mode||'probe';
   if(!['probe','preflight','run'].includes(mode))throw Error('invalid_mode');
+  MOSAD=String(input.mosad||'7014693');if(!/^[1-9]\d{2,14}$/.test(MOSAD))throw Error('invalid_institution');
+  const binding=checked(await db.from('vendpay_nedarim_connections').select('tenant_id').eq('mosad',MOSAD).single());if(!binding.tenant_id)throw Error('institution_unbound');
   const state=checked(await db.from('vendpay_nedarim_worker_state').select('*').eq('mosad',MOSAD).single());
   const config=checked(await db.from('vendpay_nedarim_rules').select('rules').eq('mosad',MOSAD).single()),rules=config.rules;
-  if(!Array.isArray(rules))throw Error('invalid_rules');
+  if(!Array.isArray(rules)||rules.some(r=>r.tenant_id!==binding.tenant_id))throw Error('invalid_rules');
   if(mode==='preflight'){
    const tenants=[...new Set(rules.map(r=>r.tenant_id))],checks=[];
    for(const tenant of tenants){const users=await members(await tenantAuth(db,String(tenant)));for(const u of users)payload(u);checks.push({tenant_id:tenant,readable:true,member_schema_valid:true});}
@@ -85,12 +87,17 @@ Deno.serve(async req=>{
    const acquired=checked(await db.from('vendpay_nedarim_worker_state').update({lease_until:lease}).eq('mosad',MOSAD).eq('enabled',true).or('lease_until.is.null,lease_until.lt.'+new Date().toISOString()).select('mosad'));
    if(!acquired.length){lease=null;return Response.json({mode:'busy'});}
   }
-  const rows=await history(db,cursor);
+  const rows=await history(db,cursor,MOSAD);
   if(mode==='probe')return Response.json({mode:'read_only',enabled:state.enabled,count:rows.length,max_id:rows.length?transactionId(rows.at(-1)):cursor,matches:rules.map(rule=>({category:rule.category,count:rows.filter(r=>classify(r,[rule])).length}))});
+  if(!state.initialized){
+   const last=rows.length?transactionId(rows.at(-1)):cursor,ready=rows.length<1000;
+   checked(await db.from('vendpay_nedarim_worker_state').update({last_id:last,initialized:ready,last_run_at:new Date().toISOString(),last_error:null,...(ready?{activated_at:new Date().toISOString()}: {})}).eq('mosad',MOSAD).eq('lease_until',lease));
+   return Response.json({mode:ready?'initialized':'initializing',mosad:MOSAD,last_id:last,skipped:rows.length});
+  }
   const started=Date.now();let processed=0,matched=0;
   for(const row of rows){
    if(Date.now()-started>55000||matched>=5)break;
-   const id=transactionId(row),match=classify(row,rules);
+   const id=transactionId(row),match=state.initialized?classify(row,rules):null;
    if(match){
     matched++;
     const event={mosad:MOSAD,transaction_id:id,tenant_id:match.rule.tenant_id,category:match.category,card_number:match.card,action:match.rule.action,status:match.status==='ready'?'processing':match.status,target_date:nextHebrewMonthStart(new Date())};
@@ -105,8 +112,8 @@ Deno.serve(async req=>{
    checked(await db.from('vendpay_nedarim_worker_state').update({last_id:id}).eq('mosad',MOSAD).eq('lease_until',lease));
    cursor=id;processed++;
   }
-  checked(await db.from('vendpay_nedarim_worker_state').update({last_run_at:new Date().toISOString(),last_error:null}).eq('mosad',MOSAD).eq('lease_until',lease));
-  return Response.json({mode:'run',processed,matched,last_id:cursor});
+  checked(await db.from('vendpay_nedarim_worker_state').update({last_run_at:new Date().toISOString(),last_error:null,...(!state.initialized&&rows.length===0?{initialized:true,activated_at:new Date().toISOString()}: {})}).eq('mosad',MOSAD).eq('lease_until',lease));
+  return Response.json({mode:state.initialized?'run':'initializing',mosad:MOSAD,processed,matched,last_id:cursor});
  }catch(e){
   const error=e instanceof Error&&/^[a-z_]+$/.test(e.message)?e.message:'worker_failed';
   if(lease)await db.from('vendpay_nedarim_worker_state').update({last_error:error,last_run_at:new Date().toISOString()}).eq('mosad',MOSAD).eq('lease_until',lease);

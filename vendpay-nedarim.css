@@ -1,0 +1,36 @@
+#vpNedarimDialog{border:1px solid #e2e8ed;border-radius:22px;padding:0;width:min(920px,calc(100vw - 24px));max-width:920px;max-height:92dvh;color:#263a43;background:#fbfcfd;box-shadow:0 24px 90px #18354133;direction:rtl;font-family:inherit}
+#vpNedarimDialog::backdrop{background:#182c3c70;backdrop-filter:blur(4px)}
+#vpNedarimDialog .np-top{position:sticky;top:0;z-index:2;background:#fff;padding:24px 28px;border-bottom:1px solid #e8edf1;display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+#vpNedarimDialog h2,#vpNedarimDialog h3,#vpNedarimDialog h4{margin:0 0 8px}
+#vpNedarimDialog p{margin:8px 0;line-height:1.65}
+#vpNedarimDialog .np-body{padding:24px 28px}
+#vpNedarimDialog .np-eyebrow,#vpNedarimDialog .np-note{font-size:13px;color:#657b86}
+#vpNedarimDialog .np-eyebrow{display:block;margin-bottom:6px}
+#vpNedarimDialog label{display:block;font-size:14px;font-weight:600}
+#vpNedarimDialog input,#vpNedarimDialog select{display:block;box-sizing:border-box;width:100%;padding:12px;margin:7px 0 12px;border:1px solid #dce5ea;border-radius:10px;background:#fff;color:#263a43;font:inherit}
+#vpNedarimDialog button{font:inherit;font-weight:600;border:1px solid #dce5ea;border-radius:10px;padding:10px 16px;cursor:pointer;white-space:nowrap}
+#vpNedarimDialog button:disabled{opacity:.55;cursor:wait}
+#vpNedarimDialog .light{background:#fff;color:#355766}
+#vpNedarimDialog .blue{background:#326e85;color:#fff;border-color:#326e85}
+#vpNedarimDialog .green{background:#287666;color:white;border-color:#287666}
+#vpNedarimDialog .np-delete{color:#a84148;background:#fff7f7;border-color:#eed9dc}
+#vpNedarimDialog .np-summary{display:flex;justify-content:space-between;align-items:center;gap:20px;background:#eef5f7;padding:20px;border-radius:14px;margin:18px 0}
+#vpNedarimDialog .np-summary strong{font-size:24px;display:block}
+#vpNedarimDialog .np-badge{border-radius:20px;padding:8px 13px;background:#fff;color:#326e65;font-size:13px}
+#vpNedarimDialog details{padding:16px;border:1px solid #e2e9ed;border-radius:12px;background:#fff}
+#vpNedarimDialog summary{cursor:pointer;font-weight:600}
+#vpNedarimDialog details form{margin-top:18px}
+#vpNedarimDialog .np-fields{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+#vpNedarimDialog .np-section{margin-top:28px}
+#vpNedarimDialog .np-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+#vpNedarimDialog .np-editor{background:#f0f6f8;border:1px solid #dce9ed;padding:20px;border-radius:14px;margin:16px 0}
+#vpNedarimDialog [hidden]{display:none!important}
+#vpNedarimDialog .np-rule{padding:18px;background:white;border:1px solid #e2e9ed;border-radius:14px;margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+#vpNedarimDialog .np-rule strong{display:block;line-height:1.6;overflow-wrap:anywhere}
+#vpNedarimDialog .np-controls{display:flex;gap:8px;flex-wrap:wrap}
+#vpNedarimDialog .np-table{overflow-x:auto}
+#vpNedarimDialog table{border-collapse:collapse;width:100%;font-size:13px}
+#vpNedarimDialog td,#vpNedarimDialog th{text-align:right;padding:12px;border-bottom:1px solid #e4eaee;min-width:75px;vertical-align:top}
+#vpNedarimDialog :focus-visible{outline:3px solid #89bdcf;outline-offset:3px}
+#npMessage{min-height:24px;color:#326e65}#npMessage.np-error{color:#a84148}
+@media(max-width:600px){#vpNedarimDialog .np-top,#vpNedarimDialog .np-body{padding:18px}#vpNedarimDialog .np-fields{grid-template-columns:1fr;gap:0}#vpNedarimDialog .np-rule{align-items:stretch;flex-direction:column}}

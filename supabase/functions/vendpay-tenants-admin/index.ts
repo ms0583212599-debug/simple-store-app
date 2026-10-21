@@ -1,3 +1,4 @@
+import {nedarimAdmin} from './nedarim.ts';
 import {catalog} from './voice-catalog.ts';
 import {validateText} from './voice.ts';
 
@@ -95,126 +96,9 @@ Deno.serve(async (req: Request) => {
 
 
 
-  const categoryAction=new URL(req.url).searchParams.get("action");
-  let automationEnabled=false;
-  if(categoryAction?.startsWith("nedarim_")){
-    const {data,error}=await admin.from("vendpay_nedarim_worker_state").select("enabled").eq("mosad","7014693").maybeSingle();
-    if(error)return reply({error:"לא ניתן לקרוא את מצב האוטומציה"},500);
-    automationEnabled=data?.enabled===true;
-  }
-  if(categoryAction==="nedarim_worker"){
-    headers["Cache-Control"]="no-store";
-    if(req.method!=="GET")return reply({error:"Method not allowed"},405);
-    const [state,events]=await Promise.all([
-      admin.from("vendpay_nedarim_worker_state").select("enabled,activated_at,last_run_at,last_error").eq("mosad","7014693").single(),
-      admin.from("vendpay_nedarim_events").select("transaction_id,tenant_id,category,card_number,action,status,target_date,created_at").eq("mosad","7014693").order("created_at",{ascending:false}).limit(50)
-    ]);
-    if(state.error||events.error)return reply({error:"טעינת מצב הטיפול נכשלה"},500);
-    return reply({state:state.data,events:(events.data||[]).map(e=>({...e,card_number:e.card_number?"…"+e.card_number.slice(-4):null}))});
-  }
-
-  if(categoryAction==="nedarim_rules"){
-    headers["Cache-Control"]="no-store";
-    const mosad="7014693";
-    if(req.method==="GET"){
-      const {data,error}=await admin.from("vendpay_nedarim_rules").select("rules").eq("mosad",mosad).maybeSingle();
-      return error?reply({error:"לא ניתן לטעון כללים"},500):reply({rules:data?.rules||[],automation_enabled:automationEnabled});
-    }
-    if(req.method!=="POST")return reply({error:"Method not allowed"},405);
-    const raw=await req.text();if(raw.length>30000)return reply({error:"בקשה ארוכה מדי"},413);
-    let input;try{input=JSON.parse(raw);}catch{return reply({error:"בקשה לא תקינה"},400);}
-    if(!Array.isArray(input?.rules)||input.rules.length>50)return reply({error:"ניתן לשמור עד 50 כללים"},400);
-    const rules=[];
-    const categories=new Set();
-    for(const r of input.rules){
-      if(typeof r?.category!=="string"||!r.category.trim()||r.category.length>120||/[\u0000-\u001f]/.test(r.category)||typeof r.tenant_id!=="string"||!/^[0-9a-f-]{36}$/i.test(r.tenant_id)||!["open","renew","both"].includes(r.action))
-        return reply({error:"יש למלא שם קטגוריה, לקוח ופעולה בכל כלל"},400);
-      const category=r.category.normalize("NFC").trim();
-      if(categories.has(category))return reply({error:"לכל קטגוריה ניתן להגדיר כלל אחד; לשתי הפעולות בחרו את האפשרות המשולבת"},400);
-      categories.add(category);
-      rules.push({category,tenant_id:r.tenant_id,action:r.action,expiry_mode:"ivr_next_month",member_field:"Comments"});
-    }
-    if(rules.length){
-      const ids=[...new Set(rules.map(r=>r.tenant_id))];
-      const {data,error}=await admin.from("vendpay_tenants").select("id").in("id",ids);
-      if(error)return reply({error:"בדיקת הלקוחות נכשלה"},500);
-      if(data?.length!==ids.length)return reply({error:"אחד הלקוחות אינו קיים"},400);
-    }
-    const {data:connection,error:connectionError}=await admin.from("vendpay_nedarim_connections").select("mosad").eq("mosad",mosad).maybeSingle();
-    if(connectionError)return reply({error:"בדיקת החיבור נכשלה"},500);
-    if(!connection)return reply({error:"יש לשמור תחילה מפתח למוסד 7014693"},409);
-    const {error}=await admin.from("vendpay_nedarim_rules").upsert({mosad,rules,updated_at:new Date().toISOString()},{onConflict:"mosad"});
-    return error?reply({error:"שמירת הכללים נכשלה"},500):reply({saved:true,rules,automation_enabled:automationEnabled});
-  }
-
-  // Separate institution connection. Owner authentication above is required for every action.
-  const npAction = new URL(req.url).searchParams.get("action");
-  if (["nedarim_status", "nedarim_save", "nedarim_check"].includes(npAction || "")) {
-    headers["Cache-Control"] = "no-store";
-    const mosad = "7014693";
-    if (npAction === "nedarim_status") {
-      if (req.method !== "GET") return reply({error:"Method not allowed"},405);
-      const {data,error} = await admin.from("vendpay_nedarim_connections").select("mosad,updated_at").eq("mosad",mosad).maybeSingle();
-      if(error) return reply({error:"לא ניתן לקרוא את מצב החיבור"},500);
-      return reply({mosad,configured:!!data,updated_at:data?.updated_at||null,automation_enabled:automationEnabled});
-    }
-    if(req.method!=="POST") return reply({error:"Method not allowed"},405);
-    try {
-      const secret=Deno.env.get("VENDPAY_TENANT_ENCRYPTION_KEY")||"";
-      if(secret.length!==64) return reply({error:"מפתח ההצפנה אינו מוגדר"},503);
-      const enc=new TextEncoder();
-      // Bind ciphertext to this institution and purpose.
-      const aad=enc.encode("vendpay-nedarim:"+mosad);
-      if(npAction==="nedarim_save") {
-        const raw=await req.text();
-        if(raw.length>6000) return reply({error:"בקשה ארוכה מדי"},413);
-        let input;try{input=JSON.parse(raw);}catch{return reply({error:"בקשה לא תקינה"},400);}
-        if(input?.mosad!==mosad || typeof input?.api_password!=="string" || !input.api_password.trim() || input.api_password.length>2000 || /[\u0000-\u001f]/.test(input.api_password))
-          return reply({error:"יש להזין מפתח API תקין למוסד 7014693"},400);
-        const key=await deriveTenantKey(secret,["encrypt"]);
-        const iv=crypto.getRandomValues(new Uint8Array(12));
-        const ciphertext=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv,additionalData:aad},key,enc.encode(input.api_password.trim())));
-        const b64=(v:Uint8Array)=>btoa(Array.from(v,b=>String.fromCharCode(b)).join(""));
-        const {error}=await admin.from("vendpay_nedarim_connections").upsert({mosad,ciphertext:b64(ciphertext),iv:b64(iv),updated_at:new Date().toISOString()},{onConflict:"mosad"});
-        if(error) return reply({error:"שמירת המפתח נכשלה"},500);
-        return reply({saved:true,mosad,automation_enabled:automationEnabled});
-      }
-      const {data:stored,error}=await admin.from("vendpay_nedarim_connections").select("ciphertext,iv").eq("mosad",mosad).maybeSingle();
-      if(error) return reply({error:"קריאת החיבור נכשלה"},500);
-      if(!stored) return reply({error:"יש לשמור מפתח לפני הבדיקה"},409);
-      const decode=(v:string)=>Uint8Array.from(atob(v),c=>c.charCodeAt(0));
-      const key=await deriveTenantKey(secret,["decrypt"]);
-      const password=new TextDecoder().decode(await crypto.subtle.decrypt({name:"AES-GCM",iv:decode(stored.iv),additionalData:aad},key,decode(stored.ciphertext)));
-      const params=new URLSearchParams({Action:"GetHistoryJson",MosadId:mosad,ApiPassword:password,MaxId:"100"});
-      const r=await fetch("https://matara.pro/nedarimplus/Reports/Manage3.aspx?"+params,{redirect:"error",signal:AbortSignal.timeout(12000)});
-      if(!r.ok) {await r.body?.cancel();return reply({error:"נדרים פלוס לא אישרו את בקשת הבדיקה"},502);}
-      const raw=await r.text();
-      if(raw.length>2000000) return reply({error:"התקבלה תשובה גדולה מדי"},502);
-      let data;try{data=JSON.parse(raw);}catch{return reply({error:"לא התקבלה תשובת עסקאות תקינה מנדרים פלוס"},502);}
-      const rows=Array.isArray(data)?data:Array.isArray(data?.Data)?data.Data:Array.isArray(data?.data)?data.data:null;
-      if(!rows || data?.Result==="Error") return reply({error:"קריאת העסקאות לא אושרה; בדקו שהמפתח שייך למוסד 7014693"},502);
-      if(rows.some((v:any)=>!v || typeof v!=="object" || Array.isArray(v))) return reply({error:"מבנה העסקאות אינו מוכר"},502);
-      // Field names and counts only: never return card data, payer data, credentials or upstream errors.
-      const fields=[...new Set(rows.flatMap((v:any)=>Object.keys(v)))].filter(k=>/^[a-zA-Z][a-zA-Z0-9_]{0,60}$/.test(k)).slice(0,100);
-      const noteFields=fields.filter(k=>/comment|remark|note|description/i.test(k));
-      const categoryField=fields.includes("Groupe")?"Groupe":null;
-      const {data:ruleSet,error:ruleError}=await admin.from("vendpay_nedarim_rules").select("rules").eq("mosad",mosad).maybeSingle();
-      if(ruleError)return reply({error:"לא ניתן לקרוא את כללי הקטגוריות"},500);
-      const normalize=(v:unknown)=>typeof v==="string"?v.normalize("NFC").trim():"";
-      const category_matches=(ruleSet?.rules||[]).map((rule:any)=>{
-        const matches=categoryField?rows.filter((v:any)=>normalize(v[categoryField])===normalize(rule.category)):[];
-        return {category:rule.category,transactions:matches.length,with_card_number:matches.filter((v:any)=>/^[1-9]\d{0,14}$/.test(normalize(v.Comments))).length};
-      });
-      const category_values=categoryField?[...new Set(rows.map((v:any)=>normalize(v[categoryField])).filter(Boolean))].slice(0,50):[];
-      return reply({connected:true,mosad,transactions:rows.length,fields,note_fields:noteFields,category_field:categoryField,category_values,category_matches,
-        with_notes:rows.filter((v:any)=>noteFields.some(k=>typeof v[k]==="string"&&v[k].trim())).length,
-        automation_enabled:automationEnabled});
-    } catch {
-      // Do not expose errors that may contain the upstream URL with its credential.
-      return reply({error:"הבדיקה או השמירה לא הושלמו; נסו שוב"},502);
-    }
-  }
-
+  const requestAction=new URL(req.url).searchParams.get('action');
+  if(requestAction?.startsWith('np_')){headers['Cache-Control']='no-store';return nedarimAdmin(req,admin,reply);}
+  if(requestAction?.startsWith('nedarim_'))return reply({error:'ניהול נדרים עבר לחלון נפרד לפי לקוח. רעננו את האתר.'},409);
   if (
     req.method === "POST" &&
     new URL(req.url).searchParams.get("action") === "check_connection"

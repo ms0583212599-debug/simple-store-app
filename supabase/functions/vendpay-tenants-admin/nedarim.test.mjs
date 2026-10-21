@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {categories,nedarimAdmin} from './nedarim.ts';
+globalThis.fetch=async()=>Response.json({MosadNumber:'12345',MosadName:'Test',NewGroupe:JSON.stringify([{id:1,Name:'חדש'},{id:2,Name:'הפניה',GoToMosad:'777'}])});
+assert.deepEqual((await categories('12345')).categories,[{id:'1',name:'חדש',redirected:false},{id:'2',name:'הפניה',redirected:true}]);
+await assert.rejects(()=>categories('99999'));
+let rpcCalls=0;
+const tenant='11111111-1111-4111-8111-111111111111';
+const db={from(table){const q={select(){return q},eq(){return q},maybeSingle:async()=>({data:table==='vendpay_tenants'?{id:tenant}:{mosad:'12345'}}),single:async()=>({data:{rules:[]}})};return q;},rpc:async()=>{rpcCalls++;return {data:[]}}};
+const reply=(x,status=200)=>Response.json(x,{status});
+const req=(action,data)=>new Request('https://admin.invalid/?action='+action,{method:'POST',body:JSON.stringify({tenant_id:tenant,...data})});
+let r=await nedarimAdmin(req('np_rule_delete',{mosad:'99999',id:tenant}),db,reply);assert.equal(r.status,409);assert.equal(rpcCalls,0);
+r=await nedarimAdmin(req('np_rule_save',{mosad:'12345',category:'מומצא',rule_action:'renew'}),db,reply);assert.equal(r.status,400);assert.equal(rpcCalls,0);
+r=await nedarimAdmin(req('np_rule_save',{mosad:'12345',category:'הפניה',rule_action:'open'}),db,reply);assert.equal(r.status,400);assert.equal(rpcCalls,0);
+r=await nedarimAdmin(req('np_rule_save',{mosad:'12345',category:'חדש',rule_action:'renew'}),db,reply);assert.equal(r.status,200);assert.equal(rpcCalls,1);
+console.log('PASS category parsing, institution mismatch, tenant binding, unknown/redirected category rejection and valid rule');
