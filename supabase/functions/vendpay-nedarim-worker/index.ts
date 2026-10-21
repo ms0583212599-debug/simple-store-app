@@ -40,11 +40,11 @@ async function members(token:string){
 const form=(p:Record<string,string>)=>new Request('https://internal.invalid/worker',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(p)});
 async function execute(db:any,event:any){
  const {tenant_id:tenant,card_number:card,transaction_id:id,action}=event;
- const token=await tenantAuth(db,tenant),users=await members(token),found=users.filter(u=>String(u.card_number)===card);
- if(found.length!==1)return 'review_member';
  let renewal='not_requested';
  const call='nedarim-'+event.mosad+'-'+id,did='0733182541';
  if(action==='renew'||action==='both'){
+  const token=await tenantAuth(db,tenant),users=await members(token),found=users.filter(u=>String(u.card_number)===card);
+  if(found.length!==1)return 'review_member';
   payload(found[0]);
   if(String(found[0].date_end||'').slice(0,10)>=event.target_date)renewal='already_valid';
   else{

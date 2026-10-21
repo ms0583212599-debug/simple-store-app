@@ -9,7 +9,7 @@ export function classify(row:any,rules:any[]){
  const rule=matches[0],card=String(row.Comments??'').trim();
  let status='ready';
  if(!['open','renew','both'].includes(rule.action)||rule.expiry_mode!=='ivr_next_month'||rule.member_field!=='Comments')status='review_rule';
- else if(!/^[1-9]\d{0,14}$/.test(card))status='review_card';
+ else if(rule.action!=='open'&&!/^[1-9]\d{0,14}$/.test(card))status='review_card';
  else if(!/^\d+(\.\d{1,2})?$/.test(String(row.Amount??'').trim())||Number(row.Amount)<=0||String(row.Currency)!=='1'||String(row.TransactionType).trim()!=='רגיל'||!/^0*[1-9]\d*$/.test(String(row.Confirmation??'').trim()))status='review_payment';
- return {rule,category,card:/^[1-9]\d{0,14}$/.test(card)?card:null,status};
+ return {rule,category,card:rule.action!=='open'&&/^[1-9]\d{0,14}$/.test(card)?card:null,status};
 }
