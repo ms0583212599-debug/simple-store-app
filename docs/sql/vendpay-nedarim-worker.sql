@@ -27,5 +27,4 @@ revoke all on public.vendpay_nedarim_worker_state,public.vendpay_nedarim_events 
 grant select,insert,update on public.vendpay_nedarim_worker_state,public.vendpay_nedarim_events to service_role;
 
 create extension if not exists pg_cron;
-create extension if not exists pg_net with schema extensions;
-revoke all on net.http_request_queue, net._http_response from public, anon, authenticated;
+-- Use the existing extensions.http client; no pg_net queue is used.

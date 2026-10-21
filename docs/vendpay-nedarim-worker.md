@@ -1,7 +1,7 @@
 # Nedarim Plus → VendPay
 Institution: 7014693. Storefront institution 7019225 is independent.
 
-The private scheduled worker checks GetHistoryJson every minute using forward LastId pagination. Gateway JWT verification remains on; a second private x-worker-token is required and its SHA-256 is pinned. The token lives only in Vault VENDPAY_NEDARIM_WORKER. HTTP queue tables deny public, anon and authenticated access.
+The private scheduled worker checks GetHistoryJson every minute using forward LastId pagination. Gateway JWT verification remains on; a second private x-worker-token is required and its SHA-256 is pinned. The token lives only in Vault VENDPAY_NEDARIM_WORKER. Cron invokes the worker synchronously through the existing extensions.http client. The private token is read from Vault at invocation time and is never stored in a pg_net request queue. Default pg_net queue ACLs did not change through the project role, so pg_net is not used.
 
 The initial cursor is 81353374, the newest observed historical payment. Do not reset the cursor or delete event claims. Activation is separate from schema installation. Only new transaction IDs are processed. No existing payment is replayed when rules change.
 
