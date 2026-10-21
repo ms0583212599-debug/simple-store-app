@@ -67,7 +67,7 @@ async function vendpaySaveCredentials(){
  try{await vendpayRequest('POST',{tenant_id,username,password,code,rememberMe:false,role:''},'save_credentials');document.getElementById('vpCredentialPass').value='';document.getElementById('vpCredentialCode').value='';document.getElementById('vpCredentialUser').value='';await vendpayLoad();await vendpayCheckConnection();}
  catch(e){vendpayMessage(e.message||'השמירה נכשלה');}
 }
-function vendpayClearConfig(){['vpCheckConfig','vpOpenConfig','vpCreateConfig','vpEditConfig','vpPriceZonesConfig','vpModeZonesConfig','vpSummaryConfig'].forEach(id=>document.getElementById(id).value='');document.getElementById('vpConfigPanel').classList.add('hidden');}
+function vendpayClearConfig(){['vpCheckConfig','vpOpenConfig','vpCreateConfig','vpEditConfig','vpPriceZonesConfig','vpModeZonesConfig','vpSummaryConfig','vpReportsConfig'].forEach(id=>document.getElementById(id).value='');document.getElementById('vpConfigPanel').classList.add('hidden');}
 function vendpaySelectTenant(auto=false){
  vendpayClearConfig();['vpCredentialUser','vpCredentialPass','vpCredentialCode'].forEach(id=>document.getElementById(id).value='');
  const t=vpTenants.find(t=>t.id===document.getElementById('vpCredentialTenant').value);
@@ -92,7 +92,7 @@ async function vendpaySetActive(active){
 async function vendpayShowConfig(){
  const tenant_id=document.getElementById('vpCredentialTenant').value;if(!tenant_id){vendpayMessage('בחר לקוח');return;}
  try{const session=vpToken;const result=await vendpayRequest('POST',{tenant_id},'ivr_config');if(session!==vpToken||document.getElementById('vpCredentialTenant').value!==tenant_id)return;
- document.getElementById('vpCheckConfig').value=result.health_config;document.getElementById('vpOpenConfig').value=result.open_config;document.getElementById('vpCreateConfig').value=result.create_config||'';document.getElementById('vpEditConfig').value=result.edit_config||'';document.getElementById('vpPriceZonesConfig').value=result.price_zones_config||'';document.getElementById('vpModeZonesConfig').value=result.mode_zones_config||'';document.getElementById('vpSummaryConfig').value=result.summary_config||'';document.getElementById('vpConfigPanel').classList.remove('hidden');vendpayMessage('העתיקו כל הגדרה לשלוחה נפרדת לפי הפעולה. בדיקת החיבור אינה משנה נתונים. הוספה ועריכה נשמרות רק לאחר אישור בטלפון.');}
+ document.getElementById('vpCheckConfig').value=result.health_config;document.getElementById('vpOpenConfig').value=result.open_config;document.getElementById('vpCreateConfig').value=result.create_config||'';document.getElementById('vpEditConfig').value=result.edit_config||'';document.getElementById('vpPriceZonesConfig').value=result.price_zones_config||'';document.getElementById('vpModeZonesConfig').value=result.mode_zones_config||'';document.getElementById('vpSummaryConfig').value=result.summary_config||'';document.getElementById('vpReportsConfig').value=result.reports_config||'';document.getElementById('vpConfigPanel').classList.remove('hidden');vendpayMessage('העתיקו כל הגדרה לשלוחה נפרדת לפי הפעולה. בדיקת החיבור אינה משנה נתונים. הוספה ועריכה נשמרות רק לאחר אישור בטלפון.');}
  catch(e){vendpayMessage(e.message==='Activate customer first'?'יש להפעיל את הלקוח תחילה':e.message||'לא ניתן לטעון הגדרות');}
 }
 

@@ -1,3 +1,5 @@
+import {reportState,readReport,reportReply} from './reports.ts';
+import {withRecordings} from './recordings.js';
 import {withVoice} from './voice.ts';
 import {voice} from './voice.ts';
 import {summaryIntro,summaryReply} from './summary.ts';
@@ -29,9 +31,11 @@ export async function handler(req:Request){
  if(te||!t||!t.is_active)return reply(voice('v_c200b954536ee81a4968',["שלוחת הלקוח אינה פעילה"]));
  if(p.getAll('hangup').includes('yes'))return reply(voice('v_9a0640b6cc223b4f003f',["השיחה הסתיימה"]));
  if(action==='health')return reply(voice('v_1248515cb9ec9e145ad4',["חיבור שלוחת ניהול הלקוח תקין"]));
- if(!['create','edit','summary'].includes(action))return reply(voice('v_e69f762a6f11946de0bc',["פעולה לא נתמכת"]));
+ if(!['create','edit','summary','reports'].includes(action))return reply(voice('v_e69f762a6f11946de0bc',["פעולה לא נתמכת"]));
  const call=one(p,'ApiCallId'),did=one(p,'ApiDID');if(!call||call.length>200||!did||did.length>30)return reply(voice('v_285d9e47d47bff29c6c5',["חסרים פרטי שיחה"]));
  if(action==='summary'&&!p.has('summary_0'))return new Response(summaryIntro(),{headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store','X-Admin-Result':'prompt'}});
+ let report;
+ if(action==='reports'){try{report=reportState(p);if(report.prompt)return new Response(report.prompt,{headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}});}catch{return reply('הבחירה או התאריך אינם תקינים טווח הדוח מוגבל לשנה ולתאריכים שאינם בעתיד התחילו מחדש');}}
  const {data:c,error:ce}=await db.from('vendpay_tenant_credentials').select('ciphertext,iv').eq('tenant_id',tenant).maybeSingle();if(ce||!c)throw Error('credentials');
  const secret=env('VENDPAY_TENANT_ENCRYPTION_KEY');const rawKey=/^[0-9a-f]{64}$/i.test(secret)?Uint8Array.from(secret.match(/../g)!,h=>parseInt(h,16)):new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(secret)));
  const aes=await crypto.subtle.importKey('raw',rawKey,'AES-GCM',false,['decrypt']);const decode=(v:string)=>Uint8Array.from(atob(v),ch=>ch.charCodeAt(0));
@@ -40,6 +44,7 @@ export async function handler(req:Request){
  const auth=await fetch(BASE+'/authenticate?lang=heb&apiloc=VendPayDeltaHeb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:credentials.username,password:credentials.password,code:credentials.code,rememberMe:credentials.rememberMe??false,role:credentials.role??''}),redirect:'manual',signal:AbortSignal.timeout(5000)});
  if(!auth.ok)return reply(voice('v_94c32c6cb59047c4632e',["לא הצלחנו להתחבר לחשבון הלקוח"]));const data=await auth.json();if(typeof data.token!=='string'||data.token.length<20||/\s/.test(data.token))return reply(voice('v_9fd112fe6d76441be941',["לא התקבל אישור התחברות"]));
  const headers={Authorization:'Bearer '+data.token,Accept:'application/json'};
+ if(action==='reports'){try{return new Response(reportReply(report,await readReport(report,headers)),{headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store','X-Admin-Result':'summary'}});}catch{return reply('לא ניתן לקרוא כעת את הדוח מוונד פיי נסו שוב מאוחר יותר');}}
  const r=await fetch(BASE+'/restrict_group?lang=heb&apiloc=VendPayDeltaHeb',{headers,redirect:'manual',signal:AbortSignal.timeout(5000)});if(!r.ok)throw Error('group_read_failed');
  const rawGroups=await r.json();
  if(action==='summary'){const users=await fetch(BASE+'/user?lang=heb&apiloc=VendPayDeltaHeb',{headers,redirect:'manual',signal:AbortSignal.timeout(8000)});if(!users.ok)throw Error('read');return new Response(summaryReply(p,await users.json(),rawGroups),{headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store','X-Admin-Result':'summary'}});}
@@ -50,5 +55,5 @@ export async function handler(req:Request){
  return await (action==='create'?createHandler(context):editHandler(context))(delegated);
  }catch{return reply(voice('v_16fc176733951de1c843',["לא ניתן להשלים כעת את הפעולה אם אישרתם שמירה בדקו באתר לפני ניסיון נוסף"]));}
 }
-Deno.serve(withVoice(withAudit(handler,'vendpay-tenant-members'),'vendpay-tenant-members'));
+Deno.serve(withRecordings(withVoice(withAudit(handler,'vendpay-tenant-members'),'vendpay-tenant-members'),'vendpay-tenant-members'));
 

@@ -369,7 +369,7 @@ Deno.serve(async (req: Request) => {
     const members=common.replace("vendpay-tenant-ivr", "vendpay-tenant-members").replace(routing,management);
     const zonesKey=Array.from(new Uint8Array(await crypto.subtle.sign("HMAC",k,new TextEncoder().encode("vendpay-zones-v1:"+t.id))),b=>b.toString(16).padStart(2,"0")).join("");
     const zones=common.replace("vendpay-tenant-ivr","vendpay-tenant-zones").replace(routing,zonesKey);
-    return reply({extension:t.extension,health_config:common+"check",open_config:common+"open",summary_config:members+"summary",create_config:members+"create",edit_config:members+"edit",price_zones_config:zones+"price_zones",mode_zones_config:zones+"mode_zones"});
+    return reply({extension:t.extension,health_config:common+"check",open_config:common+"open",summary_config:members+"summary",reports_config:members+"reports",create_config:members+"create",edit_config:members+"edit",price_zones_config:zones+"price_zones",mode_zones_config:zones+"mode_zones"});
   }
 
   if(req.method === "GET" && action === "operation_log") {
