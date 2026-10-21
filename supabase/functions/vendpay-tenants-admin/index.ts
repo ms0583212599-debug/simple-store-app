@@ -93,6 +93,66 @@ Deno.serve(async (req: Request) => {
     return crypto.subtle.importKey("raw", raw, "AES-GCM", false, usage);
   };
 
+
+  // Separate institution connection. Owner authentication above is required for every action.
+  const npAction = new URL(req.url).searchParams.get("action");
+  if (["nedarim_status", "nedarim_save", "nedarim_check"].includes(npAction || "")) {
+    headers["Cache-Control"] = "no-store";
+    const mosad = "7014693";
+    if (npAction === "nedarim_status") {
+      if (req.method !== "GET") return reply({error:"Method not allowed"},405);
+      const {data,error} = await admin.from("vendpay_nedarim_connections").select("mosad,updated_at").eq("mosad",mosad).maybeSingle();
+      if(error) return reply({error:"לא ניתן לקרוא את מצב החיבור"},500);
+      return reply({mosad,configured:!!data,updated_at:data?.updated_at||null,automation_enabled:false});
+    }
+    if(req.method!=="POST") return reply({error:"Method not allowed"},405);
+    try {
+      const secret=Deno.env.get("VENDPAY_TENANT_ENCRYPTION_KEY")||"";
+      if(secret.length!==64) return reply({error:"מפתח ההצפנה אינו מוגדר"},503);
+      const enc=new TextEncoder();
+      // Bind ciphertext to this institution and purpose.
+      const aad=enc.encode("vendpay-nedarim:"+mosad);
+      if(npAction==="nedarim_save") {
+        const raw=await req.text();
+        if(raw.length>6000) return reply({error:"בקשה ארוכה מדי"},413);
+        let input;try{input=JSON.parse(raw);}catch{return reply({error:"בקשה לא תקינה"},400);}
+        if(input?.mosad!==mosad || typeof input?.api_password!=="string" || !input.api_password.trim() || input.api_password.length>2000 || /[\u0000-\u001f]/.test(input.api_password))
+          return reply({error:"יש להזין מפתח API תקין למוסד 7014693"},400);
+        const key=await deriveTenantKey(secret,["encrypt"]);
+        const iv=crypto.getRandomValues(new Uint8Array(12));
+        const ciphertext=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv,additionalData:aad},key,enc.encode(input.api_password.trim())));
+        const b64=(v:Uint8Array)=>btoa(Array.from(v,b=>String.fromCharCode(b)).join(""));
+        const {error}=await admin.from("vendpay_nedarim_connections").upsert({mosad,ciphertext:b64(ciphertext),iv:b64(iv),updated_at:new Date().toISOString()},{onConflict:"mosad"});
+        if(error) return reply({error:"שמירת המפתח נכשלה"},500);
+        return reply({saved:true,mosad,automation_enabled:false});
+      }
+      const {data:stored,error}=await admin.from("vendpay_nedarim_connections").select("ciphertext,iv").eq("mosad",mosad).maybeSingle();
+      if(error) return reply({error:"קריאת החיבור נכשלה"},500);
+      if(!stored) return reply({error:"יש לשמור מפתח לפני הבדיקה"},409);
+      const decode=(v:string)=>Uint8Array.from(atob(v),c=>c.charCodeAt(0));
+      const key=await deriveTenantKey(secret,["decrypt"]);
+      const password=new TextDecoder().decode(await crypto.subtle.decrypt({name:"AES-GCM",iv:decode(stored.iv),additionalData:aad},key,decode(stored.ciphertext)));
+      const params=new URLSearchParams({Action:"GetHistoryJson",MosadId:mosad,ApiPassword:password,MaxId:"100"});
+      const r=await fetch("https://matara.pro/nedarimplus/Reports/Manage3.aspx?"+params,{redirect:"error",signal:AbortSignal.timeout(12000)});
+      if(!r.ok) {await r.body?.cancel();return reply({error:"נדרים פלוס לא אישרו את בקשת הבדיקה"},502);}
+      const raw=await r.text();
+      if(raw.length>2000000) return reply({error:"התקבלה תשובה גדולה מדי"},502);
+      let data;try{data=JSON.parse(raw);}catch{return reply({error:"לא התקבלה תשובת עסקאות תקינה מנדרים פלוס"},502);}
+      const rows=Array.isArray(data)?data:Array.isArray(data?.Data)?data.Data:Array.isArray(data?.data)?data.data:null;
+      if(!rows || data?.Result==="Error") return reply({error:"קריאת העסקאות לא אושרה; בדקו שהמפתח שייך למוסד 7014693"},502);
+      if(rows.some((v:any)=>!v || typeof v!=="object" || Array.isArray(v))) return reply({error:"מבנה העסקאות אינו מוכר"},502);
+      // Field names and counts only: never return card data, payer data, credentials or upstream errors.
+      const fields=[...new Set(rows.flatMap((v:any)=>Object.keys(v)))].filter(k=>/^[a-zA-Z][a-zA-Z0-9_]{0,60}$/.test(k)).slice(0,100);
+      const noteFields=fields.filter(k=>/comment|remark|note|description/i.test(k));
+      return reply({connected:true,mosad,transactions:rows.length,fields,note_fields:noteFields,
+        with_notes:rows.filter((v:any)=>noteFields.some(k=>typeof v[k]==="string"&&v[k].trim())).length,
+        automation_enabled:false});
+    } catch {
+      // Do not expose errors that may contain the upstream URL with its credential.
+      return reply({error:"הבדיקה או השמירה לא הושלמו; נסו שוב"},502);
+    }
+  }
+
   if (
     req.method === "POST" &&
     new URL(req.url).searchParams.get("action") === "check_connection"
