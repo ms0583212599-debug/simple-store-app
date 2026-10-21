@@ -96,18 +96,31 @@ async function vendpayShowConfig(){
  catch(e){vendpayMessage(e.message==='Activate customer first'?'יש להפעיל את הלקוח תחילה':e.message||'לא ניתן לטעון הגדרות');}
 }
 
+function vendpayVoiceBranch(e){
+ const parts=e.situation.split(' ← '),base=parts[0],step=parts[1]||'';
+ if(base==='ניהול מנויים'){
+  if(step.includes('הוספת'))return 'הוספת מנוי';
+  if(step.includes('עריכת'))return 'עריכת מנוי';
+  if(step.includes('סיכום'))return 'סיכום מנויים';
+  return 'ניהול מנויים — הודעות משותפות';
+ }
+ return base;
+}
 let vpVoiceMessages=[];
 async function vendpayLoadVoice(){
  const token=vpToken;document.getElementById('vpVoicePanel').classList.remove('hidden');document.getElementById('vpVoiceStatus').textContent='טוען הודעות';
- try{const data=await vendpayRequest('GET',undefined,'voice_messages');if(token!==vpToken)return;vpVoiceMessages=data.messages||[];const select=document.getElementById('vpVoiceSource'),value=select.value;select.replaceChildren(new Option('כל החיבורים',''));const sources=new Map(vpVoiceMessages.map(e=>[e.source,e.situation.split(' ← ')[0]]));for(const [id,label] of sources)select.add(new Option(label,id));select.value=value;vendpayRenderVoice();document.getElementById('vpVoicePanel').scrollIntoView({behavior:'smooth',block:'start'});}catch(e){document.getElementById('vpVoiceStatus').textContent=e.message;}
+ try{const data=await vendpayRequest('GET',undefined,'voice_messages');if(token!==vpToken)return;vpVoiceMessages=data.messages||[];const select=document.getElementById('vpVoiceSource'),value=select.value;select.replaceChildren(new Option('כל השלוחות',''));const branches=[...new Set(vpVoiceMessages.map(vendpayVoiceBranch))].sort((a,b)=>a.localeCompare(b,'he'));for(const label of branches)select.add(new Option(label,label));select.value=branches.includes(value)?value:'';vendpayRenderVoice();document.getElementById('vpVoicePanel').scrollIntoView({behavior:'smooth',block:'start'});}catch(e){document.getElementById('vpVoiceStatus').textContent=e.message;}
 }
 function vendpayRenderVoice(){
  const root=document.getElementById('vpVoiceRows');root.replaceChildren();const source=document.getElementById('vpVoiceSource').value,search=document.getElementById('vpVoiceSearch').value.trim();const groups=new Map();
- for(const e of vpVoiceMessages){if(source&&e.source!==source)continue;if(search&&![e.text,e.situation,e.override?.text||''].some(s=>s.includes(search)))continue;const key=e.text;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(e);}
- document.getElementById('vpVoiceStatus').textContent=groups.size+' נוסחים מוצגים — בחרו מצב וערכו את המלל';
- for(const entries of groups.values()){
- const card=document.createElement('details');card.className='card';const heading=document.createElement('summary');heading.style.cursor='pointer';heading.textContent=entries[0].text.slice(0,110)+(entries[0].text.length>110?'…':'')+(entries.some(e=>e.override)?' — נוסח מותאם':'');card.append(heading);
- const when=document.createElement('p');when.className='msg';card.append(when);const choice=document.createElement('select');choice.setAttribute('aria-label','מתי ההודעה מושמעת');entries.forEach((e,i)=>choice.add(new Option(e.situation,String(i))));if(entries.length>1)choice.add(new Option('כל המצבים המוצגים של הנוסח הזה','all'));card.append(choice);
+ for(const e of vpVoiceMessages){if(source&&vendpayVoiceBranch(e)!==source)continue;if(search&&![e.text,e.situation,e.override?.text||''].some(s=>s.includes(search)))continue;const key=JSON.stringify([e.text.trim().replace(/\s+/g,' '),e.variables]);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(e);}
+ document.getElementById('vpVoiceStatus').textContent=groups.size+' נוסחים מוצגים — הודעות חוזרות מרוכזות עם בחירת שלוחה ומצב';
+ let lastBranch='';
+ for(const entries of [...groups.values()].sort((a,b)=>vendpayVoiceBranch(a[0]).localeCompare(vendpayVoiceBranch(b[0]),'he'))){
+ const branch=vendpayVoiceBranch(entries[0]);if(branch!==lastBranch){const title=document.createElement('h3');title.textContent=branch;root.append(title);lastBranch=branch;}
+ entries.sort((a,b)=>a.situation.localeCompare(b.situation,'he'));
+ const card=document.createElement('details');card.className='card';const heading=document.createElement('summary');heading.style.cursor='pointer';heading.textContent=entries[0].text.slice(0,110)+(entries[0].text.length>110?'…':'')+(entries.some(e=>e.override)?' — נוסח מותאם':'');card.append(heading);const count=document.createElement('p');count.className='msg';count.textContent=entries.length>1?'הודעה חוזרת — '+entries.length+' מופעים בשלוחות ובמצבים שונים':'מופע אחד';card.append(count);
+ const when=document.createElement('p');when.className='msg';card.append(when);const choice=document.createElement('select');choice.setAttribute('aria-label','בחירת שלוחה ומצב להשמעה ולעריכה');entries.forEach((e,i)=>choice.add(new Option(e.situation+' — מופע '+(i+1),String(i))));if(entries.length>1)choice.add(new Option('כל המצבים המוצגים של הנוסח הזה','all'));card.append(choice);
  const input=document.createElement('textarea');input.rows=5;input.maxLength=2000;input.dir='rtl';input.setAttribute('aria-label','נוסח ההודעה');card.append(input);
  const variables=document.createElement('p');variables.className='msg';variables.textContent=entries[0].variables.length?'פרטים שהמערכת ממלאת בזמן השיחה: '+entries[0].variables.map(v=>'{'+v+'}').join(' ')+' — יש להשאיר כל סימון פעם אחת':'הודעה ללא משתנים';card.append(variables);
  const note=document.createElement('p');note.className='msg';note.textContent='הנוסח ייכנס לתוקף בהשמעה הבאה לאחר השמירה בכל לקוחות החיבור שבחרתם. שמרו על הוראות המקשים. בהודעה המורכבת ממקטעים, נוסח מותאם של ההודעה השלמה גובר על מקטע מותאם.';card.append(note);
@@ -146,3 +159,4 @@ async function vendpayCreate(){
  vendpayMessage('שומר לקוח...');
  try{await vendpayRequest('POST',{display_name,extension});document.getElementById('vendpayName').value='';document.getElementById('vendpayExtension').value='';await vendpayLoad();const created=vpTenants.find(t=>String(t.extension)===extension);if(created){document.getElementById('vpCredentialTenant').value=created.id;vendpaySelectTenant();}vendpayMessage('הלקוח נוסף. הזינו פרטי התחברות פעם אחת');}catch(e){vendpayMessage(e.message||'השמירה נכשלה');}
 }
+
