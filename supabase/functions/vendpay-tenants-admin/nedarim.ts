@@ -1,3 +1,4 @@
+import {priceAdmin} from './price-admin.ts';
 const normal=(s:unknown)=>typeof s==='string'?s.normalize('NFC').trim():'';
 const uuid=(s:unknown)=>typeof s==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 export async function categories(mosad:string){
@@ -49,6 +50,7 @@ export async function nedarimAdmin(req:Request,db:any,reply:(v:any,status?:numbe
    return reply({saved:true,mosad});
   }
   if(!current||input.mosad!==current.mosad)return reply({error:'חיבור הלקוח השתנה. רעננו את החלון.'},409);
+  if(action==='np_price_load'||action==='np_price_save')return priceAdmin(db,input,tenant,current.mosad,action,reply);
   if(action==='np_categories')return reply(await categories(current.mosad));
   if(action==='np_rule_save'||action==='np_rule_delete'){
    const remove=action==='np_rule_delete',id=input.id||null;if(id&&!uuid(id))return reply({error:'מזהה כלל לא תקין'},400);

@@ -34,3 +34,12 @@
 #vpNedarimDialog :focus-visible{outline:3px solid #89bdcf;outline-offset:3px}
 #npMessage{min-height:24px;color:#326e65}#npMessage.np-error{color:#a84148}
 @media(max-width:600px){#vpNedarimDialog .np-top,#vpNedarimDialog .np-body{padding:18px}#vpNedarimDialog .np-fields{grid-template-columns:1fr;gap:0}#vpNedarimDialog .np-rule{align-items:stretch;flex-direction:column}}
+
+#vpNedarimDialog .np-check{display:flex;gap:9px;align-items:center;margin:15px 0}
+#vpNedarimDialog .np-check input{width:18px;height:18px;margin:0;accent-color:#326e85}
+#vpNedarimDialog .np-period{margin:14px 0;padding:16px;border:1px solid #d4e2e9;border-radius:12px;background:#fff}
+#vpNedarimDialog .np-days{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+#vpNedarimDialog .np-days label{display:flex;gap:5px;align-items:center;background:#f1f6f8;padding:7px 10px;border-radius:9px}
+#vpNedarimDialog .np-days input{width:16px;height:16px;margin:0;accent-color:#326e85}
+#vpNedarimDialog .np-period legend{font-weight:600;padding:0 5px}
+#vpNedarimDialog .np-amount{font-size:20px;font-weight:700;color:#326e65}
