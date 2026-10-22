@@ -1,0 +1,31 @@
+begin;
+do $$
+declare s uuid;c jsonb;r jsonb;owner_id uuid:='56ae10cb-f40c-4a41-8112-ab8c9f1616c8';e text:='phone-billing-rollback-test';h text:=repeat('a',64);
+begin
+ insert into public.finance_entry_calls(id,phone,account_id,authenticated_until,state) values(e,'0501234567',owner_id,now()+interval '1 hour','{"stage":"billing_consent"}');
+ insert into public.billing_services(slug,name,payment_required,first_amount,renewal_amount,provider_ready)values('test-phone-rollback','בדיקה',true,300,300,true)returning id into s;
+ c:=public.billing_nedarim_phone_begin(owner_id,s,1,'1234567',e,'/8',h);
+ if c->>'channel'<>'phone' or not (c->>'claimed')::boolean then raise exception 'not_phone';end if;
+ r:=public.billing_nedarim_begin(owner_id,s,1,'1234567');
+ if r->>'id'<>c->>'id' or (r->>'claimed')::boolean then raise exception 'cross_channel_duplicate';end if;
+ update public.billing_nedarim_checkouts set state='ready' where id=(c->>'id')::uuid;
+ r:=public.billing_nedarim_phone_issue((c->>'id')::uuid,e,repeat('b',64));
+ if (r->>'issued')::boolean then raise exception 'wrong_token_accepted';end if;
+ r:=public.billing_nedarim_phone_issue((c->>'id')::uuid,e,h);
+ if not (r->>'issued')::boolean then raise exception 'not_issued';end if;
+ r:=public.billing_nedarim_phone_issue((c->>'id')::uuid,e,h);
+ if (r->>'issued')::boolean then raise exception 'reissued';end if;
+ if public.billing_nedarim_phone_abandon((c->>'id')::uuid,owner_id) then raise exception 'issued_abandoned';end if;
+ if exists(select 1 from public.billing_subscriptions where id=(c->>'subscription_id')::uuid and paid_until is not null)then raise exception 'setup_granted_access';end if;
+ perform public.billing_nedarim_bind((c->>'id')::uuid,'1234567','7654321');
+ perform public.billing_nedarim_payment((c->>'id')::uuid,'111',300,current_date);
+ perform public.billing_nedarim_payment((c->>'id')::uuid,'111',300,current_date);
+ if (select count(*) from public.billing_charges where subscription_id=(c->>'subscription_id')::uuid)<>1 then raise exception 'duplicate_charge';end if;
+ insert into public.billing_services(slug,name,payment_required,first_amount,renewal_amount,provider_ready)values('test-phone-abandon','בדיקה',true,300,300,true)returning id into s;
+ c:=public.billing_nedarim_phone_begin(owner_id,s,1,'1234567',e,'/8',h);
+ if not public.billing_nedarim_phone_abandon((c->>'id')::uuid,owner_id) then raise exception 'abandon_failed';end if;
+ r:=public.billing_nedarim_phone_issue((c->>'id')::uuid,e,h);
+ if (r->>'issued')::boolean then raise exception 'cancelled_issued';end if;
+ if has_function_privilege('anon','public.billing_nedarim_phone_issue(uuid,text,text)','EXECUTE') or has_function_privilege('authenticated','public.billing_nedarim_phone_begin(uuid,uuid,integer,text,text,text,text)','EXECUTE') then raise exception 'public_rpc';end if;
+end $$;
+rollback;

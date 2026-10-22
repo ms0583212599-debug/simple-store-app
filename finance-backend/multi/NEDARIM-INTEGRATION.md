@@ -26,9 +26,25 @@ Create a unique slug in the website's service administration. Server-authenticat
 - `{action:'cancel',data:{service_id}}` stops that service only.
 Use the existing authenticated account session. Do not embed service-role keys, management API passwords or webhook secrets in a client.
 
-## Phone status
+## Phone enrollment and cancellation
 
-The multi-user IVR cancellation path uses the same provider-confirmed cancellation as the website. Phone-only enrollment/collection is NOT implemented in this change. It requires integrating Yemot's native credit_card flow and correlating its result with a verified Nedarim mandate. The original private IVR remains unchanged; the multi-user endpoint has not been switched into the live extension.
+The multi-user endpoint `finance-members-ivr` now routes unpaid accounts (including immediately after signup or login) to enrollment, status and cancellation. It reads the current catalog, speaks the monthly price, and records a revision-checked consent before opening card collection. Active members retain the existing account menu and cancellation option 8.
+
+The server creates an isolated, non-dialable `FinancePay<checkout UUID>` API extension using Yemot UpdateExtension, then verifies its effective configuration with GetIVR2Dir. It sets native Nedarim `credit_card_payment_type=keva`, unlimited months, ILS, fixed amount and a unique `finance-<checkout UUID>` category. Native Yemot collects the card; our endpoint requests no card details and never trusts CreditCard_CODE as proof of payment. This internal category replaces the general category for phone enrollments and must not be edited in Nedarim, because it identifies the mandate.
+
+`finance-payment-ivr` requires a random token (only its hash is in our DB), the originating verified account session, caller phone, call ID and extension. Card collection is issued once, atomically. Replayed or cross-caller requests cannot launch it again. Web and phone share one open checkout per subscription. Failed setup before collection can be safely cancelled and retried. Once collection was issued, uncertain outcomes are retained for reconciliation, including a dropped call; no automatic second mandate is opened.
+
+A signed Nedarim mandate callback must match the unique category, institution, verified caller, amount, currency and monthly frequency. It binds the mandate without granting paid access. The same worker and verified payment history as the website activate access and stop future charges on cancellation.
+
+### Configure from the website
+
+Save Yemot token, enable voice, and save Nedarim credentials/signature. Click **חיבור הרשמה טלפונית לנדרים**. This registers the Keva callback only if empty/already ours, with no Force override. It requires SetWebhook permission. If another app already owns Keva notifications, coordinate a signed raw-body relay; do not replace it. Connection check displays phone readiness separately. Runtime preparations additionally verify the exact effective Yemot extension configuration.
+
+The main public finance extension must use:
+`api_link=https://icldwmvkbeanyypkpeia.supabase.co/functions/v1/finance-members-ivr`
+Keep its existing private finance_key and use POST. Do not expose that key in repository files. Link the owner's phone through the existing authenticated owner website before switching the old private endpoint, so old records remain accessible. The old private endpoint is still unchanged; this deployment does not silently repoint the live line.
+
+No live card collection or debit has been tested. Confirm one real signup, signed callback, first charge and cancellation with the configured institution and an explicitly approved card before public launch. Expired/spent payment extensions no longer authorize collection; they can be removed later from Yemot after reconciliation. Initial callback loss still requires operator reconciliation; phone enrollment is gated if the institution callback is missing.
 
 ## Operational edge cases
 
@@ -41,3 +57,5 @@ Nedarim manual price changes are reflected by verified history. The first succes
 `node test-nedarim.mjs` tests HMAC replay/tampering, monetary/date validation, checkout request shape and idempotent provider-confirmed cancellation using mocked network responses.
 `test-nedarim.sql` must be run within a transaction ending in ROLLBACK. It tests concurrent-style repeated checkout requests, no access from mandate setup alone, first-charge amount enforcement, duplicate event suppression and retention of paid access after cancellation.
 Existing API, website script order, UI, phone isolation and provider settings tests pass. Live API rejects unsigned requests. No card credentials or real provider charge were used in tests.
+
+Phone validation: `test-phone-payment.mjs` (native configuration, account/call/token isolation, replay and signed callback mismatch); `test-phone-billing.mjs` (consent, changed terms, duplicates, explicit cancellation and setup recovery); `test-phone-billing.sql` (transactional issue/abandon, cross-channel reuse, event deduplication and restricted RPC permissions, always ROLLBACK).

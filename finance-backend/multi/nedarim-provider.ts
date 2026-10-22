@@ -1,3 +1,4 @@
+import {preparePhonePayment}from './phone-payment-provider.ts';
 // NedarimPlus API export supplied by the owner, sections 93, 95, 12, 64, 199.
 export const CALLBACK='https://icldwmvkbeanyypkpeia.supabase.co/functions/v1/finance-nedarim-webhook';
 const REPORTS='https://matara.pro/nedarimplus/Reports/Manage3.aspx';
@@ -22,11 +23,18 @@ export async function verifyWebhook(raw,ts,sig,secret,now=Date.now()){
 export async function nedarim(c,b){
  if(b.action==='nedarim_verify')return {valid:await verifyWebhook(b.raw,b.timestamp,b.signature,c.nedarim_webhook_secret),mosad:c.nedarim_mosad};
  if(!configured(c))throw Error('not_configured');
+ if(b.action==='nedarim_phone_prepare')return preparePhonePayment(c,b);
+ if(b.action==='nedarim_phone_setup'){
+  const w=await call(c,'GetWebhook');
+  if(w.CallBackKevaUrl&&w.CallBackKevaUrl!==CALLBACK)throw Error('existing_webhook');
+  if(!w.CallBackKevaUrl)await call(c,'SetWebhook',{Type:'Keva',Url:CALLBACK});
+  return nedarim(c,{action:'nedarim_check'});
+ }
  if(b.action==='nedarim_check'){
   const w=await call(c,'GetWebhook');
   const form=new URLSearchParams({Mosad:c.nedarim_mosad,ApiValid:c.nedarim_api_valid,Amount:'0',Tashlumim:'1'});
   const r=await fetch(CREATE,{method:'POST',body:form,redirect:'error',signal:AbortSignal.timeout(10000)}),d=await r.json();
-  return {ready:r.ok&&d.Status==='Error'&&String(d.Message).includes('סכום לא תקין')&&String(w.SignatureEnabled)==='1'&&w.SecretHint===c.nedarim_webhook_secret.slice(-4),mosad:c.nedarim_mosad,callback:CALLBACK};
+  return {ready:r.ok&&d.Status==='Error'&&String(d.Message).includes('סכום לא תקין')&&String(w.SignatureEnabled)==='1'&&w.SecretHint===c.nedarim_webhook_secret.slice(-4),mosad:c.nedarim_mosad,callback:CALLBACK,phone_ready:!!c.voice_enabled&&!!c.yemot_token&&w.CallBackKevaUrl===CALLBACK};
  }
  if(b.action==='nedarim_create'){
   if(!Number.isSafeInteger(b.amount)||b.amount<=0||b.amount>100000000||!/^[-a-f0-9]{36}$/.test(b.checkout_id))throw Error('invalid_checkout');
@@ -38,7 +46,7 @@ export async function nedarim(c,b){
  if(b.action==='nedarim_details'){
   const d=await call(c,'GetKevaId',{KevaId:id(b.keva_id)});
   if(String(d.KevaId)!==String(b.keva_id))throw Error('invalid_mandate');
-  return {mosad:c.nedarim_mosad,keva_id:String(d.KevaId),status:String(d.KevaStatus),amount:agorot(d.KevaAmount),currency:String(d.KevaCurrency),note:d.KevaAvour||'',phone:d.KevaPhone||'',next_date:d.KevaNextDate||'',history:(Array.isArray(d.HistoryData)?d.HistoryData:[]).filter(x=>String(x.ID)==='1').map(x=>({transaction_id:id(x.TransactionId),amount:agorot(String(x.Amount).replace(/❗/g,'').trim()),date:String(x.Date)}))};
+  return {mosad:c.nedarim_mosad,keva_id:String(d.KevaId),status:String(d.KevaStatus),amount:agorot(d.KevaAmount),currency:String(d.KevaCurrency),note:d.KevaAvour||'',group:d.KevaGroupe||'',frequency:String(d.KevaFrequency||''),phone:d.KevaPhone||'',next_date:d.KevaNextDate||'',history:(Array.isArray(d.HistoryData)?d.HistoryData:[]).filter(x=>String(x.ID)==='1').map(x=>({transaction_id:id(x.TransactionId),amount:agorot(String(x.Amount).replace(/❗/g,'').trim()),date:String(x.Date)}))};
  }
  if(b.action==='nedarim_cancel'){
   const k=id(b.keva_id),before=await call(c,'GetKevaId',{KevaId:k});
