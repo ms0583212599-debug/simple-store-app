@@ -118,3 +118,6 @@ body.vp-standalone #vendpayPanel>.modal-card{max-height:none!important;min-heigh
 @media(max-width:760px){#vendpayPanel>.modal-card>.bar{align-items:center!important}#vendpayPanel .vp-utility-toolbar .actions{width:auto;justify-content:flex-end}#vendpayPanel .vp-utility-toolbar .actions>button{flex:0 1 auto;min-height:38px}#vendpayPanel .vp-heading .vp-eyebrow{font-size:8px;letter-spacing:1px}}
 
 #vendpayPanel>.modal-card>.bar a{font-size:12px;color:#526d59;text-decoration:none;padding:9px 12px;border:1px solid #dfe7da;border-radius:9px;background:#f9fbf6}#vendpayPanel>.modal-card>.bar a:hover{background:#edf3e7}#vendpayPanel>.modal-card>.bar .actions{align-items:center}
+
+/* The standalone page scrolls at document level; only the embedded modal owns a scrollport. */
+body.vp-standalone #vendpayPanel>.modal-card{overflow:visible!important;overscroll-behavior:auto}
