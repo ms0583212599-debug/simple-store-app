@@ -10,7 +10,7 @@ function dateInput(v){if(v==='1')return today();if(!/^\d{8}$/.test(v))throw Erro
 function fields(action,d){
  if(action==='category_save')return ['name'];
  if(action==='budget_save')return ['month','category_id','shekels','agorot'];
- if(action==='recurring_save')return ['category_id','name','shekels','agorot','due_day',...(d.id?[]:['start_month']),'payment_method','active'];
+ if(action==='recurring_save')return ['category_id','name','shekels','agorot','due_day',...(d.id?[]:['start_month']),'payment_method',...(d.id?['active']:[])];
  if(action==='refund')return ['shekels','agorot','occurred_on','payment_method','note'];
  return ['category_id',...(d.recurring_id||d.reversal_of||(!d.id&&d.flow_type)?[]:['flow_type']),'shekels','agorot','occurred_on','status','payment_method','note',...(d.id?[]:['installment_count'])];
 }
@@ -119,7 +119,7 @@ export async function advance(s,v,cats,request){
 }
 export async function handler(req){
  if(!['GET','POST'].includes(req.method))return response('Method not allowed',405);
- const p=new URL(req.url).searchParams;if(p.get('health')==='1')return response('ok finance-ivr complete-v23');
+ const p=new URL(req.url).searchParams;if(p.get('health')==='1')return response('ok finance-ivr complete-v24');
  try{
  if(req.method==='POST'){const raw=await req.text();if(raw.length>64000)return response('Request too large',413);for(const[k,v]of new URLSearchParams(raw))p.append(k,v);}
  for(const k of new Set(p.keys()))if(p.getAll(k).length>1)throw Error('התקבל נתון כפול יש להיכנס מחדש לשלוחה');
