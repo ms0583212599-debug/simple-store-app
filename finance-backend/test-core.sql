@@ -1,0 +1,33 @@
+begin;
+do $$
+declare c bigint; i bigint; t jsonb; r jsonb; d jsonb; n bigint; before_exp numeric; tag text:=gen_random_uuid()::text; day date:=(now() at time zone 'Asia/Jerusalem')::date;
+begin
+ select id into c from public.finance_categories where kind='expense' and active order by id limit 1;
+ select id into i from public.finance_categories where kind='income' and active order by id limit 1;
+ d:=public.finance_read(jsonb_build_object('from',day,'to',day));before_exp:=(d->>'expense')::numeric;
+ t:=public.finance_manage('transaction_save',jsonb_build_object('kind','expense','category_id',c,'amount_agorot',10001,'flow_type','annual','occurred_on',day),tag||'-annual');
+ r:=public.finance_manage('transaction_save',jsonb_build_object('kind','expense','category_id',c,'amount_agorot',10001,'flow_type','annual','occurred_on',day),tag||'-annual');
+ assert t->>'id'=r->>'id','idempotency';
+ d:=public.finance_read(jsonb_build_object('from',day,'to',day));assert (d->>'expense')::numeric=before_exp+10001,'annual actual';
+ r:=public.finance_manage('refund',jsonb_build_object('reversal_of',t->'id','amount_agorot',2000,'occurred_on',day),tag||'-refund');
+ d:=public.finance_read(jsonb_build_object('from',day,'to',day));assert (d->>'expense')::numeric=before_exp+8001,'refund subtracts';
+ begin perform public.finance_manage('refund',jsonb_build_object('reversal_of',t->'id','amount_agorot',9000,'occurred_on',day),tag||'-over');raise exception 'FAILED excessive refund';exception when raise_exception then if sqlerrm<>'refund_exceeds' then raise;end if;end;
+ r:=public.finance_manage('void',jsonb_build_object('id',r->'id','revision',r->'revision'),tag||'-void');
+ d:=public.finance_read(jsonb_build_object('from',day,'to',day));assert (d->>'expense')::numeric=before_exp+10001,'void refund';
+ r:=public.finance_manage('restore',jsonb_build_object('id',r->'id','revision',r->'revision'),tag||'-restore');
+ begin perform public.finance_manage('void',jsonb_build_object('id',r->'id','revision',1),tag||'-stale');raise exception 'FAILED stale';exception when raise_exception then if sqlerrm<>'changed' then raise;end if;end;
+ r:=public.finance_manage('installments',jsonb_build_object('kind','expense','category_id',c,'amount_agorot',10001,'flow_type','current','occurred_on',day,'installment_count',3),tag||'-install');
+ select sum(amount_agorot) into n from public.finance_transactions where installment_group=tag||'-install';assert n=10001,'installment rounding';
+ select count(*) into n from public.finance_transactions where installment_group=tag||'-install' and status='planned';assert n=3,'installments planned';
+ r:=public.finance_manage('recurring_save',jsonb_build_object('kind','income','category_id',i,'name','בדיקת קבועה','amount_agorot',250000,'due_day',31,'start_month',date_trunc('month',day)::date),tag||'-recurring');
+ select to_jsonb(x) into t from public.finance_transactions x where recurring_id=(r->>'id')::bigint;
+ assert t->>'status'='planned','recurring starts planned';
+ perform public.finance_materialize(day,day);
+ select count(*) into n from public.finance_transactions where recurring_id=(r->>'id')::bigint;assert n=1,'no duplicate recurring';
+ t:=public.finance_manage('mark_actual',jsonb_build_object('id',t->'id','revision',t->'revision','occurred_on',day),tag||'-actual');
+ perform public.finance_materialize(day,day);
+ select count(*) into n from public.finance_transactions where recurring_id=(r->>'id')::bigint;assert n=1,'no duplicate after paid';
+ assert t->>'status'='actual','marked actual';
+ select count(*) into n from public.finance_audit where entity='finance_transactions' and entity_id=(t->>'id')::bigint;assert n>=2,'audit preserved';
+end $$;
+rollback;
