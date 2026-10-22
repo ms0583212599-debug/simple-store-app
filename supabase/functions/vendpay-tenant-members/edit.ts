@@ -60,7 +60,7 @@ function getField(p:URLSearchParams,key:string,label:string,type:string,groups:R
 export function editWizard(p:URLSearchParams,baseline:Record<string,any>,sessionTime:Date=new Date(),groups:Record<string,string>):{reply:string}|{draft:Record<string,any>,changes:Record<string,any>,cancelled:boolean,confirmed:boolean}{
  const who=safe(baseline.fname)+' '+safe(baseline.lname);
  const mode=value(p,'edit_mode');
- if(mode===undefined)return {reply:ask('edit_mode',voice('v_6f5d87119e6061183d32',["נמצא המשתמש ",String(who)," לשינוי תוקף בלבד הקישו אחת לעריכת פרטים הקישו שתיים לתוקף עד ראש חודש הבא הקישו שלוש לביטול הקישו אפס"]),'NO','1')};
+ if(mode===undefined)return {reply:ask('edit_mode',voice('v_ivr_members_edit_menu_delete',["נמצא המשתמש ",String(who)," לשינוי תוקף בלבד הקישו אחת לעריכת פרטים הקישו שתיים לתוקף עד ראש חודש הבא הקישו שלוש למחיקת המשתמש הקישו ארבע לביטול הקישו אפס"]),'NO','1')};
  if(mode==='0')return {draft:baseline,changes:{},cancelled:true,confirmed:false};
  if(!['1','2','3'].includes(mode))throw new InputError(voice('v_929e6ded38747874f1ab',["בחירה לא תקינה אנא התחילו מחדש"]));
  const draft={...baseline},changes:Record<string,any>={};
@@ -113,6 +113,7 @@ export function editWizard(p:URLSearchParams,baseline:Record<string,any>,session
  if(!['1','2'].includes(confirm))throw new InputError(voice('v_82c5768b6af0289d23d2',["אישור לא תקין"]));
  return {draft,changes:actual,cancelled:confirm==='2',confirmed:confirm==='1'};
 }
+
 
 
 

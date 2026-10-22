@@ -1,3 +1,4 @@
+import {retryField} from './retry.ts';
 import {voice} from './voice.ts';
 // Native ICU Hebrew calendar; no network calls or external runtime dependencies.
 const formatter=new Intl.DateTimeFormat('he-IL-u-ca-hebrew',{timeZone:'UTC',year:'numeric',month:'long',day:'numeric'});
@@ -21,31 +22,29 @@ export function hebrewSpoken(iso:string){const p=parts(new Date(isoValid(iso)+'T
 export function gregorianSpoken(iso:string){return gregorian.format(new Date(isoValid(iso)+'T12:00:00Z'));}
 function get(p:URLSearchParams,k:string){const a=p.getAll(k);if(a.length>1)throw new CalendarInputError(voice('v_d31c3202e0a960ec1401',["נתון כפול התחילו שיחה חדשה"]));return a[0];}
 function read(k:string,text:string,max:string,min='1'){return {reply:`read=t-${text}=${[k,'',max,min,'30','NO','','','','','','','','','no'].join(',')}`};}
-export function requestDate(p:URLSearchParams,prefix:string,label:string,optional?:{value:string|null,label:string}):{reply:string}|{iso:string|null}{
- for(let attempt=0;attempt<3;attempt++){
- const k=prefix+'_cal_'+attempt;
- const year=get(p,k+'_year');
- if(year===undefined)return read(k+'_year',voice('v_19c9bdf12d9e1c5bdc70',["",String(attempt?'התאריך לא אושר או אינו תקין ':''),"",String(label)," הקישו שנה עברית בארבע ספרות לתאריך לועזי הקישו אפס",String(optional?' '+optional.label+' הקישו אחת':''),""]),'4');
- let iso:string|null;
- if(year==='1'&&optional)iso=optional.value;
- else if(year==='0'){
- const raw=get(p,k+'_gregorian');if(raw===undefined)return read(k+'_gregorian',voice('v_f969cb08e0a966fe6822',["הקישו תאריך לועזי בשמונה ספרות יום חודש ושנה"]),'8','8');
- try{if(!/^\d{8}$/.test(raw))throw Error();iso=isoValid(raw.slice(4)+'-'+raw.slice(2,4)+'-'+raw.slice(0,2));}catch{continue;}
- }else{
- if(!/^\d{4}$/.test(year)||Number(year)<5600||Number(year)>5900)continue;
- const months=yearMonths(Number(year));const month=get(p,k+'_month');
- if(month===undefined){const menu=months.map((m,i)=>`${m.name.replace(voice('v_4822beadbe49ecc7d171',["א׳"]),voice('v_70d5fb09c373000e8db6',["אלף"])).replace(voice('v_23a33d80bcc49c852d53',["ב׳"]),voice('v_dae27bc5715640a835d5',["בית"]))} ${i+1}`).join(' ');return read(k+'_month',voice('v_cdfc4973cabfd7c57862',["בחרו חודש "])+menu,'2');}
- if(!/^\d{1,2}$/.test(month)||Number(month)<1||Number(month)>months.length)continue;
- const day=get(p,k+'_day');if(day===undefined)return read(k+'_day',voice('v_eb14861d1b8c6c87b637',["הקישו את היום בחודש"]),'2');
- try{if(!/^\d{1,2}$/.test(day))throw Error();iso=hebrewToISO(Number(year),Number(month),Number(day));}catch{continue;}
+export function requestDate(p:URLSearchParams,prefix:string,label:string,optional?:{value:string|null,label:string},minimum?:string):{reply:string}|{iso:string|null}{
+ for(let attempt=0;attempt<20;attempt++){
+  const k=prefix+'_cal_'+attempt;
+  const y=retryField(p,k+'_year',key=>read(key,voice('v_ivr_edit_date_year_prompt',['',String(attempt?'התאריך לא אושר או אינו תקין ':''),'',label,' הקישו שנה עברית בארבע ספרות לתאריך לועזי הקישו אפס',String(optional?' '+optional.label+' הקישו אחת':''),'']),'4').reply,v=>{if(v==='0'||(v==='1'&&optional))return v;if(!/^\d{4}$/.test(v)||Number(v)<5600||Number(v)>5900)throw Error();return v;});
+  if('reply'in y)return y;const year=y.data;let iso:string|null;
+  if(year==='1'&&optional)iso=optional.value;
+  else if(year==='0'){
+   const g=retryField(p,k+'_gregorian',key=>read(key,voice('v_ivr_edit_date_gregorian',['הקישו תאריך לועזי בשמונה ספרות יום חודש ושנה']),'8','8').reply,v=>{if(!/^\d{8}$/.test(v))throw Error();const d=isoValid(v.slice(4)+'-'+v.slice(2,4)+'-'+v.slice(0,2));if(minimum&&d<minimum)throw Error();return d;});
+   if('reply'in g)return g;iso=g.data;
+  }else{
+   const months=yearMonths(Number(year));const menu=months.map((m,i)=>m.name.replace('א׳','אלף').replace('ב׳','בית')+' '+(i+1)).join(' ');
+   const m=retryField(p,k+'_month',key=>read(key,voice('v_ivr_edit_date_month',['בחרו חודש ',menu,'']),'2').reply,v=>{if(!/^\d{1,2}$/.test(v)||Number(v)<1||Number(v)>months.length)throw Error();return Number(v);});
+   if('reply'in m)return m;
+   const d=retryField(p,k+'_day',key=>read(key,voice('v_ivr_edit_date_day',['הקישו את היום בחודש']),'2').reply,v=>{if(!/^\d{1,2}$/.test(v))throw Error();return hebrewToISO(Number(year),m.data,Number(v));});
+   if('reply'in d)return d;iso=d.data;
+  }
+  if(minimum&&iso&&iso<minimum)continue;
+  const desc=iso===null?'ללא תאריך':hebrewSpoken(iso)+' ובתאריך הלועזי '+gregorianSpoken(iso);
+  const ok=retryField(p,k+'_ok',key=>read(key,voice('v_ivr_edit_date_confirm',['',label,' ',desc,' לאישור אחת לתיקון שתיים']),'1').reply,v=>{if(!['1','2'].includes(v))throw Error();return v;});
+  if('reply'in ok)return ok;if(ok.data==='1')return {iso};
  }
- const confirmation=get(p,k+'_ok');
- if(confirmation===undefined){const desc=iso===null?voice('v_49de766da85d8f9786fe',["ללא תאריך"]):voice('v_8c0cdec8a9cc58153884',["",String(hebrewSpoken(iso))," ובתאריך הלועזי ",String(gregorianSpoken(iso)),""]);return read(k+'_ok',voice('v_3fd1eb01d0d5244a572a',["",String(label)," ",String(desc)," לאישור אחת לתיקון שתיים"]),'1');}
- if(confirmation==='1')return {iso};
- }
- throw new CalendarInputError(voice('v_48d6375cf4bfd7c8309d',["לא אושר תאריך תקין התחילו שיחה חדשה"]));
+ return {reply:'id_list_message=t-'+voice('v_ivr_edit_input_limit',['לא נקלט ערך תקין לאחר ניסיונות רבים אנא התחילו שיחה חדשה'])};
 }
-
 
 // Anchor to the session creation time so a call crossing midnight keeps its proposal.
 export function nextHebrewMonthStart(now:Date):string {
@@ -56,4 +55,5 @@ export function nextHebrewMonthStart(now:Date):string {
  for(let n=1;n<=30;n++){const d=new Date(start+n*DAY);if(parts(d).day===1)return d.toISOString().slice(0,10);}
  throw Error('next_hebrew_month_not_found');
 }
+
 

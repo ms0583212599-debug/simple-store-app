@@ -1,3 +1,4 @@
+import {duplicateCardPrompt} from './card-retry.ts';
 import {voice} from './voice.ts';
 import {wizard,value,InputError} from './wizard.ts';
 import type {MemberContext} from './context.ts';
@@ -69,7 +70,7 @@ async function handler(req:Request):Promise<Response> {
   if(cardUsers.length===1&&matches(cardUsers[0],payload)){await mark(callHash,'confirmed');return say(voice('v_49b373f077f49dac2cd5',["המשתמש נוסף בהצלחה"]),'confirmed');}
   return say(voice('v_62e4ff3004ff91d25b20',["תוצאת ניסיון השמירה הקודם עדיין לא ודאית בדקו באתר לפני ניסיון נוסף"]),'uncertain');
  }
- if(cardUsers.length)return say(voice('v_5694a013be9337affb01',["מספר הכרטיס כבר קיים לא נוסף משתמש"]),'card_exists');
+ if(cardUsers.length)return reply(duplicateCardPrompt(p),'prompt');
  const since=new Date(Date.now()-60000).toISOString();
  if((await rows(await db('GET','?select=call_hash&created_at=gte.'+encodeURIComponent(since)+'&limit=6'))).length>=5)return say(voice('v_9e625eac8b6dcb29e1c2',["בוצעו מספר פעולות בזמן קצר נסו שוב בעוד דקה"]),'rate_limited');
  const claim=await db('POST','',{call_hash:callHash,card_hash:cardHash,payload_hash:payloadHash,status:'reserved'});
@@ -96,5 +97,6 @@ async function handler(req:Request):Promise<Response> {
 }
 return handler;
 }
+
 
 

@@ -1,3 +1,4 @@
+import {deleteSession} from './delete.ts';
 import {voice} from './voice.ts';
 import {value,ask,editWizard,payload,same,listData,InputError} from './edit.ts';
 import type {MemberContext} from './context.ts';
@@ -29,6 +30,7 @@ async function handler(req:Request){
  if(!call||!did||call.length>200||did.length>30)return say(voice('v_4e5b3f4bf08f86454568',["חסרים פרטי שיחה"]),'missing_call');
  const callHash=await hash(ctx.tenant+'|'+did+'|'+call);
  let session=(await rows(await db('GET','?call_hash=eq.'+callHash+'&select=*')))[0];
+ if(session?.operation==='delete')return await deleteSession(p,session,callHash,{db,rows,list,token,active:ctx.active,reply});
  if(session?.status==='confirmed')return say(voice('v_4e8703127fb31ff0db0c',["הפרטים עודכנו בהצלחה"]),'confirmed');
  if(session?.status==='cancelled')return say(voice('v_287c9cca7b275ab308b4',["העריכה בוטלה"]),'cancelled');
  if(session?.status==='conflict')return say(voice('v_5d5c0fa27cf08081b611',["הפרטים השתנו בינתיים התחילו שיחה חדשה"]),'conflict');
@@ -54,6 +56,7 @@ async function handler(req:Request){
  if(String(session.baseline.card_number)!==card)return say(voice('v_0c22531876da64ee1c0b',["כבר נבחר משתמש אחר בשיחה התחילו מחדש"]),'different_card');
  }
  if(card!==undefined&&String(session.baseline.card_number)!==card)return say(voice('v_0c22531876da64ee1c0b',["כבר נבחר משתמש אחר בשיחה התחילו מחדש"]),'different_card');
+ if(value(p,'edit_mode')==='4')return await deleteSession(p,session,callHash,{db,rows,list,token,active:ctx.active,reply});
  const result=editWizard(p,session.baseline,new Date(session.created_at),ctx.groups);
  if('reply'in result)return reply(result.reply,'prompt');
  if(result.cancelled){await rows(await db('PATCH','?call_hash=eq.'+callHash+'&status=eq.editing',{status:'cancelled',baseline:{},intended:null}));return say(voice('v_6e1aa1d61511f3ca01ad',["לא נשמרו שינויים"]),'cancelled');}
@@ -78,6 +81,7 @@ async function handler(req:Request){
 }
 return handler;
 }
+
 
 
 

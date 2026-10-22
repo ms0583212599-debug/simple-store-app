@@ -1,3 +1,5 @@
+import {duplicateCardPrompt} from './card-retry.ts';
+import {withRecordings} from './recordings.js';
 import {withVoice} from './voice.ts';
 import {voice} from './voice.ts';
 import {withAudit} from './audit.ts';
@@ -70,7 +72,7 @@ export async function handler(req:Request):Promise<Response> {
   if(cardUsers.length===1&&matches(cardUsers[0],payload)){await mark(callHash,'confirmed');return say(voice('v_a563d99982af3c075f5a',["המשתמש נוסף בהצלחה"]),'confirmed');}
   return say(voice('v_4eb70b004a5d85ce3dbe',["תוצאת ניסיון השמירה הקודם עדיין לא ודאית בדקו באתר לפני ניסיון נוסף"]),'uncertain');
  }
- if(cardUsers.length)return say(voice('v_bc433eb85d793cbd4088',["מספר הכרטיס כבר קיים לא נוסף משתמש"]),'card_exists');
+ if(cardUsers.length)return reply(duplicateCardPrompt(p),'prompt');
  const since=new Date(Date.now()-60000).toISOString();
  if((await rows(await db('GET','?select=call_hash&created_at=gte.'+encodeURIComponent(since)+'&limit=6'))).length>=5)return say(voice('v_ce6e461852c5fe8944c1',["בוצעו מספר פעולות בזמן קצר נסו שוב בעוד דקה"]),'rate_limited');
  const claim=await db('POST','',{call_hash:callHash,card_hash:cardHash,payload_hash:payloadHash,status:'reserved'});
@@ -95,6 +97,7 @@ export async function handler(req:Request):Promise<Response> {
  return say(voice('v_2b74474c8a08ae8a6ca4',["לא ניתן להשלים כרגע את הפעולה אם אישרתם שמירה בדקו באתר לפני ניסיון נוסף"]),'error');
  }
 }
-Deno.serve(withVoice(withAudit(handler,'vendpay-admin-users'),'vendpay-admin-users'));
+Deno.serve(withRecordings(withVoice(withAudit(handler,'vendpay-admin-users'),'vendpay-admin-users'),'vendpay-admin-users'));
+
 
 

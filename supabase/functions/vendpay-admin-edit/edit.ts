@@ -3,7 +3,7 @@ import {requestDate,CalendarInputError,hebrewSpoken,nextHebrewMonthStart} from '
 import {cleanName,shekelsToAgorot,validDate} from './flow.ts';
 export class InputError extends Error {}
 export function value(p:URLSearchParams,k:string){const a=p.getAll(k);if(a.length>1)throw new InputError(voice('v_1bea7b92d35918dae57c',["התקבל ערך כפול אנא התחילו שיחה חדשה"]));return a[0];}
-export const safe=(v:unknown,limit=180)=>String(v??'').replace(/[&=.,\r\n<>]/g,' ').slice(0,limit);
+export const safe=(v:unknown,limit=180)=>String(v??'').normalize('NFC').replace(/[&=.,<>\u0000-\u001f\u007f\u2028\u2029\u200e\u200f\u202a-\u202e\u2066-\u2069\-\u05be\u2010-\u2015\u2212]/g,' ').replace(/\s+/g,' ').trim().slice(0,limit);
 export function ask(k:string,t:string,type='Digits',max='15',min='1'){return `read=t-${safe(t,2500)}=${[k,'',max,min,'30',type].join(',')}`;}
 const FIELDS=[
  ['fname',voice('v_745ffa3df4473ed2dfab',["שם פרטי"]),'voice'],['lname',voice('v_14fa034f50fd4bdb84a8',["שם משפחה"]),'voice'],['pel',voice('v_fd073911bfd52c6dea1f',["טלפון נייד"]),'phone'],['tel',voice('v_8b71c307a4698a441736',["טלפון נוסף"]),'phone'],
@@ -59,7 +59,7 @@ function getField(p:URLSearchParams,key:string,label:string,type:string):{reply:
 export function editWizard(p:URLSearchParams,baseline:Record<string,any>,sessionTime:Date=new Date()):{reply:string}|{draft:Record<string,any>,changes:Record<string,any>,cancelled:boolean,confirmed:boolean}{
  const who=safe(baseline.fname)+' '+safe(baseline.lname);
  const mode=value(p,'edit_mode');
- if(mode===undefined)return {reply:ask('edit_mode',voice('v_c0469babf5ce58caa5b7',["נמצא המשתמש ",String(who)," לשינוי תוקף בלבד הקישו אחת לעריכת פרטים הקישו שתיים לתוקף עד ראש חודש הבא הקישו שלוש לביטול הקישו אפס"]),'NO','1')};
+ if(mode===undefined)return {reply:ask('edit_mode',voice('v_ivr_edit_edit_menu_delete',["נמצא המשתמש ",String(who)," לשינוי תוקף בלבד הקישו אחת לעריכת פרטים הקישו שתיים לתוקף עד ראש חודש הבא הקישו שלוש למחיקת המשתמש הקישו ארבע לביטול הקישו אפס"]),'NO','1')};
  if(mode==='0')return {draft:baseline,changes:{},cancelled:true,confirmed:false};
  if(!['1','2','3'].includes(mode))throw new InputError(voice('v_8dad437cafcb8d44d7a1',["בחירה לא תקינה אנא התחילו מחדש"]));
  const draft={...baseline},changes:Record<string,any>={};
@@ -112,6 +112,7 @@ export function editWizard(p:URLSearchParams,baseline:Record<string,any>,session
  if(!['1','2'].includes(confirm))throw new InputError(voice('v_efc884beefe02d55e594',["אישור לא תקין"]));
  return {draft,changes:actual,cancelled:confirm==='2',confirmed:confirm==='1'};
 }
+
 
 
 

@@ -1,3 +1,6 @@
+import {deleteSession} from './delete.ts';
+import {withRecordings} from './recordings.js';
+import {withSpeech} from './speech.js';
 import {withVoice} from './voice.ts';
 import {voice} from './voice.ts';
 import {withAudit} from './audit.ts';
@@ -30,6 +33,7 @@ export async function handler(req:Request){
  if(!call||!did||call.length>200||did.length>30)return say(voice('v_3f1a23afe8f6f6a7a584',["חסרים פרטי שיחה"]),'missing_call');
  const callHash=await hash(did+'|'+call);
  let session=(await rows(await db('GET','?call_hash=eq.'+callHash+'&select=*')))[0];
+ if(session?.operation==='delete')return await deleteSession(p,session,callHash,{db,rows,list,token,active:env('VENDPAY_ADMIN_ENABLED')==='true',reply});
  if(session?.status==='confirmed')return say(voice('v_5f18fffb14d43303088d',["הפרטים עודכנו בהצלחה"]),'confirmed');
  if(session?.status==='cancelled')return say(voice('v_0ec29e5ab56f4e97556f',["העריכה בוטלה"]),'cancelled');
  if(session?.status==='conflict')return say(voice('v_7f176078659922fe1c8f',["הפרטים השתנו בינתיים התחילו שיחה חדשה"]),'conflict');
@@ -55,6 +59,7 @@ export async function handler(req:Request){
  if(String(session.baseline.card_number)!==card)return say(voice('v_ea6da9451b00f35eb6f8',["כבר נבחר משתמש אחר בשיחה התחילו מחדש"]),'different_card');
  }
  if(card!==undefined&&String(session.baseline.card_number)!==card)return say(voice('v_ea6da9451b00f35eb6f8',["כבר נבחר משתמש אחר בשיחה התחילו מחדש"]),'different_card');
+ if(value(p,'edit_mode')==='4')return await deleteSession(p,session,callHash,{db,rows,list,token,active:env('VENDPAY_ADMIN_ENABLED')==='true',reply});
  const result=editWizard(p,session.baseline,new Date(session.created_at));
  if('reply'in result)return reply(result.reply,'prompt');
  if(result.cancelled){await rows(await db('PATCH','?call_hash=eq.'+callHash+'&status=eq.editing',{status:'cancelled',baseline:{},intended:null}));return say(voice('v_b85f9ecd39dbf5546fe1',["לא נשמרו שינויים"]),'cancelled');}
@@ -77,7 +82,8 @@ export async function handler(req:Request){
  await mark(callHash,'uncertain');return say(voice('v_81b269bf2b2ef1e6c1e8',["בקשת העדכון נשלחה אך התוצאה לא אומתה בדקו באתר לפני ניסיון נוסף"]),'uncertain');
  }catch(e){if(e instanceof InputError)return say(e.message,'invalid_input');console.log(JSON.stringify({event:'vendpay_edit_error',kind:e instanceof Error&&/^[a-z_]+$/.test(e.message)?e.message:'operation_failed'}));return say(voice('v_87711f5bc5976a2a218a',["לא ניתן להשלים כרגע את העריכה אם אישרתם שמירה בדקו באתר"]),'error');}
 }
-Deno.serve(withVoice(withAudit(handler,'vendpay-admin-edit'),'vendpay-admin-edit'));
+Deno.serve(withRecordings(withSpeech(withVoice(withAudit(handler,'vendpay-admin-edit'),'vendpay-admin-edit')),'vendpay-admin-edit'));
+
 
 
 

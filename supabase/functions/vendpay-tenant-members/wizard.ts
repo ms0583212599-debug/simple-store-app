@@ -1,3 +1,5 @@
+import {cardCorrectionKey,cardCorrectionRound} from './card-retry.ts';
+import {retryField} from './retry.ts';
 import {voice} from './voice.ts';
 import {requestDate,CalendarInputError} from './calendar.ts';
 
@@ -80,31 +82,11 @@ function integer(v: string, zero = true) {
   return Number(v);
 }
 
-function legacyWizard(
-  p: URLSearchParams,
-  now = new Date(),
-  GROUPS: Record<string,string>
-):
-  | { reply: string }
-  | {
-      payload: Record<string, unknown>;
-      confirmed: boolean;
-      cancelled: boolean;
-    } {
-
-  let names;
-
-  try {
-    names = collectNames(p);
-  } catch {
-    throw new InputError(
-      voice('v_1c22e4f3ecfa66baac02',["השם לא תקין אנא התחילו מחדש והשתמשו בהקשת אותיות"])
-    );
-  }
-
-  if ('reply' in names) return names;
-
-  // שאלות חובה ראשונות
+export function wizard(p:URLSearchParams,now=new Date(),groups:Record<string,string>){
+ const names=collectNames(p);if('reply'in names)return names;
+ const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Jerusalem',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);
+ const answer=(key:string,text:string,type:string,max:string,parse:(raw:string)=>any,min='1')=>retryField(p,key,k=>ask(k,text,type,max,min),parse);
+ const strictPhone=(raw:string)=>{if(!/^0\d{8,9}$/.test(raw))throw Error();return raw;};
   const fields = [
     [
       'pel',
@@ -126,114 +108,22 @@ function legacyWizard(
     ]
   ];
 
-  for (const [k, t, type, max] of fields) {
-    if (value(p, k) === undefined) {
-      return {
-        reply: ask(k, t, type, max)
-      };
-    }
-  }
-
-  // בחירת קבוצה בשאלה אחת בלבד
-  if (value(p, 'restrict_id') === undefined) {
-    return {
-      reply: ask(
-        'restrict_id',
-        voice('v_ab0574d184e3e0b504e5',["בחרו קבוצה "])+Object.entries(GROUPS).map(([id,title])=>title+' '+id).join(' '),
-        'Number',
-        '10',
-        '1'
-      )
-    };
-  }
-
-  const group = value(p, 'restrict_id')!;
-
-  if (!Object.prototype.hasOwnProperty.call(GROUPS, group)) {
-    throw new InputError(
-      voice('v_cbbf6063c51118b137ad',["מספר הקבוצה אינו קיים או שהקבוצה אינה פעילה התחילו מחדש"])
-    );
-  }
-
-  // תאריך סיום
-  if (value(p, 'date_end') === undefined) {
-    return {
-      reply: ask(
-        'date_end',
-        voice('v_fecc9cc0fed290b2484a',["הקישו תאריך סיום בשמונה ספרות יום חודש ושנה"]),
-        'Digits',
-        '8',
-        '8'
-      )
-    };
-  }
-
-  // אפשרות להזנת פרטים נוספים
-  if (value(p, 'extras') === undefined) {
-    return {
-      reply: ask(
-        'extras',
-        voice('v_55eab56336c692e44089',["להזנת פרטים נוספים הקישו אחת לדילוג הקישו שתיים"]),
-        'NO',
-        '1'
-      )
-    };
-  }
-
-  const mobile = value(p, 'pel')!;
-
-  if (!/^0\d{8,9}$/.test(mobile)) {
-    throw new InputError(
-      voice('v_8f62e0a9ae1cff2952e2',["מספר הטלפון אינו תקין אנא התחילו מחדש"])
-    );
-  }
-
-  const end = dateInput(value(p, 'date_end')!);
-
-  const startParts = new Intl.DateTimeFormat(
-    'en-GB',
-    {
-      timeZone: 'Asia/Jerusalem',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    }
-  ).formatToParts(now);
-
-  const getPart = (type: string) =>
-    startParts.find(x => x.type === type)?.value ?? '';
-
-  const start =
-    getPart('year') + '-' +
-    getPart('month') + '-' +
-    getPart('day');
-
-  let amount: number;
-
-  try {
-    amount = shekelsToAgorot(
-      value(p, 'amount')!
-    );
-  } catch {
-    throw new InputError(
-      voice('v_f742fe8ff40f32fe9a87',["הסכום אינו תקין אנא התחילו מחדש"])
-    );
-  }
-
-  const extras = value(p, 'extras');
-
-  if (!['1', '2'].includes(extras!)) {
-    throw new InputError(voice('v_02c70316c3f5d2669e96',["בחירה לא תקינה"]));
-  }
-
+ const values:Record<string,any>={};
+ for(const [key,text,type,max] of fields){const r=answer(key==='card_number'?cardCorrectionKey(p):key,text,type,max,key==='pel'?strictPhone:key==='card_number'?(v)=>integer(v,false):shekelsToAgorot);if('reply'in r)return r;values[key]=r.data;}
+ const mobile=values.pel,card=values.card_number,amount=values.amount;
+ const selected=answer('restrict_id',voice('v_ab0574d184e3e0b504e5',["בחרו קבוצה "])+Object.entries(groups).map(([id,title])=>title+' '+id).join(' '),'Digits','10',v=>{if(!Object.hasOwn(groups,v))throw Error();return v;});if('reply'in selected)return selected;const group=selected.data;
+ const dateField=(key:string,label:string,optional?:{value:string|null,label:string})=>{
+  if(p.has(key))return answer(key,label+' בשמונה ספרות יום חודש ושנה','Digits','8',v=>v==='0'&&optional?optional.value:dateInput(v));
+  return requestDate(p,key,label,optional);
+ };
+ const getDate=(r:any)=>'iso'in r?r.iso:r.data;
+ const expiry=dateField('date_end','תאריך סיום');if('reply'in expiry)return expiry;const end=getDate(expiry),start=today;
+ const extraAnswer=answer('extras',voice('v_55eab56336c692e44089',["להזנת פרטים נוספים הקישו אחת לדילוג הקישו שתיים"]),'NO','1',v=>{if(!['1','2'].includes(v))throw Error();return v;});if('reply'in extraAnswer)return extraAnswer;const extras=extraAnswer.data;
   const out: Record<string, unknown> = {
     address: '',
     alert: 0,
     card_media: 2,
-    card_number: integer(
-      value(p, 'card_number')!,
-      false
-    ),
+    card_number: card,
     card_value: amount,
     cash_do_mode: 2,
     city: '',
@@ -259,15 +149,14 @@ function legacyWizard(
     passport: '',
     pel: mobile,
     picture: null,
-    restrict_id: integer(group, false),
+    restrict_id: Number(group),
     tel: '',
     uuid: 0,
     value_unusable: 0,
     zip: ''
   };
 
-  // פרטים נוספים
-  if (extras === '1') {
+ if(extras==='1'){
     const optional = [
       [
         'tel',
@@ -349,102 +238,26 @@ function legacyWizard(
       ]
     ];
 
-    for (const [k, t, type, max] of optional) {
-      const v = value(p, k);
-
-      if (v === undefined) {
-        return {
-          reply: ask(k, t, type, max)
-        };
-      }
-
-      if (k === 'date_start') {
-        if (v !== '0') {
-          out[k] = dateInput(v);
-        }
-      } else if (k === 'date_birth') {
-        out[k] = v === '0' ? null : dateInput(v);
-      } else if (k === 'parent_id') {
-        out[k] = integer(v);
-      } else if (k === 'is_active') {
-        if (!['0', '1'].includes(v)) {
-          throw new InputError(voice('v_e989a9c1f263c7762e98',["סטטוס לא תקין"]));
-        }
-        out[k] = Number(v);
-      } else {
-        out[k] = textInput(v);
-      }
-    }
-
-    if (
-      out.email &&
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-        String(out.email)
-      )
-    ) {
-      throw new InputError(
-        voice('v_a23d07248661f5385730',["כתובת מייל לא תקינה"])
-      );
-    }
-
-    if (
-      out.tel &&
-      !/^0\d{8,9}$/.test(String(out.tel))
-    ) {
-      throw new InputError(
-        voice('v_e832fa2d4d5e99b5189e',["מספר הטלפון הנוסף לא תקין"])
-      );
-    }
+  for(const [key,text,type,max] of optional){
+   let r;
+   if(['date_start','date_birth'].includes(key))r=dateField(key,key==='date_start'?'תאריך התחלה':'תאריך לידה',key==='date_start'?{value:today,label:'לתאריך של היום'}:{value:null,label:'ללא תאריך לידה'});
+   else r=answer(key,text,type,max,v=>{
+    if(key==='parent_id')return integer(v);
+    if(key==='is_active'){if(!['0','1'].includes(v))throw Error();return Number(v);}
+    const t=textInput(v);
+    if(key==='tel'&&t)return strictPhone(t);
+    if(key==='email'&&t&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t))throw Error();
+    if(['passport','zip'].includes(key)&&t&&!/^\d{1,15}$/.test(t))throw Error();
+    return t;
+   });
+   if('reply'in r)return r;out[key]=getDate(r);
   }
-
-  if (
-    String(out.date_end) <
-    String(out.date_start)
-  ) {
-    throw new InputError(
-      voice('v_1cb5cb119c0e5f29ad0d',["תאריך הסיום מוקדם מתאריך ההתחלה"])
-    );
-  }
-
-  // סיכום ואישור שמירה
-  const confirm = value(p, 'save_confirm');
-
-  if (confirm === undefined) {
-    return { reply: ask('save_confirm', voice('v_bc43be93a89fc9ccb9ff',["לשמירה הקישו אחת לביטול הקישו שתיים"]), 'NO', '1') };
-  }
-
-  if (!['1', '2'].includes(confirm)) {
-    throw new InputError(voice('v_02c70316c3f5d2669e96',["בחירה לא תקינה"]));
-  }
-
-  return {
-    payload: out,
-    confirmed: confirm === '1',
-    cancelled: confirm === '2'
-  };
-}
-
-
-
-// Preserve existing Gregorian values in in-progress calls. New prompts default to Hebrew.
-export function wizard(p:URLSearchParams,now=new Date(),groups:Record<string,string>) {
- const working=new URLSearchParams(p);
- const labels:Record<string,string>={date_end:voice('v_a3c311877b67c1debff8',["תאריך סיום"]),date_start:voice('v_e89047c12b069abb539a',["תאריך התחלה"]),date_birth:voice('v_61f85283024752cf57e1',["תאריך לידה"])};
- for(let n=0;n<4;n++){
-  const result=legacyWizard(working,now,groups);
-  if(!('reply' in result))return result;
-  const key=result.reply.split('=')[2]?.split(',')[0];
-  if(!key||!labels[key])return result;
-  const todayParts=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Jerusalem',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now);
-  const part=(t:string)=>todayParts.find(x=>x.type===t)?.value;
-  const today=part('year')+'-'+part('month')+'-'+part('day');
-  let date;
-  try{date=requestDate(p,key,labels[key],key==='date_birth'?{value:null,label:voice('v_05b62c42dd9de9e19efa',["ללא תאריך לידה"])}:key==='date_start'?{value:today,label:voice('v_17d64588b6ce7a70eecd',["לתאריך של היום"])}:undefined);}
-  catch(e){if(e instanceof CalendarInputError)throw new InputError(e.message);throw e;}
-  if('reply'in date)return date;
-  working.set(key,date.iso?date.iso.slice(8,10)+date.iso.slice(5,7)+date.iso.slice(0,4):'0');
  }
- throw new InputError(voice('v_8e106a0cd957070a08e2',["לא ניתן להשלים את קליטת התאריכים"]));
+ if(String(out.date_end)<String(out.date_start)){
+  const r=requestDate(p,'date_end_corrected',voice('v_ivr_members_end_before_start',['תאריך הסיום מוקדם מתאריך ההתחלה הזינו תאריך סיום חדש']),undefined,String(out.date_start));
+  if('reply'in r)return r;out.date_end=r.iso;
+ }
+ const confirmation=answer(cardCorrectionRound(p)?'save_confirm_card_'+cardCorrectionRound(p):'save_confirm',voice('v_bc43be93a89fc9ccb9ff',["לשמירה הקישו אחת לביטול הקישו שתיים"]),'NO','1',v=>{if(!['1','2'].includes(v))throw Error();return v;});
+ if('reply'in confirmation)return confirmation;
+ return {payload:out,confirmed:confirmation.data==='1',cancelled:confirmation.data==='2'};
 }
-
-
