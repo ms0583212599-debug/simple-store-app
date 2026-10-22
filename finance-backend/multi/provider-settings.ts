@@ -4,7 +4,7 @@ async function encryptionKey(){const secret=Deno.env.get('SUPABASE_SERVICE_ROLE_
 export async function seal(data){const iv=crypto.getRandomValues(new Uint8Array(12)),encrypted=await crypto.subtle.encrypt({name:'AES-GCM',iv},await encryptionKey(),enc.encode(JSON.stringify(data)));return JSON.stringify({v:1,iv:Array.from(iv),data:Array.from(new Uint8Array(encrypted))});}
 export async function unseal(value){if(!value)return {};const b=JSON.parse(value);if(b.v!==1)throw Error('configuration');return JSON.parse(dec.decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:new Uint8Array(b.iv)},await encryptionKey(),new Uint8Array(b.data))));}
 export function effective(stored){return {...stored,yemot_token:stored.yemot_token??Deno.env.get('YEMOT_TOKEN')??'',resend_key:stored.resend_key??Deno.env.get('RESEND_API_KEY')??'',from_email:stored.from_email??Deno.env.get('FINANCE_FROM_EMAIL')??Deno.env.get('FEEDBACK_FROM_EMAIL')??'',voice_enabled:stored.voice_enabled!==false,mail_enabled:stored.mail_enabled!==false};}
-export const visible=(c,revision)=>({revision,nedarim_mosad:c.nedarim_mosad||'',nedarim_group:c.nedarim_group||'',nedarim_api_valid_configured:!!c.nedarim_api_valid,nedarim_api_password_configured:!!c.nedarim_api_password,nedarim_billing_ready:false,yemot_configured:!!c.yemot_token,resend_configured:!!c.resend_key,from_email:c.from_email,voice_enabled:c.voice_enabled,mail_enabled:c.mail_enabled});
+export const visible=(c,revision)=>({revision,nedarim_mosad:c.nedarim_mosad||'',nedarim_group:c.nedarim_group||'',nedarim_api_valid_configured:!!c.nedarim_api_valid,nedarim_api_password_configured:!!c.nedarim_api_password,nedarim_webhook_secret_configured:!!c.nedarim_webhook_secret,nedarim_billing_ready:false,yemot_configured:!!c.yemot_token,resend_configured:!!c.resend_key,from_email:c.from_email,voice_enabled:c.voice_enabled,mail_enabled:c.mail_enabled});
 export async function settings(b,conf,db){
  // Independently validate the existing administrator session, in addition to bridge HMAC.
  if(!b.owner_token)return {error:'unauthorized'};
@@ -14,7 +14,7 @@ export async function settings(b,conf,db){
  if(b.action==='settings_get')return visible(c,conf.revision||0);
  if(b.action==='settings_save'){
   const d=b.data||{},next={...stored};if(d.revision!==(conf.revision||0))return {error:'ההגדרות השתנו יש לרענן ולנסות שוב'};
-  for(const field of ['yemot_token','resend_key','nedarim_api_valid','nedarim_api_password']){if(d[field]!==undefined&&typeof d[field]!=='string')return {error:'ערך לא תקין'};const value=d[field]?.trim();if(value){if(value.length>2048||/[\r\n]/.test(value))return {error:'מפתח לא תקין'};next[field]=value;}}
+  for(const field of ['yemot_token','resend_key','nedarim_api_valid','nedarim_api_password','nedarim_webhook_secret']){if(d[field]!==undefined&&typeof d[field]!=='string')return {error:'ערך לא תקין'};const value=d[field]?.trim();if(value){if(value.length>2048||/[\r\n]/.test(value))return {error:'מפתח לא תקין'};if(field==='nedarim_webhook_secret'&&!/^whsec_[a-f0-9]{64}$/.test(value))return {error:'מפתח חתימה לא תקין'};next[field]=value;}}
   if(typeof d.from_email!=='string'||d.from_email.length>254||/[\r\n]/.test(d.from_email))return {error:'כתובת שולח לא תקינה'};
   const from=d.from_email.trim();if(from&&!/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(from))return {error:'יש להזין כתובת מייל בלבד'};
   if(from.endsWith('@resend.dev'))return {error:'נדרשת כתובת בדומיין שאומת בחשבון Resend'};

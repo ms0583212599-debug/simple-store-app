@@ -18,7 +18,7 @@ Object.assign(errors,{unauthorized:'פרטי הכניסה לא אושרו',accou
 export async function checked(name,data){const d=await rpc(name,data);if(d?.error)throw Error(errors[d.error]||'לא ניתן להשלים את הפעולה');return d;}
 export const scoped=(account,action,data={},request=null)=>checked('finance_scoped',{p_account:account,p_action:action,p_data:data,p_request:request});
 export const profile=(account,action='get',data={})=>checked('finance_profile',{p_account:account,p_action:action,p_data:data});
-export const billing=(account,action,data={})=>checked('billing_manage',{p_account:account,p_action:action,p_data:data});
+export const billing=async(account,action,data={})=>(await import('./nedarim-billing.ts')).billingRoute(account,action,data);
 export const auth=(action,data)=>checked('finance_account_auth',{p_action:action,p_data:data});
 export async function allowed(account){const a=await rpc('billing_access',{p_account:account,p_slug:'finance'});if(!a.allowed)throw Error('נדרש מנוי פעיל לשירות ניהול כלכלה');}
 export const normalizePhone=s=>{let n=String(s||'').replace(/[\s()+-]/g,'');if(n.startsWith('972'))n='0'+n.slice(3);return n;};

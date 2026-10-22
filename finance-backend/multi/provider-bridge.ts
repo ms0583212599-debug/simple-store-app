@@ -1,3 +1,4 @@
+import {nedarim}from './nedarim-provider.ts';
 import {effective,unseal,settings}from './provider-settings.ts';
 const headers={'Content-Type':'application/json','Cache-Control':'no-store'};
 const reply=(d,status=200)=>new Response(JSON.stringify(d),{status,headers});
@@ -11,7 +12,9 @@ export async function handler(req){
  if(!await crypto.subtle.verify('HMAC',key,Uint8Array.from(sig.match(/../g),s=>parseInt(s,16)),new TextEncoder().encode(ts+'.'+raw)))return reply({error:'unauthorized'},401);
  const b=JSON.parse(raw);
  if(['settings_get','settings_save','settings_check'].includes(b.action)){const d=await settings(b,conf,db);return reply(d,d.error?400:200);}
- const config=effective(await unseal(conf.settings_ciphertext)),from=config.from_email,mail=config.mail_enabled&&!!config.resend_key&&!!from&&!from.includes('resend.dev'),voice=config.voice_enabled&&!!config.yemot_token;
+ const config=effective(await unseal(conf.settings_ciphertext));
+ if(b.action.startsWith('nedarim_'))return reply(await nedarim(config,b));
+ const from=config.from_email,mail=config.mail_enabled&&!!config.resend_key&&!!from&&!from.includes('resend.dev'),voice=config.voice_enabled&&!!config.yemot_token;
  if(b.action==='status')return reply({mail_ready:mail,voice_ready:voice,billing_ready:false});
  if(!['mail','voice'].includes(b.action)||!/^[-a-zA-Z0-9:]{16,150}$/.test(b.id||''))return reply({error:'invalid'},400);
  if(b.action==='mail'&&!mail||b.action==='voice'&&!voice)return reply({error:'provider_not_configured'},503);
