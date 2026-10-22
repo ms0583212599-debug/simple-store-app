@@ -1,0 +1,120 @@
+/* Scoped design system for the VendPay management area. */
+#vendpayPanel{--vp-ink:#243c39;--vp-muted:#6d7d77;--vp-line:#e1e8e3;--vp-accent:#315d50;font-family:Arial,'Noto Sans Hebrew',sans-serif;line-height:1.65;background:#192b254d;padding:20px}
+body.vp-standalone{background:#f3f5f0!important;color:#243c39!important}
+#vendpayPanel>.modal-card{max-width:1440px!important;width:min(1440px,98vw)!important;padding:0!important;background:#f6f7f3;border:1px solid #e1e6dc;border-radius:22px;box-shadow:0 20px 70px #213c2b12;overflow:auto!important}
+body.vp-standalone #vendpayPanel{padding:28px!important;min-height:100dvh}
+body.vp-standalone #vendpayPanel>.modal-card{max-height:none!important;min-height:calc(100dvh - 56px);width:100%!important}
+#vendpayPanel>.modal-card>.bar{margin:0!important;padding:23px 32px!important;background:#fff;border-bottom:1px solid var(--vp-line);gap:20px;flex-direction:row}
+#vendpayPanel .vp-heading{position:relative;padding-inline-start:64px;min-height:48px}
+#vendpayPanel .vp-brand-mark{position:absolute;inset-inline-start:0;top:4px;display:grid;place-items:center;width:46px;height:46px;background:#315d50;color:#fff;border-radius:15px;font:600 26px Georgia,serif;box-shadow:0 5px 10px #315d5012}
+#vendpayPanel .vp-eyebrow{font-size:10px;letter-spacing:1.4px;color:#6d8075;font-weight:700}
+#vendpayPanel h2{font-size:23px;letter-spacing:-.6px;color:#243c39;line-height:1.25;margin:3px 0}
+#vendpayPanel .vp-heading p{font-size:12px;color:var(--vp-muted);margin:4px 0 0}
+#vendpayPanel h3{font-size:17px;font-weight:600;letter-spacing:-.25px;margin:0 0 12px}
+#vendpayPanel h4{font-size:15px}
+#vendpayPanel .card{border-radius:14px;border-color:var(--vp-line);padding:24px;box-shadow:0 2px 4px #213c2b02;margin-bottom:20px}
+#vendpayPanel #vendpayWorkspace{margin:0!important;padding:0!important;border:0;display:block;background:transparent}
+#vendpayPanel #vendpayWorkspace.hidden,#vendpayPanel .vp-view-off{display:none!important}
+#vendpayPanel .vp-shell{display:grid;grid-template-columns:200px minmax(0,1fr);min-height:650px}
+#vendpayPanel .vp-navigation{background:#fff;border-inline-end:1px solid var(--vp-line);padding:28px 16px;display:flex;flex-direction:column;gap:7px;align-self:stretch}
+#vendpayPanel .vp-nav-caption{font-size:11px;font-weight:600;color:#8a978f;margin:0 14px 16px}
+#vendpayPanel .vp-nav-button{display:flex;align-items:center;gap:11px;text-align:right;min-height:47px;padding:12px 13px!important;background:transparent;color:#68786f;font-weight:500;font-size:13px;border:1px solid transparent;border-radius:10px}
+#vendpayPanel .vp-nav-button svg{width:19px;height:19px;flex-shrink:0}
+#vendpayPanel .vp-nav-button:hover{background:#f5f7f3;color:#315d50}
+#vendpayPanel .vp-nav-button[aria-current=page]{background:#eaf1e9;color:#315d50;font-weight:700;border-color:#dfe9dd}
+#vendpayPanel .vp-nav-footer{margin-top:auto;padding:40px 14px 8px;color:#98a39b;font-size:11px}
+#vendpayPanel .vp-main{min-width:0;padding:34px 36px 28px;position:relative}
+#vendpayPanel .vp-page-heading{margin-bottom:26px;padding-inline-end:0}
+#vendpayPanel .vp-page-heading h3{font-size:28px;margin:4px 0 3px;letter-spacing:-.7px;outline:none}
+#vendpayPanel .vp-page-heading p{font-size:13px;color:var(--vp-muted);margin:0}
+#vendpayPanel .vp-utility-toolbar{justify-content:flex-end;gap:0;margin:-7px 0 22px;min-height:36px}
+#vendpayPanel .vp-utility-toolbar .actions{gap:6px}
+#vendpayPanel .vp-utility-toolbar button{min-height:34px;padding:7px 11px;font-size:11px;background:transparent;border:1px solid #dce4dc;color:#66786d}
+#vendpayPanel .vp-utility-toolbar button.red{border-color:transparent;color:#9c6b64}
+#vendpayPanel .vp-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:28px}
+#vendpayPanel .vp-metric{background:#fff;border:1px solid var(--vp-line);border-radius:13px;padding:20px 22px;position:relative}
+#vendpayPanel .vp-metric:first-child{background:#315d50;color:#fff;border-color:#315d50}
+#vendpayPanel .vp-metric>span{display:block;font-size:12px;color:#78847e}
+#vendpayPanel .vp-metric:first-child>span{color:#d4e2d8}
+#vendpayPanel .vp-metric strong{display:block;font-size:34px;font-weight:500;line-height:1.2;margin-top:14px;font-variant-numeric:tabular-nums}
+#vendpayPanel button{min-height:42px;font-size:13px;font-weight:600;padding:10px 16px;transition:background .16s,color .16s;border-radius:9px}
+#vendpayPanel button.blue,#vendpayPanel button.green{background:#315d50;border-color:#315d50;color:white}
+#vendpayPanel button.blue:hover,#vendpayPanel button.green:hover{background:#234b3e;border-color:#234b3e}
+#vendpayPanel button.light{background:#fff;border-color:#dce4dd;color:#526a5d}
+#vendpayPanel button.light:hover{background:#f0f4ed;border-color:#bacbbb}
+#vendpayPanel button.red{background:#fcf5f2;color:#a06258;border-color:#efdfd9}
+#vendpayPanel :is(input:not([type=hidden]),select,textarea){background:#fff;border-color:#dbe3dc;border-radius:9px;font-size:14px;min-height:44px;padding:11px 12px;margin:7px 0 14px;color:#304b3f}
+#vendpayPanel :is(input,textarea)::placeholder{color:#99a39c;font-size:13px}
+#vendpayPanel label{font-size:12px;color:#64756a;font-weight:500;margin-top:14px}
+#vendpayPanel :is(button,input,select,textarea,summary):focus-visible{outline:3px solid #9bb9a3;outline-offset:3px}
+#vendpayPanel .msg{font-size:12px;color:#7b877e;line-height:1.8}
+#vendpayPanel .vp-customer-section{display:flex;flex-direction:column;gap:16px;margin:0 0 20px}
+#vendpayPanel .vp-customer-list{width:100%;padding:25px 24px;border-radius:14px;border-color:var(--vp-line)}
+#vendpayPanel .vp-customer-list>h3{margin-bottom:5px}
+#vendpayPanel #vendpayFilter{max-width:420px;background:#fafbf8}
+#vendpayPanel .vp-new-details{width:100%;background:#fff;border:1px dashed #cbd9cb;border-radius:12px;padding:16px 22px}
+#vendpayPanel .vp-new-details>summary{color:#315d50;font-size:13px;margin:0;padding:0;border:0}
+#vendpayPanel .vp-new-details .vp-new-customer{border:0;padding:20px 0 0;max-width:600px;background:transparent}
+#vendpayPanel .vp-new-details .vp-new-customer h3{display:none}
+#vendpayPanel .vp-payment-card{background:#edf2e9;border:1px solid #dfe8d8;padding:23px 25px;margin-bottom:0}
+#vendpayPanel .vp-payment-card h3{margin-bottom:2px}
+#vendpayPanel .vp-payment-card p{margin:0}
+#vendpayPanel .vp-payment-card button{background:#fff;color:#315d50;border-color:#cbdac5}
+#vendpayPanel table{font-size:12px;background:transparent;line-height:1.6}
+#vendpayPanel th{font-size:11px;background:#f5f7f2;color:#809080;font-weight:500;border-bottom:1px solid #e2e9de;padding:12px 10px}
+#vendpayPanel td{padding:16px 10px;border-bottom:1px solid #edf0e8;color:#52645a;overflow-wrap:anywhere}
+#vendpayPanel tr:last-child td{border-bottom:0}
+#vendpayPanel td:first-child{font-weight:600;color:#2f493b}
+#vendpayPanel td[data-state=good]{color:#427855;font-weight:600}
+#vendpayPanel td[data-state=good]::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:#6d9a71;margin-inline-end:6px;vertical-align:middle}
+#vendpayPanel td button{font-size:11px;min-width:0;min-height:34px;padding:8px 10px;margin:3px}
+#vendpayPanel td:last-child{min-width:180px}
+#vendpayPanel .vp-account-section{margin-top:0!important}
+#vendpayPanel .vp-activation{background:#f7f9f3;border:1px solid #e2e9da;padding:22px;margin-top:25px}
+#vendpayPanel #vpCredentialsEditor{background:#fafbf7;border-color:var(--vp-line)}
+#vendpayPanel details>summary{font-size:13px;font-weight:600;line-height:1.7}
+#vendpayPanel #vpConfigPanel{display:grid;gap:10px}
+#vendpayPanel #vpConfigPanel.hidden{display:none!important}
+#vendpayPanel .vp-config-item{border:1px solid #e0e7d9;border-radius:10px;padding:14px 17px;background:#fff;min-width:0}
+#vendpayPanel .vp-config-item>summary{margin:0;border:0;padding:0}
+#vendpayPanel .vp-config-item[open]>summary{margin-bottom:14px}
+#vendpayPanel #vpConfigPanel textarea{font-family:monospace;font-size:12px;background:#f6f8f2;white-space:pre;line-height:1.7}
+#vendpayPanel #vpVoicePanel,#vendpayPanel #vpLogPanel{border-top:1px solid var(--vp-line);margin:0}
+#vendpayPanel .vp-filter-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:16px;margin:10px 0}
+#vendpayPanel .vp-log-filters{grid-template-columns:repeat(2,minmax(0,1fr))}
+#vendpayPanel .vp-field{min-width:0}
+#vendpayPanel #vpVoiceRows>h3{font-size:12px;color:#718171;margin:18px 0 0;padding:0 4px}
+#vendpayPanel #vpVoiceRows .card{border-radius:10px;background:#fcfdf9;border-color:#e5eadf;padding:17px 19px}
+#vendpayPanel #vpVoiceRows .card[open]{background:#fff;border-color:#bccfb7}
+#vendpayPanel #vpVoiceRows summary{color:#3c5544;font-size:14px;line-height:1.9}
+#vendpayPanel #vpVoiceRows .card>p:first-of-type{font-size:11px;margin:6px 0 0;color:#84927e}
+#vendpayPanel #vpVoiceRows textarea{min-height:125px;background:#fafbf7}
+#vendpayPanel :is(#vpVoiceStatus,#vpSavedConnection):not(:empty){font-size:12px;background:#f1f5ed;border-color:#e0e8da;color:#5b7358;padding:12px 14px}
+#vendpayPanel #vendpayMessage:not(:empty){position:sticky;bottom:12px;z-index:5;width:fit-content;max-width:calc(100% - 32px);margin:12px auto;padding:12px 20px;background:#fff;border:1px solid #cbd9ca;border-radius:12px;color:#3a5945;box-shadow:0 5px 22px #20382a14;font-size:13px}
+#vendpayPanel #vendpayLogin{margin:64px auto 80px!important;padding:36px!important;max-width:420px;background:white;box-shadow:0 12px 50px #304b3410;border:1px solid #dfe7dc;border-radius:18px}
+#vendpayPanel #vendpayLogin h3{font-size:25px;letter-spacing:-.6px;margin:0 0 5px}
+#vendpayPanel #vendpayLogin>.msg{margin:0 0 25px;font-size:13px}
+#vendpayPanel #vendpayLogin>button{margin-top:12px;min-height:47px}
+#vendpayPanel .vp-password-box{position:relative}
+#vendpayPanel .vp-password-box input{padding-inline-end:64px}
+#vendpayPanel .vp-password-toggle{position:absolute;inset-inline-end:4px;top:4px;min-height:36px;padding:5px 10px;background:transparent;font-size:11px;color:#6d8271;border:0}
+#vendpayPanel .vp-sr-only{position:absolute!important;width:1px!important;height:1px!important;margin:-1px!important;overflow:hidden!important;clip-path:inset(50%);white-space:nowrap}
+#vpNedarimDialog{border-radius:18px;border-color:#dce6d7;background:#f8faf5;color:#2e4837;box-shadow:0 30px 100px #1c392930}
+#vpNedarimDialog .np-top{border-color:#e2e9db;padding:26px 30px;background:#fff}
+#vpNedarimDialog .np-body{padding:26px 30px}
+#vpNedarimDialog .np-eyebrow,#vpNedarimDialog .np-note{color:#7a8976;font-size:12px}
+#vpNedarimDialog .np-summary{background:#eaf1e3;border:1px solid #dfe8d5;border-radius:12px}
+#vpNedarimDialog .np-section{padding:22px;background:white;border:1px solid #e3e9dc;border-radius:14px}
+#vpNedarimDialog .np-editor{background:#f4f7ee;border-color:#dfe8d4}
+#vpNedarimDialog .blue,#vpNedarimDialog .green{background:#315d50;border-color:#315d50}
+#vpNedarimDialog .np-rule{border-color:#e4eada;border-radius:10px;box-shadow:none}
+#vpNedarimDialog .np-days label{background:#f0f4e9}
+#vpNedarimDialog .np-amount{color:#315d50}
+#vpNedarimDialog input[type=checkbox]{width:18px!important;height:18px!important;min-height:0!important;margin:0!important;accent-color:#315d50}
+@media(min-width:1200px){#vendpayPanel .vp-utility-toolbar{position:absolute;top:37px;inset-inline-end:36px;margin:0}#vendpayPanel .vp-page-heading{padding-inline-end:340px}}
+@media(max-width:1000px){#vendpayPanel .vp-shell{grid-template-columns:165px minmax(0,1fr)}#vendpayPanel .vp-main{padding:27px 22px}#vendpayPanel .vp-navigation{padding:25px 10px}#vendpayPanel .vp-nav-button{font-size:12px;padding:12px 10px!important}#vendpayPanel .vp-overview{gap:10px}#vendpayPanel .vp-metric{padding:16px}}
+@media(max-width:760px){body.vp-standalone #vendpayPanel{padding:0!important}body.vp-standalone #vendpayPanel>.modal-card{border:0;border-radius:0;min-height:100dvh}#vendpayPanel .vp-shell{display:block;min-height:0}#vendpayPanel .vp-navigation{flex-direction:row;flex-wrap:wrap;border-inline-end:0;border-bottom:1px solid var(--vp-line);padding:12px 16px;gap:5px}#vendpayPanel .vp-nav-caption,#vendpayPanel .vp-nav-footer{display:none}#vendpayPanel .vp-nav-button{flex:1 0 29%;justify-content:center;font-size:12px;gap:7px;min-height:44px}#vendpayPanel .vp-nav-button svg{width:17px;height:17px}#vendpayPanel .vp-main{padding:25px 16px}#vendpayPanel .vp-page-heading{margin-bottom:20px}#vendpayPanel .vp-page-heading h3{font-size:25px}#vendpayPanel>.modal-card>.bar{padding:19px 17px!important}#vendpayPanel .vp-heading{padding-inline-start:50px}#vendpayPanel .vp-brand-mark{width:38px;height:38px;border-radius:12px;font-size:22px}#vendpayPanel h2{font-size:20px}#vendpayPanel>.modal-card>.bar>button{font-size:11px;padding:8px 10px;min-height:36px}#vendpayPanel .vp-customer-list{padding:20px 16px}#vendpayPanel .vp-payment-card>.bar{align-items:stretch;flex-direction:column;gap:15px}#vendpayPanel .vp-filter-grid{grid-template-columns:1fr;gap:0}#vendpayPanel .vp-log-filters{grid-template-columns:1fr 1fr;gap:10px}#vendpayPanel .card{padding:20px 16px}#vendpayPanel .vp-overview{gap:8px;margin-bottom:20px}#vendpayPanel .vp-metric{padding:14px 10px}#vendpayPanel .vp-metric>span{font-size:10px}#vendpayPanel .vp-metric strong{font-size:28px;margin-top:10px}#vendpayPanel #vendpayCustomers table,#vendpayPanel #vendpayCustomers tbody{display:block}#vendpayPanel #vendpayCustomers tr:first-child:not([data-vp-search]){display:none}#vendpayPanel #vendpayCustomers tr[data-vp-search]{display:grid;grid-template-columns:1fr 1fr;padding:13px 0;border-bottom:1px solid var(--vp-line);gap:6px}#vendpayPanel #vendpayCustomers tr[hidden]{display:none}#vendpayPanel #vendpayCustomers td{display:block;border:0;padding:5px;min-width:0;font-size:13px}#vendpayPanel #vendpayCustomers td::before{content:attr(data-label);display:block;font-size:10px;color:#8a9784;background:none;width:auto;height:auto;margin:0 0 3px;font-weight:400}#vendpayPanel #vendpayCustomers td:last-child{grid-column:1/-1;display:flex;gap:6px}#vendpayPanel #vendpayCustomers td:last-child::before{display:none}#vendpayPanel #vendpayCustomers td button{flex:1;margin:0;min-height:41px}#vendpayPanel #vendpayLogin{margin:35px auto 60px!important;width:calc(100% - 32px);padding:28px!important}#vpNedarimDialog .np-section{padding:17px 13px}#vpNedarimDialog .np-body{padding:18px 13px}#vpNedarimDialog .np-top{padding:20px 17px}#vpNedarimDialog .np-fields{grid-template-columns:1fr}#vpNedarimDialog .np-rule{flex-direction:column;align-items:stretch}}
+@media(prefers-reduced-motion:reduce){#vendpayPanel *{scroll-behavior:auto!important;transition:none!important}}
+@media(max-width:760px){#vendpayPanel>.modal-card>.bar{align-items:center!important}#vendpayPanel .vp-utility-toolbar .actions{width:auto;justify-content:flex-end}#vendpayPanel .vp-utility-toolbar .actions>button{flex:0 1 auto;min-height:38px}#vendpayPanel .vp-heading .vp-eyebrow{font-size:8px;letter-spacing:1px}}
+
+#vendpayPanel>.modal-card>.bar a{font-size:12px;color:#526d59;text-decoration:none;padding:9px 12px;border:1px solid #dfe7da;border-radius:9px;background:#f9fbf6}#vendpayPanel>.modal-card>.bar a:hover{background:#edf3e7}#vendpayPanel>.modal-card>.bar .actions{align-items:center}
