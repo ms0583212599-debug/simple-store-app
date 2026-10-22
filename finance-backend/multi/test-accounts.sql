@@ -1,0 +1,26 @@
+begin;
+do $$declare c jsonb;r jsonb;s jsonb;t jsonb;a uuid;sv uuid;sub uuid;ch uuid;ph text:='0509998821';pin text:='938275';begin
+ c:=public.finance_account_auth('challenge',jsonb_build_object('phone',ph,'code','683192','purpose','register'));
+ assert c?'challenge_id','challenge generated';
+ r:=public.finance_account_auth('verify',jsonb_build_object('phone',ph,'challenge_id',c->'challenge_id','code','000000','pin',pin));assert r->>'error'='invalid_code','wrong code blocked';
+ r:=public.finance_account_auth('verify',jsonb_build_object('phone',ph,'challenge_id',c->'challenge_id','code','683192','pin',pin));assert r?'token','verified registration';a:=(r->>'account_id')::uuid;
+ t:=public.finance_account_auth('resolve',jsonb_build_object('token',r->'token'));assert (t->>'account_id')::uuid=a,'session resolves';
+ t:=public.finance_scoped(a,'read','{"mode":"categories"}');assert jsonb_array_length(t->'rows')=9,'independent default categories';
+ t:=public.finance_account_auth('login',jsonb_build_object('phone',ph,'pin','000000'));assert t->>'error'='unauthorized','bad pin blocked';
+ t:=public.finance_account_auth('login',jsonb_build_object('phone',ph,'pin',pin));assert t?'token','pin login';
+ perform public.finance_account_auth('logout',jsonb_build_object('token',r->'token'));r:=public.finance_account_auth('resolve',jsonb_build_object('token',r->'token'));assert r->>'error'='unauthorized','revocation';
+ insert into public.billing_services(slug,name,payment_required,provider_ready)values('test-paid-rollback','בדיקת מנוי',true,true)returning id into sv;
+ s:=public.billing_consent(a,sv,1);sub:=(s->>'id')::uuid;assert (s->>'first_amount')::int=300,'first month 3';assert (s->>'renewal_amount')::int=1000,'renewal 10';
+ begin perform public.billing_first_payment(sub,'test-bad-currency',300,'USD','test-charge','test-customer','test-method');raise exception 'FAILED currency';exception when raise_exception then if sqlerrm<>'invalid_payment'then raise;end if;end;
+ perform public.billing_first_payment(sub,'test-first-paid',300,'ILS','test-charge','test-customer','test-method');
+ r:=public.billing_first_payment(sub,'test-first-paid',300,'ILS','test-charge','test-customer','test-method');assert r->>'duplicate'='true','webhook duplicate';
+ update public.billing_subscriptions set billing_anchor=now()-interval '2 months',paid_until=now()-interval '1 day'where id=sub;
+ perform public.billing_prepare_due();select id into ch from public.billing_charges where subscription_id=sub and cycle=1;assert ch is not null,'renewal queued';
+ r:=public.billing_claim_charge(ch);assert (r->>'amount')::int=1000,'renewal fixed amount';
+ perform public.billing_charge_result(ch,'test-renew-paid','succeeded',1000,'ILS','test-charge2');
+ perform public.billing_manage(a,'cancel',jsonb_build_object('service_id',sv));
+ update public.billing_subscriptions set paid_until=now()-interval '1 day'where id=sub;
+ perform public.billing_prepare_due();assert not exists(select 1 from public.billing_charges where subscription_id=sub and cycle=2),'no renewal after cancellation';
+ begin perform public.billing_manage(a,'service_save',jsonb_build_object('name','unauthorized'));raise exception 'FAILED admin boundary';exception when raise_exception then if sqlerrm<>'unauthorized'then raise;end if;end;
+end $$;
+rollback;

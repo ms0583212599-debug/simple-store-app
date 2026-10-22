@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+globalThis.Deno={env:{get:()=>''}};
+let calls=[];globalThis.fetch=async(url,opts)=>{if(url.endsWith('/auth/v1/user'))return Response.json({id:'56ae10cb-f40c-4a41-8112-ab8c9f1616c8'});const b=JSON.parse(opts.body);calls.push({url,b});if(url.endsWith('finance_account_auth'))return Response.json({account_id:'11111111-1111-4111-8111-111111111111'});if(url.endsWith('billing_access'))return Response.json({allowed:true});return Response.json({rows:[]});};
+const{handler}=await import('./dashboard.ts');const origin='https://simple-store-app-ms0583212599-1490s-projects.vercel.app';
+const request=(action,b={},token='a'.repeat(64))=>handler(new Request('https://test/?action='+action,{method:'POST',headers:{origin,'content-type':'application/json',...(token?{authorization:'Bearer '+token}:{})},body:JSON.stringify(b)}));
+assert.equal((await request('read',{},'')).status,401);
+let r=await request('manage',{action:'transaction_save',request_id:'request-123456789',data:{account_id:'victim',kind:'expense'}});assert.equal(r.status,200);const c=calls.find(c=>c.url.endsWith('finance_scoped'));assert.equal(c.b.p_account,'11111111-1111-4111-8111-111111111111');assert.notEqual(c.b.p_account,'victim');
+r=await request('auth_start',{phone:'0501234567'},'');assert.equal(r.status,503);assert.ok(!calls.some(c=>c.url.includes('resend.com')||c.url.includes('call2all')));
+r=await request('billing',{action:'service_save',data:{}},'owner-test-token');assert.equal(r.status,200);assert.equal(calls.at(-1).b.p_account,'56ae10cb-f40c-4a41-8112-ab8c9f1616c8');
+console.log('PASS: authenticated account scope overrides payload; unauthenticated requests blocked; delivery remains gated; owner identity verified');
