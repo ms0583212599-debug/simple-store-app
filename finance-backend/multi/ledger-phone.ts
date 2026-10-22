@@ -1,3 +1,4 @@
+import {beginEmail,finishEmail,emailReport,capabilities}from './delivery-routes.ts';
 import {scoped,profile,billing,providerPending,today,period,money,summaryText,itemText,typeNames,methodNames}from './shared.ts';
 export function createFlow(account){
  const readData=d=>scoped(account,'read',d),manage=(a,d,id)=>scoped(account,a,d,id);
@@ -146,8 +147,12 @@ async function handler(req){
 async function advance(s,v,cats,id){
  if(s.stage==='main'&&v==='7')return {stage:'account',details:await profile(account)};
  if(s.stage==='main'&&v==='8')return {stage:'subscriptions',rows:(await billing(account,'mine')).subscriptions};
- if(s.stage==='report'&&v==='8')return {...s,notice:providerPending};
- if(s.stage==='account'){if(v==='0')return main();if(v==='1')return {stage:'account_name'};if(v==='2')return {...s,notice:providerPending};throw Error('הבחירה אינה תקינה');}
+ if(s.stage==='report'&&v==='8'){if(!(await capabilities()).email_delivery)return {...s,notice:'שליחת מייל עדיין אינה מוגדרת'};return {stage:'email_report_choice',filter:s.filter};}
+ if(s.stage==='account'){if(v==='0')return main();if(v==='1')return {stage:'account_name'};if(v==='2'){if(!(await capabilities()).email_delivery)return {...s,notice:'שליחת מייל עדיין אינה מוגדרת'};return {stage:'email_address'};}throw Error('הבחירה אינה תקינה');}
+ if(s.stage==='email_address'){const d=await beginEmail(account,v);return {stage:'email_code',challenge_id:d.challenge_id};}
+ if(s.stage==='email_code'){await finishEmail(account,{challenge_id:s.challenge_id,code:v});return {stage:'account',details:await profile(account),notice:'כתובת המייל אומתה'};}
+ if(s.stage==='email_report_choice'){if(v==='0')return main();if(!['1','2'].includes(v))throw Error('בחירה לא תקינה');return {stage:'email_report_confirm',filter:v==='1'?s.filter:{},request_id:crypto.randomUUID()};}
+ if(s.stage==='email_report_confirm'){if(v==='0')return main();if(v!=='1')throw Error('בחירה לא תקינה');const d=await emailReport(account,s.filter,s.request_id);return {...main(),notice:d.ok?'הדוח נשלח למייל המאומת':'שליחת הדוח לא אושרה'};}
  if(s.stage==='account_name'){await profile(account,'name',{name:v});return {stage:'account',details:await profile(account),notice:'השם נשמר'};}
  if(s.stage==='subscriptions'){if(v==='0')return main();const r=s.rows[Number(v)-1];if(!r)throw Error('הבחירה אינה תקינה');return {stage:'cancel_subscription',subscription:r};}
  if(s.stage==='cancel_subscription'){if(v==='0')return main();if(v!=='1')throw Error('הבחירה אינה תקינה');await billing(account,'cancel',{service_id:s.subscription.service_id});return {...main(),notice:'המנוי בוטל לא ייווצרו חיובים נוספים עבור שירות זה הגישה לתקופה ששולמה נשמרת'};}
@@ -156,6 +161,10 @@ async function advance(s,v,cats,id){
 async function prompt(s,cats,seq){
  let text='',max=1,keyboard='NO';
  if(s.stage==='account')text='החשבון של '+s.details.display_name+' מספר טלפון '+s.details.phone+' '+(s.details.email?'מייל '+s.details.email.replaceAll('.',' נקודה ').replace('@',' שטרודל '):'טרם הוגדר מייל')+' לשינוי שם 1 להגדרת מייל 2 לחזרה 0';
+ else if(s.stage==='email_address'){text='הקלידו כתובת מייל במקלדת המייל';max=254;keyboard='EmailKeyboard';}
+ else if(s.stage==='email_code'){text='הקישו את קוד האימות שנשלח למייל וסולמית';max=6;}
+ else if(s.stage==='email_report_choice')text='לשליחת הדוח לפי הסינון הנוכחי 1 לדוח מלא ללא סינון 2 לחזרה 0';
+ else if(s.stage==='email_report_confirm')text='הדוח יישלח לכתובת המייל המאומתת בחשבון לאישור 1 לביטול 0';
  else if(s.stage==='account_name'){text='הקלידו שם במקלדת העברית';max=60;keyboard='HebrewKeyboard';}
  else if(s.stage==='subscriptions')text=(s.rows.length?s.rows.map((r,i)=>r.service_name+' '+(r.status==='cancelled'?'מבוטל':r.status==='free'?'חינמי':'מנוי')+' לביטול הקישו '+(i+1)).join(' '):'אין מנויים')+' לחזרה 0';
  else if(s.stage==='cancel_subscription')text='לביטול המנוי לשירות '+s.subscription.service_name+' והפסקת החיובים העתידיים הקישו 1 לחזרה ללא ביטול 0';

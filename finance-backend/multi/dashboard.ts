@@ -1,5 +1,6 @@
 import {scoped,profile,billing,auth,allowed,OWNER,normalizePhone,providerPending}from './shared.ts';
 import {reportHTML}from './report.ts';
+import {capabilities,beginPhone,finishPhone,beginEmail,finishEmail,emailReport}from './delivery-routes.ts';
 const origins=new Set(['https://simple-store-app-ms0583212599-1490s-projects.vercel.app','https://simple-store-app-ten.vercel.app','https://simple-store-app-git-main-ms0583212599-1490s-projects.vercel.app']);
 const STORE='https://ksddrcalmszxxcuxoznd.supabase.co',PUBLIC='sb_publishable_inaup5n4YRD3AHJadjP9Xw_9JLqxAjR';
 export async function handler(req){
@@ -10,9 +11,9 @@ export async function handler(req){
  if(!['GET','POST'].includes(req.method))return reply({error:'פעולה לא נתמכת'},405);
  try{
  const p=new URL(req.url).searchParams,action=p.get('action')||'legacy';let b={};if(req.method==='POST'){const raw=await req.text();if(raw.length>12000)return reply({error:'בקשה ארוכה מדי'},400);b=JSON.parse(raw);if(!b||typeof b!=='object')return reply({error:'בקשה לא תקינה'},400);}
- if(action==='capabilities')return reply({accounts:true,phone_verification:false,email_delivery:false,billing:false,notice:providerPending});
+ if(action==='capabilities')return reply(await capabilities());
  if(action==='auth_login'){if(req.method!=='POST')return reply({error:'method'},405);return reply(await auth('login',{phone:normalizePhone(b.phone),pin:b.pin,channel:'web'}));}
- if(['auth_start','auth_verify'].includes(action))return reply({error:providerPending},503);
+ if(['auth_start','auth_verify'].includes(action)){if(req.method!=='POST')return reply({error:'method'},405);if(!(await capabilities()).phone_verification)return reply({error:providerPending},503);const d=action==='auth_start'?await beginPhone(b):await finishPhone(b);if(action==='auth_verify'){await auth('logout',{token:d.token});return reply({ok:true});}return reply(d);}
  const bearer=(req.headers.get('authorization')||'').replace(/^Bearer /,'');if(!bearer)return reply({error:'יש להתחבר לחשבון'},401);
  let account,custom=false;
  if(/^[a-f0-9]{64}$/.test(bearer)){try{account=(await auth('resolve',{token:bearer})).account_id;custom=true;}catch{return reply({error:'ההתחברות פגה יש להתחבר מחדש'},401);}}
@@ -20,7 +21,7 @@ export async function handler(req){
  if(action==='logout'){if(custom)await auth('logout',{token:bearer});return reply({ok:true});}
  if(action==='me')return reply({...await profile(account),is_owner:account===OWNER});
  if(action==='profile'){if(!['name'].includes(b.action))return reply({error:'פעולה לא נתמכת'},400);return reply(await profile(account,b.action,b.data||{}));}
- if(['email_start','email_verify','phone_link_start','phone_link_verify','email_report'].includes(action))return reply({error:providerPending},503);
+ if(['email_start','email_verify','phone_link_start','phone_link_verify','email_report'].includes(action)){if(req.method!=='POST')return reply({error:'method'},405);const c=await capabilities();if(action.startsWith('phone_')){if(!c.phone_verification)return reply({error:providerPending},503);if(action==='phone_link_start')return reply(await beginPhone(b,account));const d=await finishPhone(b,account);await auth('logout',{token:d.token});return reply({ok:true});}if(!c.email_delivery)return reply({error:providerPending},503);if(action==='email_start')return reply(await beginEmail(account,b.email));if(action==='email_verify')return reply(await finishEmail(account,b));await allowed(account);if(typeof b.request_id!=='string'||!/^[-a-zA-Z0-9]{16,100}$/.test(b.request_id))return reply({error:'בקשה לא תקינה'},400);return reply(await emailReport(account,b.filters||{},b.request_id));}
  if(action==='billing'){if(!['catalog','mine','admin_list','service_save','cancel','join'].includes(b.action))return reply({error:'פעולה לא נתמכת'},400);return reply(await billing(account,b.action,b.data||{}));}
  await allowed(account);
  if(action==='export'){if(req.method!=='POST')return reply({error:'method'},405);return reply({html:await reportHTML(account,b),filename:'finance-report.html'});}

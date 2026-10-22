@@ -15,18 +15,16 @@ Existing data belongs to the original owner account. The original finance-ivr en
 - Email verification, recipient-bound report delivery, throttling and provider idempotency prepared in delivery-routes.ts.
 - Fax excluded.
 
-## Release gates still closed
-1. Automatic approval review rejected deployment of finance-provider-bridge to the store project. Reason: persistent public endpoint forwarding report content to Resend and OTP data to Yemot requires explicit approval of these providers/destinations. The bridge was NOT deployed. Production dashboard does not import delivery-routes.ts; auth_start/auth_verify/email/phone-link delivery routes return an explicit 503 and capabilities are false. No OTP or email was sent.
-2. Billing provider adapter is NOT connected. No card capture page, provider tokenization, live charge worker or recurring charge schedule is active. Existing store checkout is not proof of recurring-payment permission. Choose and verify a provider (e.g. the existing Nedarim Plus account with documented recurring/token permissions) before enabling. No payment_required service can be enabled while provider_ready is false.
-3. Account signup cannot go live until OTP delivery is approved/configured. The old private IVR is retained so existing use is not disrupted. Switch the configured extension to finance-members-ivr only after the owner's phone is verified and full telephone onboarding is tested.
+## Approved delivery integration — October 22, 2026
+The user explicitly approved Yemot voice OTP and Resend verified-email report delivery. The HMAC-authenticated finance-provider-bridge is deployed in the store project. A fresh shared secret is stored only in protected integration tables. Dashboard delivery routes are connected and capabilities follow provider readiness. Members IVR includes registration/reset, returning after receiving an OTP call, email address entry through EmailKeyboard, verification and filtered/full report sending. OTP and PIN values are not persisted in phone call state.
 
-## Activation after provider approval
-- Deploy provider-bridge.ts as finance-provider-bridge in the store project. It accepts only HMAC-authenticated, timestamped requests; all downstream recipients originate from authenticated, throttled finance flows.
-- Generate a new random shared bridge secret into the two protected integration tables, not source control. Configure the fixed bridge URL. Check the bridge's status: YEMOT_TOKEN and a verified-domain RESEND_API_KEY/from-address must exist. Never fall back to a public unauthenticated sender.
-- Wire delivery-routes.ts into the currently gated dashboard routes and enable capabilities only after successful provider checks. Preserve owner authorization on phone_link endpoints.
-- Connect phone-onboarding.ts to the members entry flow, persisting pending OTP challenge references across calls; PIN must never be persisted in call state. Registration requires completed OTP verification.
-- Run actual registration/reset/email verification and report tests with an explicitly approved recipient. No live credentials or user card data belong in tests.
-- For billing, provider adapter must verify callback signatures and bind server checkout reference, account, service, ILS currency and exact amount before calling internal billing functions. Do not trust browser success redirects. Unknown charges require provider reconciliation using the same charge UUID, never a new charge.
+Live authenticated status returned mail_ready=false and voice_ready=false. YEMOT_TOKEN is absent. Mail requires RESEND_API_KEY and FINANCE_FROM_EMAIL (or FEEDBACK_FROM_EMAIL) from a verified sending domain; at least one is missing/unusable. No OTP or email was sent. Configure these secrets in store project ksddrcalmszxxcuxoznd, then test a user-approved recipient. Do not paste credentials in Git or chat. Presence checks do not prove provider delivery or balance.
+
+Original private IVR remains unchanged. Switch to finance-members-ivr only after verifying the owner's phone through existing administrator login and testing real OTP onboarding. New accounts must never use the old private endpoint.
+
+Billing adapter/card tokenization/live renewal worker remain unconnected. payment_required stays disabled while provider_ready is false. No charges were made. Fax remains excluded.
+
+Missing/null OTP is rejected in both database verification functions. Reset/link revokes web sessions and authenticated phone calls. Public registration verification cannot consume owner-link challenges; authenticated linking verifies challenge ownership.
 
 ## Validation
 SQL tests use BEGIN/ROLLBACK and preserve production data. test-accounts.sql covers signup, OTP/PIN rejection, session revocation, defaults, first 3 / renewal 10, duplicate notifications, cancellation and administrator access. tenant-test.sql verifies cross-account read, history, edit and foreign category rejection. test-api.mjs tests server identity; test-phone.mjs tests two separate callers; test-ui.mjs uses jsdom with mock authentication and verifies forms/pricing without actual login or charges.

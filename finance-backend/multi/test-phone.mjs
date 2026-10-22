@@ -3,6 +3,7 @@ globalThis.Deno={env:{get:()=>''}};const realDigest=crypto.subtle.digest.bind(cr
 const entries=new Map(),calls=new Map(),scopes=[];let authCalls=0;
 globalThis.fetch=async(url,o)=>{const b=o.body?JSON.parse(o.body):null,u=new URL(url,'https://test');let d;
  if(u.pathname.includes('finance_entry_calls')){const id=u.searchParams.get('id')?.slice(3);if(!b)d=entries.has(id)?[entries.get(id)]:[];else if(Array.isArray(b)){entries.set(b[0].id,{...b[0],seq:0});d=b;}else{const r=entries.get(id);Object.assign(r,b);d=[r];}}
+ else if(u.pathname.includes('finance_challenges'))d=[];
  else if(url.endsWith('finance_account_auth')){authCalls++;d=b.p_data.pin==='123456'?{account_id:b.p_data.phone==='0501111111'?'account-a':'account-b',token:'unused'}:{error:'unauthorized'};}
  else if(url.endsWith('billing_access'))d={allowed:true};
  else if(url.endsWith('finance_scoped')){scopes.push(b.p_account);if(b.p_action==='read')d={rows:[{id:b.p_account==='account-a'?1:2,kind:'expense',active:true,name:'מזון',dial_code:'1'}]};else if(b.p_action==='call'){const p=b.p_data,k=b.p_account+':'+p.id;let r=calls.get(k);if(p.state){if(p.seq===-1&&!r)r={id:k,seq:0,state:p.state,response:p.response};else if(r.seq===p.seq)r={...r,seq:r.seq+1,state:p.state,response:p.response};calls.set(k,r);}d=r||null;}}

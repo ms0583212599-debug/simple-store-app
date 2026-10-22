@@ -1,4 +1,4 @@
-// Prepared integration module. Not imported by production until provider deployment is approved.
+// Approved delivery integration; readiness is checked before every send.
 import {db,rpc,auth,profile,digest,normalizePhone}from './shared.ts';
 import {reportHTML}from './report.ts';
 export function code(){const a=new Uint32Array(1);crypto.getRandomValues(a);return String(a[0]%1000000).padStart(6,'0');}
@@ -14,7 +14,7 @@ export async function beginPhone(b,account=null){
  const d=await auth('challenge',{phone,code:otp,purpose:account?'link':b.purpose==='reset'?'reset':'register',...(account?{account_id:account}:{})});
  const delivery=await provider('voice',{id:'finance-otp-'+d.challenge_id,to:phone,code:otp});if(!delivery.ok)throw Error('שליחת קוד האימות לא אושרה');return d;
 }
-export async function finishPhone(b){return auth('verify',{phone:normalizePhone(b.phone),challenge_id:b.challenge_id,code:b.code,pin:b.pin,name:b.name||'',channel:b.channel||'web'});}
+export async function finishPhone(b,account=null){const rows=await db('finance_challenges?select=purpose,account_id&id=eq.'+encodeURIComponent(b.challenge_id||''));const c=rows[0];if(!c||(account?(c.purpose!=='link'||c.account_id!==account):c.purpose==='link'))throw Error('בקשת אימות אינה מתאימה לחשבון');return auth('verify',{phone:normalizePhone(b.phone),challenge_id:b.challenge_id,code:b.code,pin:b.pin,name:b.name||'',channel:b.channel||'web'});}
 export async function beginEmail(account,email){
  const otp=code(),status=await provider('status');if(!status.mail_ready)throw Error('שליחת מייל אינה מחוברת');
  const d=await profile(account,'email_start',{email,code:otp});
@@ -30,3 +30,6 @@ export async function emailReport(account,filters,requestId){
  if(d.ok)await db('finance_mail_jobs?id=eq.'+job.id+'&account_id=eq.'+account,{status:'sent',provider_reference:d.reference,sent_at:new Date().toISOString()},'PATCH');
  return {ok:d.ok,status:d.status};
 }
+
+let cachedCapabilities=null,capabilitiesUntil=0;
+export async function capabilities(){if(cachedCapabilities&&Date.now()<capabilitiesUntil)return cachedCapabilities;let s={};try{s=await provider('status');}catch{}cachedCapabilities={accounts:true,phone_verification:s.voice_ready===true,email_delivery:s.mail_ready===true,billing:false};capabilitiesUntil=Date.now()+30000;return cachedCapabilities;}

@@ -1,7 +1,7 @@
 const headers={'Content-Type':'application/json','Cache-Control':'no-store'};
 const reply=(d,status=200)=>new Response(JSON.stringify(d),{status,headers});
 async function db(path,body,method='POST'){const key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');const r=await fetch(Deno.env.get('SUPABASE_URL')+'/rest/v1/'+path,{method:body===undefined?'GET':method,headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json',Prefer:'return=representation'},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(12000)});if(!r.ok)throw Error('storage_error');return r.json();}
-Deno.serve(async req=>{
+export async function handler(req){
  if(req.method!=='POST')return reply({error:'method'},405);
  try{const raw=await req.text();if(raw.length>1500000)return reply({error:'too_large'},413);
  const ts=req.headers.get('x-finance-time')||'',sig=req.headers.get('x-finance-signature')||'';if(Math.abs(Date.now()-Number(ts))>300000||!/^\d{13}$/.test(ts)||!/^\w{64}$/.test(sig))return reply({error:'unauthorized'},401);
@@ -26,4 +26,5 @@ Deno.serve(async req=>{
  await db('finance_provider_deliveries?id=eq.'+encodeURIComponent(b.id),{status:ok?'sent':uncertain?'unknown':'failed',provider_reference:reference},'PATCH');
  return reply({ok,status:ok?'sent':uncertain?'unknown':'failed',reference},ok?200:502);
  }catch{return reply({error:'provider_error'},502);}
-});
+}
+if(import.meta.main)Deno.serve(handler);

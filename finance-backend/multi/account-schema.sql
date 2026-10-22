@@ -34,14 +34,14 @@ begin
  if p_action='challenge' then
   if mode not in ('register','reset','link')then return '{"error":"invalid_action"}'::jsonb;end if;
   if exists(select 1 from public.finance_challenges where phone=v and created_at>now()-interval '60 seconds')then return '{"error":"cooldown"}'::jsonb;end if;
-  code:=p_data->>'code';if code!~'^\d{6}$' then return '{"error":"invalid_code"}'::jsonb;end if;
+  code:=p_data->>'code';if coalesce(code,'')!~'^[0-9]{6}$' then return '{"error":"invalid_code"}'::jsonb;end if;
   insert into public.finance_challenges(phone,code_hash,purpose,account_id,expires_at)values(v,encode(extensions.digest(code,'sha256'),'hex'),mode,case when mode='link' then (p_data->>'account_id')::uuid else null end,now()+interval '10 minutes')returning * into c;
   return jsonb_build_object('challenge_id',c.id,'expires_at',c.expires_at);
  elsif p_action='verify' then
   select * into c from public.finance_challenges where id=(p_data->>'challenge_id')::uuid and phone=v for update;
   if not found or c.used_at is not null or c.expires_at<now()or c.attempts>=5 then return '{"error":"invalid_code"}'::jsonb;end if;
   update public.finance_challenges set attempts=attempts+1 where id=c.id;
-  if c.code_hash<>encode(extensions.digest(p_data->>'code','sha256'),'hex') then return '{"error":"invalid_code"}'::jsonb;end if;
+  if c.code_hash is distinct from encode(extensions.digest(p_data->>'code','sha256'),'hex') then return '{"error":"invalid_code"}'::jsonb;end if;
   if coalesce(p_data->>'pin','')!~'^\d{6,12}$' then return '{"error":"invalid_pin"}'::jsonb;end if;
   select * into a from public.finance_accounts where phone=v;
   if c.purpose='link' then
@@ -58,6 +58,7 @@ begin
   if a.id is null or not a.enabled then return '{"error":"unauthorized"}'::jsonb;end if;
   update public.finance_challenges set used_at=now()where id=c.id;
   delete from public.finance_sessions where account_id=a.id;
+  update public.finance_entry_calls set account_id=null,authenticated_until=null,state='{"stage":"login"}'::jsonb,seq=seq+1 where account_id=a.id;
  elsif p_action='login' then
   select * into a from public.finance_accounts where phone=v and enabled;
   if a.id is null or a.pin_hash is null or coalesce(p_data->>'pin','')!~'^\d{6,12}$' or extensions.crypt(p_data->>'pin',a.pin_hash)<>a.pin_hash then return '{"error":"unauthorized"}'::jsonb;end if;
@@ -86,7 +87,7 @@ begin
  select * into c from public.finance_email_challenges where id=(p_data->>'challenge_id')::uuid and account_id=a.id for update;
  if not found or c.used_at is not null or c.expires_at<now()or c.attempts>=5 then return '{"error":"invalid_code"}'::jsonb;end if;
  update public.finance_email_challenges set attempts=attempts+1 where id=c.id;
- if c.code_hash<>encode(extensions.digest(p_data->>'code','sha256'),'hex')then return '{"error":"invalid_code"}'::jsonb;end if;
+ if c.code_hash is distinct from encode(extensions.digest(p_data->>'code','sha256'),'hex')then return '{"error":"invalid_code"}'::jsonb;end if;
  update public.finance_accounts set email=c.email,email_verified=true where id=a.id;
  update public.finance_email_challenges set used_at=now()where id=c.id;return '{"ok":true}'::jsonb;
  end if;raise exception 'invalid_action';

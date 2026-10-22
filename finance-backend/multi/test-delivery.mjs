@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+const env={SUPABASE_URL:'https://db.test',SUPABASE_SERVICE_ROLE_KEY:'test',YEMOT_TOKEN:'test',RESEND_API_KEY:'test',FINANCE_FROM_EMAIL:'Finance <mail@example.org>'};globalThis.Deno={env:{get:k=>env[k]}};
+const secret='test-secret-not-production',deliveries=new Map();let external=0;
+globalThis.fetch=async(url,o)=>{if(url.includes('finance_provider_credentials'))return Response.json([{secret}]);if(url.includes('finance_delivery_claim')){const b=JSON.parse(o.body),old=deliveries.get(b.p_id);if(old)return Response.json({claimed:false,status:old});deliveries.set(b.p_id,'processing');return Response.json({claimed:true});}if(url.includes('finance_provider_deliveries')){deliveries.set(new URL(url).searchParams.get('id').slice(3),JSON.parse(o.body).status);return Response.json([]);}if(url.startsWith('https://api.resend.com/')){external++;return Response.json({id:'mail-1'});}if(url.includes('call2all')){external++;return Response.json({responseStatus:'OK',campaignId:'call-1'});}throw Error(url);};
+const {handler}=await import('./provider-bridge.ts');
+async function request(b,valid=true,age=0){const raw=JSON.stringify(b),t=String(Date.now()-age),key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);const sig=Buffer.from(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(t+'.'+raw))).toString('hex');return handler(new Request('https://bridge.test',{method:'POST',headers:{'x-finance-time':t,'x-finance-signature':valid?sig:'0'.repeat(64)},body:raw}));}
+assert.equal((await request({action:'status'},false)).status,401);assert.equal((await request({action:'status'},true,360000)).status,401);assert.equal(external,0);
+assert.deepEqual(await(await request({action:'status'})).json(),{mail_ready:true,voice_ready:true,billing_ready:false});
+const m={action:'mail',id:'finance-report-test-1234',to:'test@example.org',text:'test'};assert.equal((await request(m)).status,200);assert.equal((await request(m)).status,200);assert.equal(external,1);
+assert.equal((await request({action:'voice',id:'finance-otp-test-123456',to:'0501234567',code:'123456'})).status,200);assert.equal(external,2);
+delete env.YEMOT_TOKEN;assert.equal((await request({action:'voice',id:'finance-otp-test-654321',to:'0501234567',code:'123456'})).status,503);assert.equal(external,2);
+console.log('PASS: signed bridge authentication, expired signatures, provider readiness, duplicate suppression, voice and email with mocked providers');
