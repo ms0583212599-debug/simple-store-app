@@ -1,3 +1,4 @@
+import {readData,manage} from './finance-backend/shared.ts';
 const STORE='https://ksddrcalmszxxcuxoznd.supabase.co';
 const PUBLIC_KEY='sb_publishable_inaup5n4YRD3AHJadjP9Xw_9JLqxAjR';
 const OWNER='56ae10cb-f40c-4a41-8112-ab8c9f1616c8';
@@ -18,6 +19,17 @@ export async function handler(req){
   const user=await auth.json();
   if(user.id!==OWNER||user.is_anonymous)return reply({error:'אין הרשאה לחשבון זה'},403);
   const p=new URL(req.url).searchParams;
+  if(['read','manage'].includes(p.get('action'))){
+   if(req.method!=='POST')return reply({error:'פעולה אינה נתמכת'},405);
+   const raw=await req.text();if(raw.length>10000)return reply({error:'בקשה ארוכה מדי'},400);
+   let b;try{b=JSON.parse(raw);}catch{return reply({error:'בקשה לא תקינה'},400);}
+   try{
+    if(p.get('action')==='read')return reply(await readData(b));
+    if(!['transaction_save','recurring_save','budget_save','category_save','void','restore','mark_actual','refund','installments'].includes(b.action)||typeof b.request_id!=='string'||b.request_id.length<16||!b.data||typeof b.data!=='object')return reply({error:'פעולה לא תקינה'},400);
+    return reply(await manage(b.action,b.data,b.request_id));
+   }catch(e){return reply({error:e.message},400);}
+  }
+
   if(p.get('action')==='categories') {
    const key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
    const dbHeaders={apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json'};
@@ -39,11 +51,10 @@ export async function handler(req){
   if(req.method!=='GET')return reply({error:'פעולה אינה נתמכת'},405);
   const date=s=>/^\d{4}-\d{2}-\d{2}$/.test(s||'')&&!isNaN(Date.parse(s))&&new Date(s).toISOString().slice(0,10)===s;
   const from=p.get('from'),to=p.get('to'),kind=p.get('kind')||null,type=p.get('type')||null,cat=p.get('category')||null,page=p.get('page')||'0';
-  if(!date(from)||!date(to)||from>to||(kind&&!['income','expense'].includes(kind))||(type&&!['current','fixed','exceptional','unclassified'].includes(type))||(cat&&!/^[1-9]\d{0,14}$/.test(cat))||!/^\d{1,6}$/.test(page)||Number(page)>100000)return reply({error:'יש לבדוק את הסינון וטווח התאריכים'},400);
-  const key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  const r=await fetch(Deno.env.get('SUPABASE_URL')+'/rest/v1/rpc/finance_dashboard_read',{method:'POST',headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({p_from:from,p_to:to,p_kind:kind,p_type:type,p_category:cat?Number(cat):null,p_page:Number(page)}),signal:AbortSignal.timeout(12000)});
-  if(!r.ok)return reply({error:'לא ניתן לטעון את הנתונים כרגע'},502);
-  return reply(await r.json());
+  if(!date(from)||!date(to)||from>to||(kind&&!['income','expense'].includes(kind))||(type&&!['current','fixed','exceptional','annual','unclassified'].includes(type))||(cat&&!/^[1-9]\d{0,14}$/.test(cat))||!/^\d{1,6}$/.test(page)||Number(page)>100000)return reply({error:'יש לבדוק את הסינון וטווח התאריכים'},400);
+  const d=await readData({from,to,kind,flow_type:type==='unclassified'?'':type,category_id:cat,page:Number(page)});
+  d.categories=(await readData({mode:'categories'})).rows;
+  return reply(d);
  }catch{return reply({error:'החיבור לא הצליח נסו שוב'},502);}
 }
 Deno.serve(handler);
