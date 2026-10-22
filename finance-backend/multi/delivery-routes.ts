@@ -33,3 +33,5 @@ export async function emailReport(account,filters,requestId){
 
 let cachedCapabilities=null,capabilitiesUntil=0;
 export async function capabilities(){if(cachedCapabilities&&Date.now()<capabilitiesUntil)return cachedCapabilities;let s={};try{s=await provider('status');}catch{}cachedCapabilities={accounts:true,phone_verification:s.voice_ready===true,email_delivery:s.mail_ready===true,billing:false};capabilitiesUntil=Date.now()+30000;return cachedCapabilities;}
+
+export function clearCapabilities(){cachedCapabilities=null;capabilitiesUntil=0;}

@@ -1,6 +1,6 @@
 import {scoped,profile,billing,auth,allowed,OWNER,normalizePhone,providerPending}from './shared.ts';
 import {reportHTML}from './report.ts';
-import {capabilities,beginPhone,finishPhone,beginEmail,finishEmail,emailReport}from './delivery-routes.ts';
+import {provider,clearCapabilities,capabilities,beginPhone,finishPhone,beginEmail,finishEmail,emailReport}from './delivery-routes.ts';
 const origins=new Set(['https://simple-store-app-ms0583212599-1490s-projects.vercel.app','https://simple-store-app-ten.vercel.app','https://simple-store-app-git-main-ms0583212599-1490s-projects.vercel.app']);
 const STORE='https://ksddrcalmszxxcuxoznd.supabase.co',PUBLIC='sb_publishable_inaup5n4YRD3AHJadjP9Xw_9JLqxAjR';
 export async function handler(req){
@@ -18,6 +18,7 @@ export async function handler(req){
  let account,custom=false;
  if(/^[a-f0-9]{64}$/.test(bearer)){try{account=(await auth('resolve',{token:bearer})).account_id;custom=true;}catch{return reply({error:'ההתחברות פגה יש להתחבר מחדש'},401);}}
  else{const r=await fetch(STORE+'/auth/v1/user',{headers:{apikey:PUBLIC,Authorization:'Bearer '+bearer},signal:AbortSignal.timeout(8000)});if(!r.ok)return reply({error:'ההתחברות פגה'},401);const u=await r.json();if(u.id!==OWNER||u.is_anonymous)return reply({error:'אין הרשאה'},403);account=OWNER;}
+ if(action==='provider_settings'){if(req.method!=='POST')return reply({error:'method'},405);if(account!==OWNER||custom)return reply({error:'נדרשת כניסת מנהל קיימת להגדרת ספקים'},403);if(!['get','save','check'].includes(b.operation))return reply({error:'פעולה לא תקינה'},400);const d=await provider('settings_'+b.operation,{owner_token:bearer,data:b.data||{}});if(b.operation==='save')clearCapabilities();return reply(d);}
  if(action==='logout'){if(custom)await auth('logout',{token:bearer});return reply({ok:true});}
  if(action==='me')return reply({...await profile(account),is_owner:account===OWNER});
  if(action==='profile'){if(!['name'].includes(b.action))return reply({error:'פעולה לא נתמכת'},400);return reply(await profile(account,b.action,b.data||{}));}

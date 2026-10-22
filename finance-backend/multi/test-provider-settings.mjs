@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+globalThis.Deno={env:{get:k=>k==='SUPABASE_SERVICE_ROLE_KEY'?'test-secret-key':k==='SUPABASE_URL'?'https://store.test':''}};
+let owner=true,writes=0,conf={revision:0},saved;
+globalThis.fetch=async()=>Response.json({id:owner?'56ae10cb-f40c-4a41-8112-ab8c9f1616c8':'other'});
+const {settings,unseal}=await import('./provider-settings.ts');
+const db=async(path,b)=>{writes++;saved=b;return [b];};
+const data={revision:0,yemot_token:'private-yemot-test',resend_key:'re_private_test',from_email:'reports@example.org',voice_enabled:true,mail_enabled:true};
+assert.equal((await settings({action:'settings_save',data},conf,db)).error,'unauthorized');assert.equal(writes,0);
+owner=false;assert.equal((await settings({action:'settings_save',owner_token:'test',data},conf,db)).error,'unauthorized');assert.equal(writes,0);owner=true;
+let d=await settings({action:'settings_save',owner_token:'test',data},conf,db);assert.equal(d.saved,true);assert.equal(d.revision,1);assert.equal(d.yemot_configured,true);assert.ok(!JSON.stringify(d).includes(data.yemot_token));assert.ok(!saved.settings_ciphertext.includes(data.resend_key));assert.equal((await unseal(saved.settings_ciphertext)).yemot_token,data.yemot_token);
+conf={...conf,...saved};d=await settings({action:'settings_save',owner_token:'test',data},conf,db);assert.ok(d.error);assert.equal(writes,1);
+d=await settings({action:'settings_save',owner_token:'test',data:{...data,revision:1,yemot_token:'',resend_key:'',voice_enabled:false}},conf,db);assert.equal(d.voice_enabled,false);assert.equal((await unseal(saved.settings_ciphertext)).yemot_token,data.yemot_token);assert.equal(writes,2);
+console.log('PASS: owner-only settings, encrypted storage, redacted responses, optimistic revision, blank secrets preserved, disable switch');
