@@ -27,7 +27,7 @@ async function prompt(s,cats,seq){let text='',max=1,keyboard=false;
  case 'monthly':text='להוספת הוצאות 1 להוספת הכנסות 2 לחזרה 0';break;
  case 'type':text='לשוטפות 1 לחריגות 2 לשנתיות 3 לחזרה 0';break;
  case 'fixed':text='להוספה ועריכת הוצאות קבועות 1 להכנסות קבועות 2 לחזרה 0';break;
- case 'recurring':text=s.rows.map(r=>`מספר ${r.id} ${r.name} ${money(r.amount_agorot)} ביום ${r.due_day} ${r.active?'פעילה':'מופסקת'}`).join(' ')+' להוספת קבועה הקישו 1 לעריכת קבועה 2 לחזרה 0';break;
+ case 'recurring':text=s.rows.map(r=>`מספר ${r.id} ${r.name} ${money(r.amount_agorot)} ביום ${r.due_day} ${r.active?'פעילה':'מופסקת'}`).join(' ')+' להוספת קבועה הקישו 1 לעריכת קבועה 2 להיסטוריית קבועה 3 לחזרה 0';break;
  case 'recurring_id':text='הקישו מספר קבועה לעריכה וסולמית לחזרה 0';max=12;break;
  case 'kind':text='להוצאות 1 להכנסות 2 לחזרה 0';break;
  case 'categories':text=catsFor(cats,s.kind).map(c=>c.name+' מקש '+c.dial_code).join(' ')+' להוספת קטגוריה 1 לשינוי שם קטגוריה 2 לחזרה 0';break;
@@ -64,8 +64,8 @@ export async function advance(s,v,cats,request){
  case 'monthly':return ['1','2'].includes(v)?{stage:'type',kind:v==='1'?'expense':'income'}:invalid();
  case 'type':return ['1','2','3'].includes(v)?wizard('transaction_save',{kind:s.kind,flow_type:types[v]}):invalid();
  case 'fixed':return ['1','2'].includes(v)?await recurring(v==='1'?'expense':'income'):invalid();
- case 'recurring':return v==='1'?wizard('recurring_save',{kind:s.kind,start_month:period('month').from}):v==='2'?{...s,stage:'recurring_id'}:invalid();
- case 'recurring_id':{const r=s.rows.find(r=>String(r.id)===v);return r?wizard('recurring_save',r):invalid();}
+ case 'recurring':return v==='1'?wizard('recurring_save',{kind:s.kind,start_month:period('month').from}):['2','3'].includes(v)?{...s,stage:'recurring_id',history:v==='3'}:invalid();
+ case 'recurring_id':{const r=s.rows.find(r=>String(r.id)===v);if(!r)return invalid();if(s.history){const h=await readData({mode:'history',entity:'finance_recurring',id:r.id});return {...s,stage:'recurring',history:false,notice:h.rows.map(x=>'שינוי בתאריך '+x.created_at.slice(0,10)+' '+x.after_data.name+' '+money(x.after_data.amount_agorot)+' '+(x.after_data.active?'פעילה':'מופסקת')).join(' ')||'אין היסטוריה'};}return wizard('recurring_save',r);}
  case 'kind':return ['1','2'].includes(v)?{stage:'categories',kind:v==='1'?'expense':'income'}:invalid();
  case 'categories':return v==='1'?wizard('category_save',{kind:s.kind}):v==='2'?{...s,stage:'category_edit'}:invalid();
  case 'category_edit':{const c=catsFor(cats,s.kind).find(c=>String(c.dial_code)===v);return c?wizard('category_save',c):invalid();}
@@ -119,7 +119,7 @@ export async function advance(s,v,cats,request){
 }
 export async function handler(req){
  if(!['GET','POST'].includes(req.method))return response('Method not allowed',405);
- const p=new URL(req.url).searchParams;if(p.get('health')==='1')return response('ok finance-ivr complete-v22');
+ const p=new URL(req.url).searchParams;if(p.get('health')==='1')return response('ok finance-ivr complete-v23');
  try{
  if(req.method==='POST'){const raw=await req.text();if(raw.length>64000)return response('Request too large',413);for(const[k,v]of new URLSearchParams(raw))p.append(k,v);}
  for(const k of new Set(p.keys()))if(p.getAll(k).length>1)throw Error('התקבל נתון כפול יש להיכנס מחדש לשלוחה');
@@ -130,6 +130,7 @@ export async function handler(req){
  let row=await rpc('finance_call',{p_id:id,p_seq:0,p_state:null,p_response:null});
  if(!row?.id){let s=main();const start=p.get('start');if(start==='monthly')s={stage:'monthly'};else if(start==='fixed')s={stage:'fixed'};else if(start==='summary')s={stage:'report_period'};else if(['expense','income'].includes(start))s={stage:'type',kind:start};else if(['expense_current','expense_exceptional','expense_annual','income_current','income_exceptional','income_annual'].includes(start)){const[k,t]=start.split('_');s=wizard('transaction_save',{kind:k,flow_type:t});}else if(['fixed_expense','fixed_income'].includes(start))s=await recurring(start.split('_')[1]);
  row=await rpc('finance_call',{p_id:id,p_seq:-1,p_state:s,p_response:await prompt(s,cats,0)});}
+ if(row.state.stage==='exit'&&![...p.keys()].some(k=>/^z\d+$/.test(k))){const s=main();row=await rpc('finance_call',{p_id:id,p_seq:row.seq,p_state:s,p_response:await prompt(s,cats,row.seq+1)});}
  const value=p.get('z'+row.seq);if(value===null)return response(row.response);
  let next;try{next=await advance(row.state,value,cats,row.state.write_request||await digest(id+':'+row.seq));}catch(e){next={...row.state,notice:e.message};}
  if(['confirm','state_confirm'].includes(next.stage)&&!next.write_request)next.write_request=await digest(id+':confirm:'+ (row.seq+1));
