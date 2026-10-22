@@ -1,0 +1,7 @@
+import {createServer}from 'node:http';
+import {JSDOM,VirtualConsole}from 'jsdom';import{readFile}from'node:fs/promises';import assert from'node:assert/strict';
+const scripts=new Map();for(const f of ['finance-ui.js','finance-delivery-ui.js','finance-provider-ui.js'])scripts.set('/'+f,await readFile('./'+f));
+const server=createServer((req,res)=>{res.end(scripts.get(new URL(req.url,'http://test').pathname)||Buffer.from(''));});await new Promise(r=>server.listen(0,'127.0.0.1',r));
+const errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
+const dom=new JSDOM(await readFile('./finance.html','utf8'),{url:'http://127.0.0.1:'+server.address().port+'/finance.html',runScripts:'dangerously',resources:"usable",virtualConsole:vc,beforeParse(w){w.AbortSignal=AbortSignal;w.fetch=async()=>({ok:true,json:async()=>({phone_verification:false,email_delivery:false})});w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};}});
+await new Promise(r=>dom.window.addEventListener('load',r,{once:true}));const d=dom.window.document;assert.deepEqual(errors,[]);assert.equal(typeof d.getElementById('providerSettings').onclick,'function');d.getElementById('providerSettings').click();assert.equal(d.getElementById('providerDialog').open,true);dom.window.close();server.close();console.log('PASS: real HTML deferred script order, no initialization errors, settings button opens dialog');
