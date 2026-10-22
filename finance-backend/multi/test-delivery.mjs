@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-const env={SUPABASE_URL:'https://db.test',SUPABASE_SERVICE_ROLE_KEY:'test',YEMOT_TOKEN:'test',RESEND_API_KEY:'test',FINANCE_FROM_EMAIL:'Finance <mail@example.org>'};globalThis.Deno={env:{get:k=>env[k]}};
+const env={SUPABASE_URL:'https://db.test',SUPABASE_SERVICE_ROLE_KEY:'test',YEMOT_TOKEN:'test',RESEND_API_KEY:'test',FEEDBACK_FROM_EMAIL:'Finance <mail@example.org>'};globalThis.Deno={env:{get:k=>env[k]}};
 const secret='test-secret-not-production',deliveries=new Map();let external=0;
 globalThis.fetch=async(url,o)=>{if(url.includes('finance_provider_credentials'))return Response.json([{secret}]);if(url.includes('finance_delivery_claim')){const b=JSON.parse(o.body),old=deliveries.get(b.p_id);if(old)return Response.json({claimed:false,status:old});deliveries.set(b.p_id,'processing');return Response.json({claimed:true});}if(url.includes('finance_provider_deliveries')){deliveries.set(new URL(url).searchParams.get('id').slice(3),JSON.parse(o.body).status);return Response.json([]);}if(url.startsWith('https://api.resend.com/')){external++;return Response.json({id:'mail-1'});}if(url.includes('call2all')){external++;return Response.json({responseStatus:'OK',campaignId:'call-1'});}throw Error(url);};
 const {handler}=await import('./provider-bridge.ts');

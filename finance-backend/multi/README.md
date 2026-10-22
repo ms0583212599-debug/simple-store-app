@@ -38,3 +38,6 @@ Provider UI now uses defer after its dependencies; test-script-loading.mjs execu
 
 ## Current phone billing implementation
 See NEDARIM-INTEGRATION.md for the current deployed Nedarim web and native phone enrollment flow, setup and test requirements. Earlier billing-unconnected paragraphs above describe the original rollout and are superseded by that guide. Phone payment setup is in administrator provider settings. Real provider and line activation remain required.
+
+### Shared store mail
+Finance defaults to the store's existing RESEND_API_KEY and FEEDBACK_FROM_EMAIL. No second Resend key is required. The owner can opt out with “שימוש בחיבור המייל הקיים של החנות” and configure separate credentials. Display-name sender addresses are normalized. The onboarding@resend.dev fallback is explicitly blocked for finance report delivery; configure a verified domain sender for arbitrary members. A sending-only key returning restricted_api_key/401 on domain inspection is not reported as invalid. No real email is sent by the settings check.
