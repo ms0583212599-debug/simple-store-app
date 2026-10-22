@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {customerProfile,updateCustomer} from './customer-profile.ts';
+const id='11111111-1111-4111-8111-111111111111';
+const original={id,display_name:'Original',extension:'001',address:'',phone:'',profile_revision:0,is_active:true,terminal_id:5,connection_status:'connected'};
+let row={...original};let writes=0;const audits=[];
+const admin={from(table){if(table==='vendpay_tenant_audit')return {insert:async b=>{audits.push(b);return {error:null}}};let patch,filters={};return {update(b){patch=b;return this},eq(k,v){filters[k]=v;return this},select(){return this},async maybeSingle(){writes++;assert.deepEqual(Object.keys(patch).sort(),['address','display_name','extension','phone','profile_revision','updated_at'].sort());if(patch.extension==='002')return {error:{code:'23505'}};if(row.id!==filters.id||row.profile_revision!==filters.profile_revision)return {data:null,error:null};row={...row,...patch};return {data:row,error:null};}}}};
+const req=b=>new Request('https://test',{method:'POST',body:JSON.stringify(b)}),reply=(body,status=200)=>({body,status});
+const payload={tenant_id:id,profile_revision:0,display_name:'New',extension:'003',address:'New address',phone:'050-1234567',is_active:false,terminal_id:999};
+assert.equal((await updateCustomer(req(payload),admin,reply)).status,200);assert.equal(row.address,'New address');assert.equal(row.phone,'050-1234567');assert.equal(row.is_active,true);assert.equal(row.terminal_id,5);
+assert.equal((await updateCustomer(req(payload),admin,reply)).status,409);
+assert.equal((await updateCustomer(req({...payload,profile_revision:1,extension:'002'}),admin,reply)).status,409);
+assert.equal((await updateCustomer(req({...payload,profile_revision:1,address:'',phone:''}),admin,reply)).status,200);assert.equal(row.phone,'');assert.equal(row.address,'');
+for(const bad of [{phone:'abc'},{phone:'++'},{extension:'123456789'},{address:'x'.repeat(301)},{display_name:''},{profile_revision:undefined},{tenant_id:'bad'}])assert.equal((await updateCustomer(req({...payload,...bad}),admin,reply)).status,400);
+assert.equal(customerProfile({display_name:'Legacy',extension:'004'}).phone,'');assert.equal(writes,4);assert.equal(audits.length,2);
+console.log('PASS: validation, persistent edit/read model, duplicate ID, stale revision, clearing optional fields, operational settings preserved');

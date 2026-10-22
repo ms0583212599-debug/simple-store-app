@@ -1,3 +1,4 @@
+import {customerProfile, updateCustomer} from './customer-profile.ts';
 import {nedarimAdmin} from './nedarim.ts';
 import {catalog} from './voice-catalog.ts';
 import {validateText} from './voice.ts';
@@ -96,7 +97,9 @@ Deno.serve(async (req: Request) => {
 
 
 
+  headers['Cache-Control']='no-store';
   const requestAction=new URL(req.url).searchParams.get('action');
+  if(req.method === 'POST' && requestAction === 'update_customer') return updateCustomer(req,admin,reply);
   if(requestAction?.startsWith('np_')){headers['Cache-Control']='no-store';return nedarimAdmin(req,admin,reply);}
   if(requestAction?.startsWith('nedarim_'))return reply({error:'ניהול נדרים עבר לחלון נפרד לפי לקוח. רעננו את האתר.'},409);
   if (
@@ -395,7 +398,7 @@ Deno.serve(async (req: Request) => {
     const { data, error } = await admin
       .from("vendpay_tenants")
       .select(
-        "id, display_name, extension, is_active, connection_status, last_checked_at, terminal_id, gate_status, discovered_terminals, created_at"
+        "id, display_name, extension, address, phone, profile_revision, is_active, connection_status, last_checked_at, terminal_id, gate_status, discovered_terminals, created_at"
       )
       .order("created_at", { ascending: false })
       .limit(100);
@@ -428,36 +431,17 @@ Deno.serve(async (req: Request) => {
 
   const input = body as Record<string, unknown>;
 
-  if (
-    typeof input.display_name !== "string" ||
-    typeof input.extension !== "string"
-  ) {
-    return reply({ error: "Invalid fields" }, 400);
-  }
-
-  const name = input.display_name.trim();
-  const extension = input.extension.trim();
-
-  if (
-    name.length < 1 ||
-    name.length > 120 ||
-    !/^[0-9]{1,8}$/.test(extension)
-  ) {
-    return reply(
-      { error: "Invalid name or extension" },
-      400
-    );
-  }
+  const profile = customerProfile(input);
+  if (!profile) return reply({error: "Invalid customer details"},400);
 
   const { data, error } = await admin
     .from("vendpay_tenants")
     .insert({
-      display_name: name,
-      extension,
+      ...profile,
       is_active: false,
     })
     .select(
-      "id, display_name, extension, is_active, created_at"
+      "id, display_name, extension, address, phone, profile_revision, is_active, created_at"
     )
     .single();
 
@@ -483,4 +467,5 @@ Deno.serve(async (req: Request) => {
 
   return reply({ tenant: data }, 201);
 });
+
 

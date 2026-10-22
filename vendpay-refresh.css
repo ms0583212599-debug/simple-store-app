@@ -121,3 +121,14 @@ body.vp-standalone #vendpayPanel>.modal-card{max-height:none!important;min-heigh
 
 /* The standalone page scrolls at document level; only the embedded modal owns a scrollport. */
 body.vp-standalone #vendpayPanel>.modal-card{overflow:visible!important;overscroll-behavior:auto}
+
+
+#vpCustomerDialog{width:min(520px,calc(100vw - 28px));max-height:90dvh;overflow:auto;border:1px solid #dce6d7;border-radius:18px;padding:28px;background:#f8faf5;color:#2e4837;box-shadow:0 25px 90px #1c392940}
+#vpCustomerDialog::backdrop{background:#18352966}
+#vpCustomerDialog h3{margin:0 0 22px;font-size:22px}
+#vpCustomerDialog input{display:block;width:100%;box-sizing:border-box}
+#vpCustomerDialog .actions{display:flex;gap:10px;margin-top:20px}
+#vpProfileStatus{font-size:13px;color:#526a5d;white-space:normal}
+#vendpayPanel #vendpayCustomers td:last-child{min-width:210px}
+#vendpayPanel #vendpayCustomers td[data-label="פרטי קשר"]{min-width:120px;max-width:220px}
+@media(max-width:760px){#vendpayPanel #vendpayCustomers td[data-label="פרטי קשר"]{grid-column:1/-1;max-width:none}#vendpayPanel #vendpayCustomers td:last-child{flex-wrap:wrap;min-width:0}}
